@@ -1,0 +1,9 @@
+.notes { display: flex; flex-wrap: wrap; gap: 6px; }
+.notes:empty { display: none; }
+.alert-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 5px 6px 5px 12px; font-size: 12.5px; box-shadow: var(--shadow); cursor: pointer; max-width: min(320px, calc(100vw - 32px)); }
+.alert-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
+.alert-pill.input .dot { background: var(--amber); }
+.alert-pill.error .dot { background: var(--red); }
+.alert-pill.toast-note { cursor: default; }
+.alert-pill b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-pill button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 4px; }

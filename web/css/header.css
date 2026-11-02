@@ -1,0 +1,25 @@
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+h1 { font-size: 16px; margin: 0; font-weight: 650; }
+.counters { display: flex; gap: 8px; flex-wrap: wrap; }
+.counter { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--grey-bg); color: var(--muted); }
+.counter.needs { background: var(--amber-bg); color: var(--amber); }
+.counter.working { background: var(--blue-bg); color: var(--blue); }
+.counter.done { background: var(--green-bg); color: var(--green); }
+.actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.filters { display: flex; gap: 6px; }
+.btn { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.btn.on { color: var(--text); border-color: var(--text); }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+.btn.danger { background: var(--red); border-color: var(--red); color: #fff; font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
+.updated { font-size: 12px; color: var(--faint); }
+
+h1 .repo { font: 600 12.5px var(--mono); color: var(--violet); background: var(--violet-bg); padding: 2px 8px; border-radius: 6px; margin-left: 8px; vertical-align: 2px; }
+
+.menu { position: relative; }
+.menu > summary { list-style: none; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(16,24,40,.18); padding: 4px; min-width: 220px; display: flex; flex-direction: column; }
+.menu-list button { text-align: left; border: 0; background: none; color: var(--text); padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; }
+.menu-list button:hover { background: var(--surface-2); }
+.menu-list kbd, .help kbd { font: 11px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }

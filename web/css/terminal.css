@@ -1,0 +1,4 @@
+.screen { flex: 1; margin: 0; overflow: auto; background: var(--term-bg); color: var(--term-fg); font: 12.5px/1.35 var(--mono); padding: 12px 14px; white-space: pre; outline: none; }
+.screen:focus { box-shadow: inset 0 0 0 2px var(--blue); }
+.term-bar { border-top: 1px solid var(--border); padding: 10px 20px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.term-bar .hint { margin-left: auto; }

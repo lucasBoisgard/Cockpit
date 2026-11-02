@@ -1,0 +1,26 @@
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e3e6eb;
+  --text: #1c2027; --muted: #6b7280; --faint: #9aa1ac;
+  --blue: #2f6fec; --blue-bg: #e8f0fe; --amber: #b76e00; --amber-bg: #fff3dc;
+  --green: #1f8a4c; --green-bg: #e4f5ea; --grey-bg: #eef0f3; --red: #c23b3b; --red-bg: #fdecec;
+  --violet: #7046c8; --violet-bg: #f1ebfd;
+  --add: #1f8a4c; --add-bg: #e6f6ec; --del: #c23b3b; --del-bg: #fdecec; --hunk: #6b5bd6;
+  --term-bg: #0f1115; --term-fg: #d6d9de;
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115; --surface: #171a21; --surface-2: #1e222b; --border: #2a2f3a;
+    --text: #e6e8ec; --muted: #9aa1ac; --faint: #6b7280;
+    --blue: #79a6ff; --blue-bg: #1b2a4a; --amber: #f2b550; --amber-bg: #3a2b10;
+    --green: #5fd08f; --green-bg: #15301f; --grey-bg: #222731; --red: #ff8a8a; --red-bg: #351818;
+    --violet: #b9a2ff; --violet-bg: #2a2045;
+    --add: #5fd08f; --add-bg: #13281b; --del: #ff8a8a; --del-bg: #351818; --hunk: #a99cff;
+    --term-bg: #0a0c0f;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+button { font: inherit; }

@@ -1,0 +1,32 @@
+aside { position: fixed; top: 0; right: 0; bottom: 0; width: min(960px, 100vw); background: var(--surface); border-left: 1px solid var(--border); box-shadow: -8px 0 24px rgba(0,0,0,.12); transform: translateX(100%); transition: transform .18s; display: flex; flex-direction: column; z-index: 10; }
+aside.open { transform: none; }
+.panel-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: flex-start; }
+.panel-head .close { margin-left: auto; border: 0; background: var(--surface-2); color: var(--text); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+.head-end { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.head-end .badge, .head-end .close { margin-left: 0; }
+.app-btn { border: 1px solid var(--border); background: var(--grey-bg); color: var(--muted); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 650; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; white-space: nowrap; }
+.app-btn.stopped { background: var(--blue); border-color: var(--blue); color: #fff; }
+.app-btn.building, .app-btn.starting { background: var(--amber-bg); border-color: var(--amber-bg); color: var(--amber); }
+.app-btn.building .dot, .app-btn.starting .dot { animation: pulse 1.2s infinite; }
+.app-btn.up { background: var(--green-bg); border-color: var(--green-bg); color: var(--green); }
+.app-btn.degraded { background: var(--green-bg); border-color: var(--amber); color: var(--amber); }
+.app-info .reason.warn { color: var(--amber); }
+.app-btn.ko { background: var(--red-bg); border-color: var(--red-bg); color: var(--red); }
+.app-info { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.app-info .last { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
+.app-info .reason { color: var(--red); }
+.app-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.app-actions a { font-size: 12px; color: var(--blue); }
+@media (prefers-reduced-motion: reduce) { .app-btn .dot { animation: none !important; } }
+.app-pane { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.app-pane .app-info { margin-top: 0; }
+.tab-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; background: var(--faint); vertical-align: middle; }
+.tab-dot.building, .tab-dot.starting { background: var(--amber); }
+.tab-dot.up { background: var(--green); }
+.tab-dot.degraded { background: var(--amber); }
+.tab-dot.ko { background: var(--red); }
+.tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+.tabs button { border: 0; background: none; color: var(--muted); font-weight: 600; padding: 10px 12px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--blue); }
+.view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view[hidden] { display: none; }
