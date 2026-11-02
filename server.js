@@ -1899,6 +1899,20 @@ const json = (res, status, data) => send(res, status, 'application/json', JSON.s
 
 const page = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 
+const ASSET_TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+
+function loadAssets(dir, prefix = '/web') {
+  const assets = new Map();
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) for (const [key, value] of loadAssets(full, `${prefix}/${entry.name}`)) assets.set(key, value);
+    else if (ASSET_TYPES[path.extname(entry.name)]) assets.set(`${prefix}/${entry.name}`, { type: ASSET_TYPES[path.extname(entry.name)], body: fs.readFileSync(full, 'utf8') });
+  }
+  return assets;
+}
+
+const assets = fs.existsSync(path.join(__dirname, 'web')) ? loadAssets(path.join(__dirname, 'web')) : new Map();
+
 async function handleWrite(req, res, route) {
   if (!allowedWrite(req)) return json(res, 403, { error: 'Requête refusée.' });
   const body = await readBody(req);
@@ -1984,6 +1998,7 @@ http
     try {
       if (!allowedHost(req)) return send(res, 421, 'text/plain', 'Host not allowed. Add it to COCKPIT_HOSTS.');
       if (url.pathname === '/') return send(res, 200, 'text/html; charset=utf-8', page);
+      if (assets.has(url.pathname)) return send(res, 200, assets.get(url.pathname).type, assets.get(url.pathname).body);
       if (!authorized(req)) return json(res, 401, { error: 'Token manquant ou invalide.' });
       if (req.method === 'POST' && url.pathname.startsWith('/api/')) return await handleWrite(req, res, url.pathname);
       if (url.pathname === '/api/events') return json(res, 200, { events: eventsStore.events.slice(-100).reverse(), seq: eventsStore.seq });
