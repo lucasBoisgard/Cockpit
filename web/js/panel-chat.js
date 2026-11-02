@@ -103,7 +103,7 @@ async function sendMessage() {
   hideSuggest();
   $('composer-send').disabled = true;
   const s = currentSession();
-  const queue = s?.status === 'working' && Date.now() - s.updatedAt < STALE_MS;
+  const queue = s?.status === 'working';
   const result = await post(queue ? '/api/queue' : '/api/send', { target: chatSession, text });
   $('composer-send').disabled = false;
   if (!result.ok) { toast(result.data.error || 'Envoi impossible.', 'error'); return; }

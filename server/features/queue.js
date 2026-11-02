@@ -1,11 +1,9 @@
 const crypto = require('node:crypto');
-const { loadStore, saveStore, readSession, writeSessionState } = require('../io/store');
-const { paneOf, withClaudeStatus, shouldQueue } = require('../core/sessions');
+const { loadStore, saveStore, readSession, writeSessionOverride } = require('../io/store');
+const { STALE_MS, paneOf, withClaudeStatus, shouldQueue } = require('../core/sessions');
 const { invalidateSnapshot } = require('../cache');
 const { livePanes } = require('./worktrees');
 const { submitText } = require('./terminal');
-
-const STALE_MS = 30 * 60 * 1000;
 
 const loadQueues = () => loadStore('worktree-queue.json', {});
 
@@ -68,7 +66,7 @@ async function flushQueues(snap, onSent) {
       if (!(await sendToSession(session.sessionId, first.text))) continue;
       dequeue(session.sessionId, first.id);
       const now = Date.now();
-      writeSessionState({ ...readSession(session.sessionId), status: 'working', updatedAt: now, statusSince: now, turnStartedAt: now, workedMs: session.workedMs });
+      writeSessionOverride(session.sessionId, { status: 'working', updatedAt: now, statusSince: now, turnStartedAt: now, workedMs: session.workedMs });
       onSent(session.sessionId);
     }
   }

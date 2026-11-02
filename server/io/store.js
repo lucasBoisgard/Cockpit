@@ -42,24 +42,23 @@ function readCheckpoints(sessionId) {
   return Array.isArray(list) ? list : [];
 }
 
-function writeSessionState(session) {
-  writeJsonAtomic(path.join(STATE_DIR, `${session.sessionId}.json`), session);
+function writeSessionOverride(sessionId, fields) {
+  writeJsonAtomic(path.join(STATE_DIR, `${sessionId}.server.json`), fields);
 }
 
 function readSession(sessionId) {
   if (!/^[\w-]+$/.test(sessionId)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(path.join(STATE_DIR, `${sessionId}.json`), 'utf8'));
-  } catch {
-    return null;
-  }
+  const session = readJson(path.join(STATE_DIR, `${sessionId}.json`));
+  if (!session || Array.isArray(session)) return null;
+  const override = readJson(path.join(STATE_DIR, `${sessionId}.server.json`));
+  return override?.updatedAt > (session.updatedAt || 0) ? { ...session, ...override } : session;
 }
 
 function readSessions() {
   try {
     return fs
       .readdirSync(STATE_DIR)
-      .filter((f) => f.endsWith('.json'))
+      .filter((f) => /^[\w-]+\.json$/.test(f))
       .map((f) => readSession(f.slice(0, -5)))
       .filter((s) => s && s.cwd && Date.now() - s.updatedAt < SESSION_MAX_AGE_MS);
   } catch {
@@ -71,4 +70,4 @@ function sessionsIn(wtPath) {
   return readSessions().filter((s) => s.cwd === wtPath || s.cwd.startsWith(`${wtPath}/`));
 }
 
-module.exports = { readJson, loadStore, saveStore, removeStore, readReview, readCheckpoints, writeSessionState, readSession, readSessions, sessionsIn };
+module.exports = { readJson, loadStore, saveStore, removeStore, readReview, readCheckpoints, writeSessionOverride, readSession, readSessions, sessionsIn };

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { withClaudeStatus, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
+const { STALE_MS, withClaudeStatus, effectiveStatus, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
 
 function panesWith(entries, { bySession = [], claudeStatus = [] } = {}) {
   const panes = new Map(entries);
@@ -74,4 +74,12 @@ test('validName, validPrRef and tmuxSessionName', () => {
 test('reviewPrompt appends the extra instructions only when present', () => {
   assert.strictEqual(reviewPrompt('#12', '  '), 'Review the pull request #12.');
   assert.strictEqual(reviewPrompt('#12', ' focus on tests '), 'Review the pull request #12.\n\nfocus on tests');
+});
+
+test('effectiveStatus turns a working session idle once its last hook event is stale', () => {
+  const panes = panesWith([]);
+  const session = { sessionId: 's', status: 'working', updatedAt: 1000, statusSince: 500 };
+  assert.deepStrictEqual(effectiveStatus(session, panes, 1000 + STALE_MS - 1), session);
+  assert.deepStrictEqual(effectiveStatus(session, panes, 1000 + STALE_MS), { ...session, status: 'idle', statusSince: 1000 });
+  assert.strictEqual(effectiveStatus({ ...session, status: 'done' }, panes, 1000 + STALE_MS).status, 'done');
 });

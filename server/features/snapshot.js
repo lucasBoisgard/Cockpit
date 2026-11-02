@@ -4,7 +4,7 @@ const { execFile } = require('node:child_process');
 const { REPO, BASE_BRANCH, CONFIG, TICK_ENABLED, SHELL_SESSION } = require('../config');
 const { run, ghAvailable } = require('../io/exec');
 const { loadStore, readSessions, readCheckpoints } = require('../io/store');
-const { withClaudeStatus, paneOf, ownerOf } = require('../core/sessions');
+const { effectiveStatus, paneOf, ownerOf } = require('../core/sessions');
 const { latestLimits } = require('../core/usage');
 const { cachedSnapshot, storeSnapshot } = require('../cache');
 const { listWorktrees, livePanes, describe, hasTranscript, externalRepos, repoOf } = require('./worktrees');
@@ -27,7 +27,7 @@ async function snapshot() {
   const usageBySession = new Map(snapshots.map((u) => [u.sessionId, u]));
   const queues = loadQueues();
   const links = loadStore('worktree-links.json', {});
-  for (const session of readSessions().map((s) => withClaudeStatus(s, panes))) {
+  for (const session of readSessions().map((s) => effectiveStatus(s, panes, Date.now()))) {
     const owner = fs.existsSync(session.cwd) && ownerOf(session.cwd, worktrees);
     if (!owner) continue;
     const live = !!paneOf(session, panes);

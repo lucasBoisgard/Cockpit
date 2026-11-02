@@ -6,7 +6,6 @@ const STATUS = {
   ended: { label: 'Session fermée', rank: 4 },
   none: { label: 'Pas de session', rank: 5 },
 };
-const STALE_MS = 30 * 60 * 1000;
 const SHELL = 'shell';
 const USAGE = 'usage';
 const APP = 'app';
@@ -61,7 +60,6 @@ let cleanupRows = [];
 function sessionStatus(wt) {
   const s = wt.sessions[0];
   if (!s) return 'none';
-  if (s.status === 'working' && Date.now() - s.updatedAt > STALE_MS) return 'idle';
   return s.status || 'idle';
 }
 

@@ -1,7 +1,15 @@
+const STALE_MS = 30 * 60 * 1000;
+
 function withClaudeStatus(session, panes) {
   const claude = panes.claudeStatus?.get(session.sessionId);
   if (!(session.status === 'working' && claude?.status === 'idle' && claude.at > session.updatedAt)) return session;
   return { ...session, status: 'idle', statusSince: claude.at, workedMs: (session.workedMs || 0) + Math.max(0, session.updatedAt - (session.statusSince || session.updatedAt)) };
+}
+
+function effectiveStatus(session, panes, now) {
+  const merged = withClaudeStatus(session, panes);
+  if (merged.status !== 'working' || now - merged.updatedAt < STALE_MS) return merged;
+  return { ...merged, status: 'idle', statusSince: merged.updatedAt };
 }
 
 function paneOf(session, panes) {
@@ -59,4 +67,4 @@ function reviewPrompt(prRef, prompt) {
   return `Review the pull request ${prRef}.${prompt && String(prompt).trim() ? `\n\n${String(prompt).trim()}` : ''}`;
 }
 
-module.exports = { withClaudeStatus, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };
+module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };

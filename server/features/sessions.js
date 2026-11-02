@@ -4,7 +4,7 @@ const path = require('node:path');
 const { REPO, CONFIG, CLAUDE_BIN, REVIEWS_DIR, TMUX_SIZE, TMUX_PATH } = require('../config');
 const { run, git, tmux, sleep } = require('../io/exec');
 const { claudeLockAlive } = require('../io/proc');
-const { loadStore, saveStore, readSession, writeSessionState, readCheckpoints, sessionsIn } = require('../io/store');
+const { loadStore, saveStore, readSession, writeSessionOverride, readCheckpoints, sessionsIn } = require('../io/store');
 const { validSha } = require('../core/git');
 const { paneOf, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt } = require('../core/sessions');
 const { usageWorktree } = require('../core/usage');
@@ -74,7 +74,7 @@ async function removeWorktree(wt, force) {
   for (const session of sessionsIn(wt.path)) {
     const pane = paneOf(session, panes);
     if (pane) await tmux(['kill-pane', '-t', pane]);
-    writeSessionState({ ...session, status: 'ended', tmuxPane: null, updatedAt: Date.now() });
+    writeSessionOverride(session.sessionId, { status: 'ended', tmuxPane: null, updatedAt: Date.now() });
   }
   if (wt.claudeLock) {
     for (let i = 0; i < 20 && claudeLockAlive(wt.claudeLock); i++) await sleep(150);
