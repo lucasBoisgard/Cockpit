@@ -22,8 +22,9 @@ function detectTransitions(snap) {
   for (const wt of snap.worktrees) {
     for (const session of wt.sessions) {
       const before = lastStatus.get(session.sessionId);
-      lastStatus.set(session.sessionId, session.status);
-      const event = sessionEvent(before, session);
+      const live = session.stale ? { ...session, status: 'working' } : session;
+      lastStatus.set(session.sessionId, live.status);
+      const event = sessionEvent(before, live);
       if (!event) continue;
       pushEvent({ worktree: wt.name, path: wt.path, sessionId: session.sessionId, ...event });
       const link = links[wt.name];

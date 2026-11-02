@@ -9,7 +9,7 @@ function withClaudeStatus(session, panes) {
 function effectiveStatus(session, panes, now) {
   const merged = withClaudeStatus(session, panes);
   if (merged.status !== 'working' || now - merged.updatedAt < STALE_MS) return merged;
-  return { ...merged, status: 'idle', statusSince: merged.updatedAt };
+  return { ...merged, status: 'idle', statusSince: merged.updatedAt, stale: true };
 }
 
 function paneOf(session, panes) {

@@ -100,3 +100,16 @@ test('shorten collapses whitespace and cuts with an ellipsis', () => {
   assert.strictEqual(shorten('abcdef', 4), 'abc…');
   assert.strictEqual(shorten(null), '');
 });
+
+test('resuming a session killed mid-turn starts idle and counts the turn up to its last activity', () => {
+  const state = replay([start, prompt(2000), tool(5000), [90000, { hook_event_name: 'SessionStart', source: 'resume' }]]);
+  assert.strictEqual(state.status, 'idle');
+  assert.strictEqual(state.workedMs, 3000);
+  assert.strictEqual(state.statusSince, 90000);
+});
+
+test('a compaction during a turn keeps the session working', () => {
+  const state = replay([start, prompt(2000), tool(5000), [6000, { hook_event_name: 'SessionStart', source: 'compact' }]]);
+  assert.strictEqual(state.status, 'working');
+  assert.strictEqual(state.statusSince, 2000);
+});

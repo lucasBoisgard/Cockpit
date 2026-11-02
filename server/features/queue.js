@@ -61,7 +61,7 @@ async function flushQueues(snap, onSent) {
   for (const wt of snap.worktrees) {
     for (const session of wt.sessions) {
       const items = queues[session.sessionId];
-      if (!items?.length || !session.live || !['done', 'idle'].includes(session.status)) continue;
+      if (!items?.length || !session.live || session.stale || !['done', 'idle'].includes(session.status)) continue;
       const [first] = items;
       if (!(await sendToSession(session.sessionId, first.text))) continue;
       dequeue(session.sessionId, first.id);

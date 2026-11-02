@@ -55,7 +55,7 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
 
   switch (input.hook_event_name) {
     case 'SessionStart':
-      state.status = state.status || 'idle';
+      state.status = !state.status || (['startup', 'resume'].includes(input.source) && ['working', 'needs_input'].includes(state.status)) ? 'idle' : state.status;
       break;
     case 'UserPromptSubmit':
       state.status = 'working';
@@ -99,7 +99,7 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
       return false;
   }
 
-  const restarted = input.hook_event_name === 'UserPromptSubmit' && previous.status === 'working';
+  const restarted = previous.status === 'working' && (input.hook_event_name === 'UserPromptSubmit' || (input.hook_event_name === 'SessionStart' && state.status !== 'working'));
   if (state.status !== previous.status || restarted) {
     if (previous.status === 'working') state.workedMs = (state.workedMs || 0) + Math.max(0, (restarted ? previous.updatedAt : now) - previous.since);
     state.statusSince = now;

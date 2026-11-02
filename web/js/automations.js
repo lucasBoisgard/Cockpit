@@ -20,7 +20,7 @@ async function openAutomations() {
     if (!wt) return ` · session : worktree ${esc(a.lastWorktree)} fermé`;
     return ` · session : <b>${esc(STATUS[sessionStatus(wt)].label)}</b> dans ${esc(wt.name)}`;
   };
-  const notice = state.tick ? '' : '<div class="notice">Ce serveur tourne sans boucle de fond (COCKPIT_NO_TICK=1) : les automatisations ne se lancent pas toutes seules ici. « Lancer maintenant » fonctionne.</div>';
+  const notice = state.tick ? '' : '<div class="notice">Ce serveur tourne sans boucle de fond (lancé sans COCKPIT_TICK=1, comme une instance de test) : les automatisations ne se lancent pas toutes seules ici. « Lancer maintenant » fonctionne.</div>';
   $('auto-list').innerHTML = notice + (list.length ? list.map((a) => `<div class="row">
       <div class="top-line"><span class="grow">${esc(a.name)}</span><span class="auto-state ${runState(a)[0]}">${runState(a)[1]}</span></div>
       <div class="meta-line">${esc(describeSchedule(a))} · worktree ${esc(a.worktree)}${a.newWorktree ? '-<date>' : ''}</div>

@@ -80,6 +80,13 @@ test('effectiveStatus turns a working session idle once its last hook event is s
   const panes = panesWith([]);
   const session = { sessionId: 's', status: 'working', updatedAt: 1000, statusSince: 500 };
   assert.deepStrictEqual(effectiveStatus(session, panes, 1000 + STALE_MS - 1), session);
-  assert.deepStrictEqual(effectiveStatus(session, panes, 1000 + STALE_MS), { ...session, status: 'idle', statusSince: 1000 });
+  assert.deepStrictEqual(effectiveStatus(session, panes, 1000 + STALE_MS), { ...session, status: 'idle', statusSince: 1000, stale: true });
   assert.strictEqual(effectiveStatus({ ...session, status: 'done' }, panes, 1000 + STALE_MS).status, 'done');
+});
+
+test('sessionEvent still reports done after a stale turn when callers pass the live status', () => {
+  const panes = panesWith([]);
+  const stale = effectiveStatus({ sessionId: 's', status: 'working', updatedAt: 0 }, panes, STALE_MS);
+  assert.strictEqual(stale.stale, true);
+  assert.strictEqual(sessionEvent('working', { ...stale, status: 'done' })?.type, 'done');
 });
