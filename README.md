@@ -36,7 +36,7 @@ A "Tokens utilisés" card shows how much of the account's usage limits is used (
 - **Serve the app from a worktree.** "Servir l'app" checks the main checkout out on the worktree's last commit (detached HEAD) and restarts the app; "Revenir au checkout principal" puts it back. Refused when the main checkout has uncommitted changes.
 - **History.** "Outils → Historique" lists and searches every past session of the repo (messages and edited files), opens it read-only, resumes it in tmux (recreating its worktree from the branch if needed) or starts a new session with its context.
 
-No npm dependency: Node, git and tmux only (`gh` for the PR features).
+No npm dependency and no build step: Node, git and tmux only (`gh` for the PR features).
 
 ## Install
 
@@ -78,8 +78,17 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 
 | File | Role |
 | --- | --- |
-| `server.js` | HTTP server: state, transcripts, diffs, tmux driving, worktree close, app launch |
-| `index.html` | The whole UI (HTML, CSS, JS) |
+| `server.js` | Entry point, requires `server/main.js` |
+| `server/config.js`, `server/cache.js` | Configuration, paths and constants; the snapshot cache |
+| `server/http.js` | Authentication, host allowlist, write guard, route tables, page and `web/` assets |
+| `server/io/` | Everything that touches the outside: processes, git, tmux, gh, `/proc`, JSON stores |
+| `server/core/` | Pure decisions without I/O (git parsing, session status, PR, app state, usage, transcripts, automations), unit-tested |
+| `server/features/` | One module per feature (worktrees, snapshot, sessions, terminal, queue, events, tick, changes, pr, app, chat, history, usage, commands, automations) |
+| `index.html` | The page skeleton: header, panel and dialogs |
+| `web/css/` | Styles, one file per feature area, loaded in cascade order |
+| `web/js/` | The UI as ordered classic scripts sharing one global scope, one file per feature; `markdown.js` and `format.js` are also required by the tests |
+| `test/` | `node:test` unit tests: `node --test` |
+| `hooks/state-transition.js` | The hook's pure state transitions (status, turn start, working time), unit-tested |
 | `start.sh` | Runs the install, installs tmux if missing and (re)starts the server |
 | `install.js` | Idempotent install: hooks and status line in `~/.claude/settings.json`, skill links, access token |
 | `ensure.sh` | `SessionStart` hook: starts the server when it is not running |
@@ -102,7 +111,7 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 - Only sessions running in tmux can be driven; others are read-only. "Reprendre dans le cockpit" reopens a read-only session in tmux with `claude --resume`.
 - A session counts as running in tmux when its state file names a live pane, or when Claude Code's own registry (`~/.claude/sessions/<pid>.json`) maps it to a live pane and its process is alive. The second check keeps a session drivable after the same conversation was resumed in another terminal.
 - Sessions with no message (no transcript) are hidden unless they are running, and so are sessions whose worktree directory was removed.
-- `index.html` and `server.js` are read at startup: after editing them, click "Recharger le cockpit" (it reruns `start.sh`) or rerun `start.sh`.
+- `index.html`, `web/` and `server/` are read at startup: after editing them, click "Recharger le cockpit" (it reruns `start.sh`) or rerun `start.sh`.
 - The server keeps its own data in `~/.claude`: `worktree-events.json` (notifications), `worktree-queue.json` (queued messages), `worktree-links.json` (delegations), `worktree-archive.json`, `worktree-automations.json`, `worktree-app-serve.json` (app served from a worktree) and `worktree-state/<session>.checkpoints.json`.
 - Only one server should run its background loop at a time. `start.sh` turns it on with `COCKPIT_TICK=1`; an instance started directly with `node server.js` (a test instance) does not send queued messages, run automations or record events.
 
