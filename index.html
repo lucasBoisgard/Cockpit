@@ -417,7 +417,6 @@
   .sheet-head input[type="search"] { flex: 1; min-width: 200px; font-family: inherit; font-size: 13.5px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; }
   .list { display: flex; flex-direction: column; gap: 8px; overflow: auto; max-height: calc(100vh - 200px); }
   .row { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; background: var(--surface); font-size: 13px; min-width: 0; }
-  .row.unread { border-left: 3px solid var(--blue); }
   .row.clickable { cursor: pointer; }
   .row.clickable:hover { background: var(--surface-2); }
   .row .top-line { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
@@ -1039,10 +1038,6 @@
       const open = () => openEvent(e);
       note(e, open);
       if (e.type === 'done' && e.path && e.path !== selected) freshDone.add(e.path);
-      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-        const n = new Notification(`Cockpit · ${e.worktree || ''}`, { body: e.message || EVENT_LABEL[e.type], tag: `cw-${e.id}` });
-        n.onclick = () => { window.focus(); open(); };
-      }
     }
   }
 

@@ -23,7 +23,7 @@ node "$DIR/install.js" || echo "install.js failed: hooks, status line, skills or
 
 DEFAULT_HOST=127.0.0.1
 [ -f /.dockerenv ] && DEFAULT_HOST=0.0.0.0
-HOST="${HOST:-${COCKPIT_LISTEN:-$DEFAULT_HOST}}" PORT="${PORT:-8052}" nohup node "$DIR/server.js" > "$DIR/server.log" 2>&1 &
+COCKPIT_TICK=1 HOST="${HOST:-${COCKPIT_LISTEN:-$DEFAULT_HOST}}" PORT="${PORT:-8052}" nohup node "$DIR/server.js" > "$DIR/server.log" 2>&1 &
 echo $! > "$PIDFILE"
 sleep 0.5
 cat "$DIR/server.log"

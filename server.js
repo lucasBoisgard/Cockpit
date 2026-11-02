@@ -46,7 +46,7 @@ const HISTORY_CACHE_TTL_MS = 30000;
 const DATA_DIR = path.join(os.homedir(), '.claude');
 const BASE_BRANCH = CONFIG.pr?.base || CONFIG.baseBranch || 'master';
 const TICK_MS = 3000;
-const TICK_ENABLED = process.env.COCKPIT_NO_TICK !== '1';
+const TICK_ENABLED = process.env.COCKPIT_TICK === '1';
 const PR_REFRESH_MS = 60000;
 const EVENTS_MAX = 200;
 const HISTORY_FILES_MAX = 400;
@@ -407,7 +407,6 @@ async function snapshot() {
     app,
     limits: latestLimits(snapshots),
     archives: loadStore('worktree-archive.json', []),
-    unread: eventsStore.events.filter((e) => !e.read).length,
     lastEventId: eventsStore.seq,
     pr: { enabled: ghAvailable, labels: CONFIG.pr?.labels || [], assignee: CONFIG.pr?.assignee || '' },
   };
@@ -1987,7 +1986,7 @@ http
       if (url.pathname === '/') return send(res, 200, 'text/html; charset=utf-8', page);
       if (!authorized(req)) return json(res, 401, { error: 'Token manquant ou invalide.' });
       if (req.method === 'POST' && url.pathname.startsWith('/api/')) return await handleWrite(req, res, url.pathname);
-      if (url.pathname === '/api/events') return json(res, 200, { events: eventsStore.events.slice(-100).reverse(), unread: eventsStore.events.filter((e) => !e.read).length, seq: eventsStore.seq });
+      if (url.pathname === '/api/events') return json(res, 200, { events: eventsStore.events.slice(-100).reverse(), seq: eventsStore.seq });
       if (url.pathname === '/api/changes') {
         const list = await changesSince(url.searchParams.get('wt') || '', url.searchParams.get('since') || '');
         return list === null ? json(res, 400, { error: 'Checkpoint ou worktree invalide.' }) : json(res, 200, list);
