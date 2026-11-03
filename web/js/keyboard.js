@@ -49,5 +49,6 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'n') { e.preventDefault(); openNewSession(); return; }
   if (e.key === 'H' || e.key === 'h') { e.preventDefault(); openHistory(); return; }
+  if (e.key === 's') { e.preventDefault(); openSkills(); return; }
   if (e.key === '?') { $('help-dialog').showModal(); }
 });

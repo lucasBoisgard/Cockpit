@@ -46,6 +46,7 @@ function writeState(file, state) {
 let raw = '';
 process.stdin.on('data', (chunk) => (raw += chunk));
 process.stdin.on('end', () => {
+  if (process.env.COCKPIT_HIDDEN === '1') return;
   try {
     const input = JSON.parse(raw);
     if (!input.session_id) return;

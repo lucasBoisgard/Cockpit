@@ -11,6 +11,7 @@ function buildPalette() {
   items.push(
     { label: 'Nouvelle session', kind: 'action', run: () => openNewSession() },
     { label: 'Historique des sessions', kind: 'action', run: openHistory },
+    { label: 'Skills', kind: 'action', run: () => openSkills() },
     { label: 'Nettoyage des worktrees', kind: 'action', run: openCleanup },
     { label: 'Automatisations', kind: 'action', run: openAutomations },
     { label: 'Écrire à plusieurs sessions', kind: 'action', run: startSelecting },

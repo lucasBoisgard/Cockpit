@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="/web/css/responsive.css">
 <link rel="stylesheet" href="/web/css/reader.css">
 <link rel="stylesheet" href="/web/css/agents.css">
+<link rel="stylesheet" href="/web/css/skills.css">
 </head>
 <body>
 <header>
@@ -46,6 +47,7 @@
         <button id="restart-btn" title="Relance start.sh : recharge server.js, index.html et la config">Recharger le cockpit</button>
       </div>
     </details>
+    <button class="btn" id="skills-btn" title="Parcourir et ajouter des skills (s)">Skills</button>
     <button class="btn primary" id="new-btn">Nouvelle session</button>
   </div>
   <span class="updated" id="updated"></span>
@@ -288,6 +290,7 @@
       <kbd>j / k</kbd><span>Réponse suivante ou précédente, dans le lecteur</span>
       <kbd>n</kbd><span>Nouvelle session</span>
       <kbd>H</kbd><span>Historique</span>
+      <kbd>s</kbd><span>Skills</span>
       <kbd>Échap</kbd><span>Fermer le panneau, même depuis le Terminal : pour interrompre Claude, bouton « Interrompre »</span>
       <kbd>?</kbd><span>Cette aide</span>
     </div>
@@ -314,6 +317,52 @@
   </div>
 </dialog>
 
+<dialog id="skills-dialog" class="skills-page">
+  <div class="skills-shell">
+    <div class="skills-head">
+      <div class="skills-title"><b>Skills</b><span id="skills-count"></span></div>
+      <div class="seg" id="skills-mode">
+        <button data-skills-mode="browse" class="on">Parcourir</button>
+        <button data-skills-mode="add">Ajouter</button>
+      </div>
+      <button class="btn" data-dismiss>Fermer</button>
+    </div>
+    <div class="skills-browse" id="skills-browse">
+      <div class="skills-side">
+        <input id="skills-filter" type="search" placeholder="Filtrer les skills" autocomplete="off">
+        <div class="skills-tree" id="skills-tree"></div>
+      </div>
+      <div class="skills-detail" id="skills-detail"></div>
+    </div>
+    <div class="skills-add" id="skills-add" hidden>
+      <div class="skills-editor">
+        <div class="skills-fields">
+          <label>Emplacement
+            <select id="skills-target"></select>
+          </label>
+          <label>Nom
+            <input id="skills-name" placeholder="mon-skill" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+        <textarea id="skills-content" spellcheck="false" placeholder="Colle ou écris le SKILL.md ici, en-tête compris :&#10;&#10;---&#10;name: mon-skill&#10;description: Ce que fait le skill. Use when …&#10;---&#10;&#10;# Mon skill&#10;…"></textarea>
+        <div class="skills-save">
+          <span class="skills-check" id="skills-check"></span>
+          <button class="btn primary" id="skills-create">Créer le skill</button>
+        </div>
+      </div>
+      <div class="skills-assistant">
+        <div class="skills-assistant-head"><b>Assistant</b><button class="btn" id="skills-assist-reset" title="Repartir d'une conversation vide">Nouvelle conversation</button></div>
+        <div class="skills-chat" id="skills-chat"></div>
+        <div class="skills-ask">
+          <textarea id="skills-ask" placeholder="Décris le skill à créer ou ce qu'il faut changer… (Entrée pour envoyer)"></textarea>
+          <button class="btn primary" id="skills-ask-send">Envoyer</button>
+        </div>
+        <p class="skills-hint">Le brouillon de l'éditeur est joint à chaque message. L'assistant lit les skills existants et ne modifie aucun fichier.</p>
+      </div>
+    </div>
+  </div>
+</dialog>
+
 <div class="selection-bar" id="selection-bar" hidden>
   <span id="selection-count">0 sélectionnée</span>
   <button class="btn" id="select-idle">Toutes les sessions inactives</button>
@@ -333,6 +382,7 @@
 <script src="/web/js/panel-usage.js"></script>
 <script src="/web/js/panel-app.js"></script>
 <script src="/web/js/panel-agents.js"></script>
+<script src="/web/js/skills.js"></script>
 <script src="/web/js/panel-review.js"></script>
 <script src="/web/js/cards.js"></script>
 <script src="/web/js/panel.js"></script>

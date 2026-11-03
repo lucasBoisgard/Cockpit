@@ -19,6 +19,7 @@ const { changesSince, ticketCommits, diff } = require('./features/changes');
 const { searchHistory, historyFile, resumeFromHistory } = require('./features/history');
 const { readChat, readChatFile } = require('./features/chat');
 const { agentsOf } = require('./features/agents');
+const { listSkills, readSkill, createSkill, assistSkill } = require('./features/skills');
 const { usageHistory } = require('./features/usage');
 const { listCommands } = require('./features/commands');
 const { saveAutomation, deleteAutomation, listAutomations, runAutomation } = require('./features/automations');
@@ -107,6 +108,8 @@ const page = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const assets = fs.existsSync(path.join(ROOT, 'web')) ? loadAssets(path.join(ROOT, 'web')) : new Map();
 
 const writeActions = {
+  '/api/skills/create': (body) => createSkill(body),
+  '/api/skills/assist': (body) => assistSkill(body),
   '/api/events/read': (body) => markEventsRead(body),
   '/api/queue/remove': (body) => dequeue(String(body.target || ''), String(body.id || '')),
   '/api/broadcast': (body) => broadcast(body),
@@ -212,6 +215,11 @@ const readRoutes = {
   '/api/chat': (res, q) => {
     const chat = readChat(q.get('session') || '');
     return chat === null ? send(res, 404, 'text/plain', 'transcript not found') : json(res, 200, chat);
+  },
+  '/api/skills': async (res) => json(res, 200, await listSkills()),
+  '/api/skills/file': async (res, q) => {
+    const skill = await readSkill(q.get('path') || '');
+    return skill ? json(res, 200, skill) : send(res, 404, 'text/plain', 'skill not found');
   },
   '/api/agents': (res, q) => {
     const agents = agentsOf(q.get('session') || '');
