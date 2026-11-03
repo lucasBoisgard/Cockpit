@@ -3,10 +3,29 @@ const isCheckpoint = (range) => /^[0-9a-f]{40}$/.test(range || '');
 const scopeKind = (range) => (!range ? 'work' : range === 'branch' || range === 'pr' ? range : range.startsWith('commit:') ? 'commit' : 'checkpoint');
 const dirOf = (file) => (file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : '');
 
+const changesPath = () => changesRepo || selected;
+
+function cardRepos(wt) {
+  const repos = new Map();
+  for (const s of wt?.sessions || []) for (const r of s.externalRepos || []) if (r.path !== wt.path) repos.set(r.path, r);
+  return [...repos.values()];
+}
+
+function resetChanges(repo = null) {
+  changesRepo = repo;
+  since = null; sinceFiles = null; ticket = null; selectedFile = null; lastDiffText = ''; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
+}
+
+function dropLostRepo() {
+  if (!changesRepo || cardRepos(currentWt()).some((r) => r.path === changesRepo)) return;
+  resetChanges();
+  if (tab === 'changes') openChanges();
+}
+
 function shownFiles() {
   const wt = currentWt();
   if (!wt) return [];
-  return since ? sinceFiles || [] : wt.files;
+  return since || changesRepo ? sinceFiles || [] : wt.files;
 }
 
 function groupedFiles() {
@@ -24,7 +43,7 @@ function groupedFiles() {
 const orderedFiles = () => groupedFiles().flatMap(([, list]) => list.map((f) => f.path));
 
 function fileTree(shown) {
-  if (!shown.length) return `<div class="tl"><span></span><span class="what">${since && !sinceFiles ? 'Chargement…' : 'Aucun changement'}</span></div>`;
+  if (!shown.length) return `<div class="tl"><span></span><span class="what">${(since || changesRepo) && !sinceFiles ? 'Chargement…' : 'Aucun changement'}</span></div>`;
   const groups = groupedFiles();
   if (!groups.length) return '<div class="tl"><span></span><span class="what">Aucun fichier ne correspond</span></div>';
   const fileRow = (f, nested) => {
@@ -56,11 +75,13 @@ function stepFile(delta) {
 async function openChanges() {
   const wt = currentWt();
   if (!wt) return;
-  if (ticket?.path !== wt.path) {
-    const res = !wt.branch || wt.branch === state.baseBranch ? null : await api(`/api/commits?wt=${encodeURIComponent(wt.path)}`).catch(() => null);
+  const target = changesPath();
+  if (ticket?.path !== target) {
+    const own = target === wt.path;
+    const res = own && (!wt.branch || wt.branch === state.baseBranch) ? null : await api(`/api/commits?wt=${encodeURIComponent(target)}`).catch(() => null);
     const data = res?.ok ? await res.json() : null;
-    if (currentWt()?.path !== wt.path) return;
-    ticket = { path: wt.path, base: data?.base || state.baseBranch, commits: data?.commits || [], pr: data?.pr || null };
+    if (changesPath() !== target) return;
+    ticket = { path: target, base: data?.base || state.baseBranch, commits: data?.commits || [], pr: data?.pr || null };
   }
   loadSince();
 }
@@ -68,11 +89,11 @@ async function openChanges() {
 async function loadSince() {
   sinceFiles = null;
   renderPanel();
-  if (since) {
-    const path = selected;
-    const range = since;
+  const range = since || (changesRepo ? 'work' : null);
+  if (range) {
+    const path = changesPath();
     const res = await api(`/api/changes?wt=${encodeURIComponent(path)}&since=${encodeURIComponent(range)}`).catch(() => null);
-    if (selected !== path || since !== range) return;
+    if (changesPath() !== path || (since || (changesRepo ? 'work' : null)) !== range) return;
     sinceFiles = res?.ok ? await res.json() : [];
   }
   if (!selectedFile || !shownFiles().some((f) => f.path === selectedFile)) selectedFile = orderedFiles()[0] || null;
@@ -83,12 +104,12 @@ async function loadSince() {
 let sinceRefreshedAt = 0;
 
 async function refreshSinceFiles() {
-  if (!since || tab !== 'changes' || Date.now() - sinceRefreshedAt < 10000) return;
+  const range = since || (changesRepo ? 'work' : null);
+  if (!range || tab !== 'changes' || Date.now() - sinceRefreshedAt < 10000) return;
   sinceRefreshedAt = Date.now();
-  const path = selected;
-  const range = since;
+  const path = changesPath();
   const res = await api(`/api/changes?wt=${encodeURIComponent(path)}&since=${encodeURIComponent(range)}`).catch(() => null);
-  if (!res?.ok || selected !== path || since !== range) return;
+  if (!res?.ok || changesPath() !== path || (since || (changesRepo ? 'work' : null)) !== range) return;
   sinceFiles = await res.json();
   renderPanel();
 }
@@ -97,7 +118,7 @@ async function loadDiff() {
   const box = $('diff');
   if (!selectedFile) { box.innerHTML = '<div class="placeholder">Choisis un fichier pour voir son diff</div>'; return; }
   const file = selectedFile;
-  const res = await api(`/api/diff?wt=${encodeURIComponent(selected)}&file=${encodeURIComponent(file)}${since ? `&since=${encodeURIComponent(since)}` : ''}`);
+  const res = await api(`/api/diff?wt=${encodeURIComponent(changesPath())}&file=${encodeURIComponent(file)}${since ? `&since=${encodeURIComponent(since)}` : ''}`);
   const text = await res.text();
   if (file !== selectedFile) return;
   lastDiffText = text;
@@ -120,7 +141,7 @@ function renderDiff(editLine) {
     const cls = hunk ? 'hunk' : meta ? 'meta-line' : l.startsWith('+') ? 'add' : l.startsWith('-') ? 'del' : '';
     let ln = null;
     if (!hunk && !meta && newLine && (l.startsWith('+') || l.startsWith(' '))) ln = newLine++;
-    const notes = ln ? comments.map((c, i) => [c, i]).filter(([c]) => c.file === selectedFile && c.line === ln).map(([c, i]) => `<div class="cm-note"><span>💬 ${esc(c.text)}</span><button data-uncomment="${i}" title="Supprimer ce commentaire">✕</button></div>`).join('') : '';
+    const notes = ln ? comments.map((c, i) => [c, i]).filter(([c]) => (c.repo || null) === changesRepo && c.file === selectedFile && c.line === ln).map(([c, i]) => `<div class="cm-note"><span>💬 ${esc(c.text)}</span><button data-uncomment="${i}" title="Supprimer ce commentaire">✕</button></div>`).join('') : '';
     const editor = ln && ln === editLine ? `<div class="cm-edit"><textarea id="cm-text" placeholder="Ta remarque sur la ligne ${ln}"></textarea><div class="row-btn"><button class="btn primary" data-cm-save="${ln}">Ajouter</button><button class="btn" data-cm-cancel="1">Annuler</button></div></div>` : '';
     return `<div class="line ${cls}" ${ln ? `data-ln="${ln}"` : ''}>${ln ? `<button class="cm-add" data-comment="${ln}" title="Commenter la ligne ${ln}">+</button>` : ''}${esc(l) || ' '}</div>${notes}${editor}`;
   }).join('');
@@ -153,7 +174,7 @@ function addComment(line) {
       newLine++;
     }
   }
-  reviewComments.set(selected, [...commentsFor(selected), { file: selectedFile, line, code: code.slice(0, 160), text }]);
+  reviewComments.set(selected, [...commentsFor(selected), { repo: changesRepo, file: selectedFile, line, code: code.slice(0, 160), text }]);
   renderDiff();
 }
 
@@ -162,7 +183,7 @@ async function sendComments() {
   const comments = commentsFor(selected);
   const target = currentSession()?.live ? currentSession() : liveSession(wt);
   if (!target) { toast('Aucune session pilotable dans ce worktree.', 'error'); return; }
-  const text = ['Commentaires de revue sur tes changements :', '', ...comments.map((c, i) => `${i + 1}. ${c.file}:${c.line}${c.code ? ` — \`${c.code}\`` : ''}\n   → ${c.text}`), '', 'Traite chaque point, puis résume ce que tu as changé.'].join('\n');
+  const text = ['Commentaires de revue sur tes changements :', '', ...comments.map((c, i) => `${i + 1}. ${c.repo ? `${c.repo}/` : ''}${c.file}:${c.line}${c.code ? ` — \`${c.code}\`` : ''}\n   → ${c.text}`), '', 'Traite chaque point, puis résume ce que tu as changé.'].join('\n');
   const result = await post('/api/deliver', { target: target.sessionId, text });
   if (!result.ok) { toast(result.data.error || 'Envoi impossible.', 'error'); return; }
   reviewComments.delete(selected);
@@ -171,6 +192,11 @@ async function sendComments() {
 }
 
 $('panel').addEventListener('change', (e) => {
+  if (e.target.id === 'repo-select') {
+    resetChanges(e.target.value || null);
+    openChanges();
+    return;
+  }
   if (e.target.id !== 'since-select') return;
   since = e.target.value || null;
   loadSince();

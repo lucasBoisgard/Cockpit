@@ -39,6 +39,7 @@ let eventsBootstrapped = false;
 let since = null;
 let sinceFiles = null;
 let ticket = null;
+let changesRepo = null;
 let fileFilter = '';
 let changesWide = localGet('changesWide') === '1';
 const collapsedDirs = new Set();

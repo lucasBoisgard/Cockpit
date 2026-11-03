@@ -1,10 +1,17 @@
 const path = require('node:path');
 
 const MAX_ACTIONS = 15;
+const MAX_EDITED_DIRS = 20;
+const EDIT_TOOLS = ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'];
 
 function shorten(text, max = 140) {
   const oneLine = String(text || '').replace(/\s+/g, ' ').trim();
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine;
+}
+
+function editedDir(input, cwd) {
+  const file = EDIT_TOOLS.includes(input.tool_name) && (input.tool_input?.file_path || input.tool_input?.notebook_path);
+  return file ? path.dirname(path.resolve(cwd, String(file))) : null;
 }
 
 function questionOf(input = {}) {
@@ -65,10 +72,16 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
       state.message = null;
       state.question = null;
       break;
-    case 'PreToolUse':
+    case 'PreToolUse': {
+      const edited = editedDir(input, cwd);
+      const added = !!edited && !(state.editedDirs || []).includes(edited);
+      if (edited) state.editedDirs = [edited, ...(state.editedDirs || []).filter((dir) => dir !== edited)].slice(0, MAX_EDITED_DIRS);
       if (input.agent_id) {
         if (state.status === 'needs_input' && state.permission) Object.assign(state, { status: 'working', message: null, permission: false });
-        else if (state.status !== 'working') return false;
+        else if (state.status !== 'working') {
+          state.updatedAt = previous.updatedAt;
+          return added && !!state.status;
+        }
         break;
       }
       state.actions = [{ tool: input.tool_name, detail: describeTool(input.tool_name, input.tool_input, cwd), at: now }, ...(state.actions || [])].slice(0, MAX_ACTIONS);
@@ -83,6 +96,7 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
         state.permission = false;
       }
       break;
+    }
     case 'Notification':
       if (input.notification_type === 'idle_prompt' || /waiting for your input/i.test(input.message || '')) return false;
       state.status = 'needs_input';

@@ -68,9 +68,8 @@ async function repoOf(dir) {
 
 async function externalRepos(session, ownPath) {
   const dirs = new Set();
-  for (const action of session.actions || []) {
-    if (!EDIT_TOOLS.includes(action.tool) || !action.detail) continue;
-    const dir = path.dirname(path.resolve(session.cwd, action.detail));
+  const edited = (session.actions || []).filter((a) => EDIT_TOOLS.includes(a.tool) && a.detail).map((a) => path.dirname(path.resolve(session.cwd, a.detail)));
+  for (const dir of [...(session.editedDirs || []), ...edited]) {
     let existing = dir;
     while (existing !== '/' && !fs.existsSync(existing)) existing = path.dirname(existing);
     dirs.add(existing);

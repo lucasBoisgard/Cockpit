@@ -76,6 +76,7 @@ test('rangeSpec turns a range into git args or a base to resolve', () => {
   assert.deepStrictEqual(rangeSpec(SHA), { args: [SHA] });
   assert.deepStrictEqual(rangeSpec('branch'), { base: 'branch' });
   assert.deepStrictEqual(rangeSpec('pr'), { base: 'pr' });
+  assert.deepStrictEqual(rangeSpec('work'), { args: [] });
   assert.deepStrictEqual(rangeSpec(`commit:${SHA}`), { args: [`${SHA}^!`] });
   assert.strictEqual(rangeSpec('commit:abc'), null);
   assert.strictEqual(rangeSpec('HEAD~1'), null);

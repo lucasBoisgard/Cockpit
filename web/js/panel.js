@@ -49,12 +49,21 @@ function renderPanel() {
   updateSetting('effort');
   const shown = shownFiles();
   const checkpoints = [...(s?.checkpoints || [])].reverse();
-  const commits = ticket?.path === wt.path ? ticket.commits : [];
-  const pr = ticket?.path === wt.path ? ticket.pr : null;
+  const commits = ticket?.path === changesPath() ? ticket.commits : [];
+  const pr = ticket?.path === changesPath() ? ticket.pr : null;
+  const repos = cardRepos(wt);
   const option = (value, label) => `<option value="${esc(value)}" ${(since || '') === value ? 'selected' : ''}>${esc(label)}</option>`;
+  if (changesRepo) checkpoints.length = 0;
+  const repoOption = (value, label) => `<option value="${esc(value)}" ${(changesRepo || '') === value ? 'selected' : ''}>${esc(label)}</option>`;
+  const repoBox = repos.length ? `<div class="since-box"><h3>Repo</h3>
+      <select id="repo-select" aria-label="Repo des changements">
+        ${repoOption('', `${state.repoName || 'Repo de la carte'}${wt.branch ? ` ⎇ ${wt.branch}` : ''}`)}
+        ${repos.map((r) => repoOption(r.path, `${r.name}${r.branch ? ` ⎇ ${r.branch}` : ''}`)).join('')}
+      </select>
+    </div>` : '';
   const scopeBox = commits.length || checkpoints.length || pr ? `<div class="since-box"><h3>Périmètre</h3>
       <select id="since-select" aria-label="Périmètre des changements">
-        ${commits.length ? option('branch', `${wt.pr?.state === 'OPEN' ? `PR #${wt.pr.number}` : 'Tout le ticket'} · ${commits.length} commit${commits.length > 1 ? 's' : ''} depuis ${ticket.base}`) : ''}
+        ${commits.length ? option('branch', `${!changesRepo && wt.pr?.state === 'OPEN' ? `PR #${wt.pr.number}` : 'Tout le ticket'} · ${commits.length} commit${commits.length > 1 ? 's' : ''} depuis ${ticket.base}`) : ''}
         ${pr ? option('pr', `Pas encore poussé sur ${pr.branch}`) : ''}
         ${option('', 'Non commité')}
         ${commits.length ? `<optgroup label="Un commit">${commits.map((c) => option(`commit:${c.sha}`, `${c.sha.slice(0, 7)} · ${String(c.subject).slice(0, 70)}`)).join('')}</optgroup>` : ''}
@@ -67,6 +76,7 @@ function renderPanel() {
   const sum = shown.length ? `<div class="files-sum">${shown.length} fichier${shown.length > 1 ? 's' : ''} · <span class="plus">+${added}</span> <span class="minus">−${deleted}</span></div>` : '';
   setHtml($('side'), `
     ${s?.task ? `<div><h3>Tâche</h3><div class="task" style="-webkit-line-clamp: 8">${esc(s.task)}</div></div>` : ''}
+    ${repoBox}
     ${scopeBox}
     <div><h3>${SCOPE_TITLE[scopeKind(since)]}</h3>${sum}</div>`);
   $('file-filter').hidden = shown.length < 2;
@@ -76,7 +86,7 @@ function renderPanel() {
 function select(target) {
   freshDone.delete(target);
   selected = target; selectedFile = null; chatSession = null; chatSignature = null; chatBarSignature = null; reportSignature = null;
-  since = null; sinceFiles = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
+  since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
   if (currentWt()?.review?.report) tab = 'report';

@@ -132,3 +132,29 @@ test('a subagent tool call after an allowed permission brings the session back t
   const state = replay([start, prompt(2000), [3000, { hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash' }], subTool(5000)]);
   assert.deepStrictEqual([state.status, state.permission, state.message, state.statusSince], ['working', false, null, 5000]);
 });
+
+test('edited folders are remembered, most recent first, for the main agent and its subagents', () => {
+  const edit = (now, file, extra = {}) => [now, { hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: file }, ...extra }];
+  const state = replay([start, prompt(2000), edit(3000, '/other/repo/a.js'), edit(4000, 'src/b.js'), edit(5000, '/other/repo/c.js'), stop(6000)]);
+  assert.deepStrictEqual(state.editedDirs, ['/other/repo', '/repo/src']);
+  const [now, input] = edit(7000, '/third/x.md', { agent_id: 'a1' });
+  assert.strictEqual(applyHookEvent(state, { session_id: 's', ...input }, { now, pane: '%1', fallbackCwd: '/fallback' }), true);
+  assert.deepStrictEqual([state.status, state.editedDirs[0]], ['done', '/third']);
+  const [later, again] = edit(8000, '/third/y.md', { agent_id: 'a1' });
+  assert.strictEqual(applyHookEvent(state, { session_id: 's', ...again }, { now: later, pane: '%1', fallbackCwd: '/fallback' }), false);
+});
+
+test('edited folders cover notebooks, stay unique and keep the 20 most recent', () => {
+  const events = [start, prompt(2000), [2500, { hook_event_name: 'PreToolUse', tool_name: 'NotebookEdit', tool_input: { notebook_path: '/nb/x.ipynb' } }]];
+  for (let i = 0; i < 25; i++) events.push([3000 + i, { hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: `/d${i}/f.txt` } }]);
+  const state = replay(events);
+  assert.deepStrictEqual([state.editedDirs.length, state.editedDirs[0], state.editedDirs.includes('/nb')], [20, '/d24', false]);
+});
+
+test('a subagent edit after the main turn keeps the session updatedAt and needs an existing state', () => {
+  const state = replay([start, prompt(2000), stop(3000)]);
+  const input = { session_id: 's', hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: '/x/y.js' }, agent_id: 'a1' };
+  assert.strictEqual(applyHookEvent(state, input, { now: 9000, pane: '%1', fallbackCwd: '/fallback' }), true);
+  assert.strictEqual(state.updatedAt, 3000);
+  assert.strictEqual(applyHookEvent({ actions: [] }, input, { now: 9000, pane: '%1', fallbackCwd: '/fallback' }), false);
+});

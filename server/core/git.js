@@ -98,6 +98,7 @@ function repoLabel(remote, top) {
 
 function rangeSpec(range) {
   if (validSha(range)) return { args: [range] };
+  if (range === 'work') return { args: [] };
   if (range === 'branch' || range === 'pr') return { base: range };
   const commit = String(range).match(/^commit:([0-9a-f]{40})$/);
   return commit ? { args: [`${commit[1]}^!`] } : null;

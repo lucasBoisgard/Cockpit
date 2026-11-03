@@ -3,8 +3,8 @@ $('panel').addEventListener('click', async (e) => {
   const dequeueBtn = t.closest('[data-dequeue]');
   if (dequeueBtn) { await post('/api/queue/remove', { target: chatSession, id: dequeueBtn.dataset.dequeue }); refresh(); return; }
   const sinceLink = t.closest('[data-since]');
-  if (sinceLink) { since = sinceLink.dataset.since; selectedFile = null; tab = 'changes'; renderTabs(); openChanges(); return; }
-  if (t.id === 'restore-btn') {
+  if (sinceLink) { resetChanges(); since = sinceLink.dataset.since; tab = 'changes'; renderTabs(); openChanges(); return; }
+  if (t.id === 'restore-btn' && !changesRepo) {
     if (!confirm('Restaurer les fichiers suivis du worktree dans leur état d’avant ce tour ?\n\nLes modifications faites depuis sur ces fichiers sont perdues. Les nouveaux fichiers non suivis restent en place.')) return;
     const result = await post('/api/restore', { path: selected, sha: since });
     toast(result.ok ? 'Point restauré.' : result.data.error || 'Restauration impossible.', result.ok ? '' : 'error');
@@ -39,6 +39,7 @@ $('panel').addEventListener('click', async (e) => {
   const showDiff = t.closest('[data-showdiff]');
   if (showDiff) {
     const b = reportBlocks[Number(showDiff.dataset.showdiff)];
+    resetChanges();
     const matchIn = (list) => list.find((f) => f.path === b.file || b.file.endsWith(`/${f.path}`) || f.path.endsWith(`/${b.file}`));
     const local = matchIn(currentWt()?.files || []);
     let match = local;

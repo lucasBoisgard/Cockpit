@@ -13,6 +13,7 @@ async function refresh() {
     if (wt) { select(wt.path); pendingSelect = null; }
   }
   if (selected && selected !== SHELL && selected !== USAGE && !currentWt()) selected = null;
+  if (currentWt()) dropLostRepo();
   renderCounters(); renderGrid(); renderPanel();
   updateTitle();
   checkEvents();
