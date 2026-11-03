@@ -109,4 +109,6 @@ async function listCommands(wtPath) {
   return list;
 }
 
-module.exports = { listCommands };
+const builtinCommandNames = new Set(BUILTIN_COMMANDS.map((c) => c.name));
+
+module.exports = { listCommands, builtinCommandNames };

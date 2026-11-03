@@ -40,7 +40,7 @@ document.addEventListener('keydown', (e) => {
     if (s?.status === 'needs_input') { post('/api/keys', { target: s.sessionId, ops: [{ literal: '1' }] }).then(() => { toast(`Permission accordée à ${wt.name}.`); setTimeout(refresh, 800); }); }
     return;
   }
-  if (/^[1-6]$/.test(e.key) && panelOpen) { document.querySelectorAll('#tabs button')[Number(e.key) - 1]?.click(); return; }
+  if (/^[1-9]$/.test(e.key) && panelOpen) { document.querySelectorAll('#tabs button')[Number(e.key) - 1]?.click(); return; }
   if (e.key === 'l' && panelOpen && currentSession()) { e.preventDefault(); openReaderFor(currentSession().sessionId, currentWt()?.name); return; }
   if (e.key === 'l' && focusedCard()?.dataset.path) {
     const wt = state.worktrees.find((w) => w.path === focusedCard().dataset.path);

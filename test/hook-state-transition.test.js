@@ -113,3 +113,22 @@ test('a compaction during a turn keeps the session working', () => {
   assert.strictEqual(state.status, 'working');
   assert.strictEqual(state.statusSince, 2000);
 });
+
+const subTool = (now) => [now, { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls' }, agent_id: 'a1' }];
+
+test('a subagent tool call after the main turn ended changes nothing', () => {
+  const state = replay([start, prompt(2000), stop(3000)]);
+  const [now, input] = subTool(4000);
+  assert.strictEqual(applyHookEvent(state, { session_id: 's', ...input }, { now, pane: '%1', fallbackCwd: '/fallback' }), false);
+  assert.deepStrictEqual([state.status, state.actions.length], ['done', 0]);
+});
+
+test('a subagent tool call keeps a working session fresh without showing as its action', () => {
+  const state = replay([start, prompt(2000), tool(2500), subTool(9000)]);
+  assert.deepStrictEqual([state.status, state.updatedAt, state.statusSince, state.actions.length], ['working', 9000, 2000, 1]);
+});
+
+test('a subagent tool call after an allowed permission brings the session back to working', () => {
+  const state = replay([start, prompt(2000), [3000, { hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash' }], subTool(5000)]);
+  assert.deepStrictEqual([state.status, state.permission, state.message, state.statusSince], ['working', false, null, 5000]);
+});

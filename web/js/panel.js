@@ -1,7 +1,7 @@
 const headEnd = (extra = '') => `<div class="head-end">${extra}${appButton()}<button class="close" id="close" title="Fermer">×</button></div>`;
 
 function renderTabs() {
-  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', 'Changements']];
+  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', 'Changements'], ['agents', 'Agents']];
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
   if (currentWt() && !isBase(currentWt()) && state.pr?.enabled) tabs.push(['checks', currentWt().pr ? `PR #${currentWt().pr.number}` : 'PR']);
   if (state.app) tabs.push(['app', `App<span class="tab-dot ${esc(state.app.state)}"></span>`]);
@@ -9,6 +9,7 @@ function renderTabs() {
   $('tabs').innerHTML = tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? 'on' : ''}">${label}</button>`).join('');
   $('report-view').hidden = tab !== 'report';
   $('chat-view').hidden = tab !== 'chat';
+  $('agents-view').hidden = tab !== 'agents';
   $('term-view').hidden = tab !== 'term';
   $('changes-view').hidden = tab !== 'changes';
   $('panel').classList.toggle('wide', tab === 'changes' && changesWide);
@@ -82,7 +83,7 @@ function select(target) {
   renderGrid(); renderPanel();
   if (tab === 'app') loadScreen();
   if (target === USAGE) loadUsage();
-  else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'checks') loadChecks(); if (tab === 'changes') openChanges(); }
+  else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'checks') loadChecks(); if (tab === 'changes') openChanges(); if (tab === 'agents') loadAgents(); }
   if (tab === 'term') { loadScreen(); $('screen').focus(); }
 }
 
@@ -94,6 +95,7 @@ $('panel').addEventListener('change', (e) => {
   if (e.target.id !== 'session-select') return;
   chatSession = e.target.value; chatBarSignature = null;
   renderPanel(); loadChat(true);
+  if (tab === 'agents') loadAgents();
 });
 
 $('panel').addEventListener('click', async (e) => {
@@ -126,6 +128,7 @@ $('panel').addEventListener('click', async (e) => {
     if (tab === 'term') { loadScreen(); $('screen').focus(); }
     if (tab === 'app') loadScreen();
     if (tab === 'changes') openChanges();
+    if (tab === 'agents') loadAgents();
     return;
   }
   const goto = e.target.closest('[data-goto]');

@@ -17,7 +17,7 @@ A "Tokens utilisés" card shows how much of the account's usage limits is used (
 - **Notifications.** A background loop (every 3 s, even with no page open) turns session transitions into events: permission asked, question asked, turn done, CI failing, PR merged, app KO, automation run. They show as short pills in the header (card name and state, full text on hover, click to open the session), and the card that just finished gets a green ring until it is opened. The tab title carries the number of sessions waiting for you and the favicon turns amber. With `notify.ntfyUrl` set, events are also posted to an ntfy topic for phone push.
 - **Peek and quick reply.** A card shows Claude's last message (click to unfold), a short reply field, and for a pending permission or `AskUserQuestion` the matching buttons (they send the option number to the session).
 - **Grouping and pins.** "Par état" groups worktrees into pinned, waiting for you, ready to review, working and others, sorted by last activity. ☆ pins a card on top in both orders.
-- **Keyboard.** `Ctrl K` opens a command palette; `j`/`k` move between cards, `Enter` opens, `Space` unfolds, `a` allows the pending permission, `1`-`6` switch tabs, `n` new session, `h` history, `?` help.
+- **Keyboard.** `Ctrl K` opens a command palette; `j`/`k` move between cards, `Enter` opens, `Space` unfolds, `a` allows the pending permission, `1`-`9` switch tabs, `n` new session, `h` history, `?` help.
 
 ### Steering several sessions
 

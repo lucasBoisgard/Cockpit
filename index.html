@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/web/css/alerts.css">
 <link rel="stylesheet" href="/web/css/responsive.css">
 <link rel="stylesheet" href="/web/css/reader.css">
+<link rel="stylesheet" href="/web/css/agents.css">
 </head>
 <body>
 <header>
@@ -90,6 +91,7 @@
       </div>
     </div>
   </div>
+  <div class="view" id="agents-view" hidden><div class="agents-scroll" id="agents-tree"></div></div>
   <div class="view" id="term-view" hidden>
     <pre class="screen" id="screen" tabindex="0"></pre>
     <div class="term-bar">
@@ -281,7 +283,7 @@
       <kbd>Entrée</kbd><span>Ouvrir la carte sélectionnée</span>
       <kbd>Espace</kbd><span>Déplier le dernier message de la carte</span>
       <kbd>a</kbd><span>Autoriser la permission en attente (touche 1)</span>
-      <kbd>1-6</kbd><span>Changer d'onglet dans le panneau ouvert</span>
+      <kbd>1-9</kbd><span>Changer d'onglet dans le panneau ouvert</span>
       <kbd>l</kbd><span>Lire la dernière réponse de Claude dans le lecteur</span>
       <kbd>j / k</kbd><span>Réponse suivante ou précédente, dans le lecteur</span>
       <kbd>n</kbd><span>Nouvelle session</span>
@@ -330,6 +332,7 @@
 <script src="/web/js/reader.js"></script>
 <script src="/web/js/panel-usage.js"></script>
 <script src="/web/js/panel-app.js"></script>
+<script src="/web/js/panel-agents.js"></script>
 <script src="/web/js/panel-review.js"></script>
 <script src="/web/js/cards.js"></script>
 <script src="/web/js/panel.js"></script>

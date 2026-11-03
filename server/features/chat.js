@@ -19,4 +19,4 @@ function readChat(sessionId) {
   return file ? readChatFile(file, sessionId) : null;
 }
 
-module.exports = { readChat, readChatFile };
+module.exports = { transcriptFor, readChat, readChatFile };

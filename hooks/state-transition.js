@@ -66,6 +66,11 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
       state.question = null;
       break;
     case 'PreToolUse':
+      if (input.agent_id) {
+        if (state.status === 'needs_input' && state.permission) Object.assign(state, { status: 'working', message: null, permission: false });
+        else if (state.status !== 'working') return false;
+        break;
+      }
       state.actions = [{ tool: input.tool_name, detail: describeTool(input.tool_name, input.tool_input, cwd), at: now }, ...(state.actions || [])].slice(0, MAX_ACTIONS);
       if (input.tool_name === 'AskUserQuestion') {
         state.question = questionOf(input.tool_input);
