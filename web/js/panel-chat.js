@@ -62,6 +62,30 @@ async function setMode(target) {
   if (final !== target) toast("Ce mode n'est pas accessible avec Maj+Tab dans cette session.", 'error');
 }
 
+const modelPending = new Map();
+
+function updateModel() {
+  const s = currentSession();
+  $('model-box').hidden = !s?.live;
+  if (!s?.live) return;
+  const current = modelChoice(s.usage, modelPending.get(s.sessionId), Date.now());
+  const extra = current.startsWith('other:') ? [[current, s.usage.model || s.usage.modelId]] : current ? [] : [['', 'Inconnu']];
+  const label = (id, name) => (id === current && s.usage?.model && modelOption(s.usage.modelId, s.usage.model) === id ? s.usage.model : name);
+  setHtml($('model-select'), [...MODELS, ...extra].map(([id, name]) => `<option value="${esc(id)}" ${id === '' || id.startsWith('other:') ? 'disabled' : ''}>${esc(label(id, name))}</option>`).join(''));
+  $('model-select').value = current;
+}
+
+async function setModel(value) {
+  const s = currentSession();
+  if (!s?.live) return;
+  const queue = s.status === 'working';
+  const result = await post(queue ? '/api/queue' : '/api/send', { target: s.sessionId, text: `/model ${value}` });
+  if (!result.ok) { toast(result.data.error || 'Changement de modèle impossible.', 'error'); updateModel(); return; }
+  modelPending.set(s.sessionId, { value, queued: queue, at: Date.now() });
+  updateModel();
+  toast(queue ? 'Changement de modèle mis en file : il part à la fin du tour.' : 'Modèle changé.');
+}
+
 async function loadChat(force) {
   const box = $('chat');
   if (!chatSession) { box.innerHTML = '<div class="placeholder">Les conversations apparaissent ici dès qu\'une session Claude démarre dans ce worktree.</div>'; chatSignature = null; return; }
