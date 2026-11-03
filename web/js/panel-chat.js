@@ -104,7 +104,7 @@ async function loadChat(force) {
   const last = chat.items[chat.items.length - 1];
   const session = currentSession();
   const awaiting = session?.status === 'needs_input' ? session.message || 'Claude attend ta réponse' : null;
-  const signature = `${chat.sessionId}|${chat.total}|${last ? (last.result || last.text || '').length : 0}|${awaiting}|${session?.checkpoints?.length || 0}`;
+  const signature = `${chat.sessionId}|${chat.total}|${last ? (last.result || last.text || '').length : 0}|${awaiting}`;
   if (!force && signature === chatSignature) return;
   chatSignature = signature;
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
@@ -112,13 +112,10 @@ async function loadChat(force) {
   const time = (at) => (at ? new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
   const lastIndex = chat.items.length - 1;
   chatItems = chat.items;
-  const checkpoints = session?.checkpoints || [];
-  const checkpointAt = (at) => checkpoints.find((c) => at && Math.abs(c.at - at) < 15000);
   box.innerHTML = (chat.total > chat.items.length ? `<div class="placeholder">${chat.total - chat.items.length} éléments plus anciens masqués</div>` : '') + chat.items.map((item, i) => {
     const mark = awaiting && i === lastIndex ? 'awaiting' : '';
     if (item.kind === 'user') {
-      const cp = checkpointAt(item.at);
-      return `<div class="msg user ${mark}">${escLink(item.text)}<span class="when">${time(item.at)}</span></div>${cp ? `<button class="since-link" data-since="${esc(cp.sha)}">Changements depuis ce message</button>` : ''}`;
+      return `<div class="msg user ${mark}">${escLink(item.text)}<span class="when">${time(item.at)}</span></div>`;
     }
     if (item.kind === 'assistant') return `<div class="msg assistant ${mark}">${item.text.length > 900 ? `<button class="read-top" data-read="${i}" title="Ouvrir dans le lecteur (l)">Lire ⤢</button>` : ''}${md(item.text)}<span class="when">${time(item.at)}<button class="read" data-read="${i}">Lecteur</button><button class="delegate" data-delegate="${i}" title="Lancer une session liée pour cette sous-tâche">Déléguer</button></span></div>`;
     return `<details class="tool ${item.error ? 'error' : ''} ${mark}" data-index="${i}" ${opened.has(String(i)) ? 'open' : ''}><summary><b>${esc(item.tool)}</b><span>${escLink(item.detail)}</span></summary>${item.result ? `<pre>${escLink(item.result)}</pre>` : ''}</details>`;

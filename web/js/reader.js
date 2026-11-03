@@ -5,7 +5,16 @@ function openReader(list, pos, title) {
   reader = { list, pos: Math.max(0, Math.min(pos, list.length - 1)), title };
   renderReader();
   if (!$('reader-dialog').open) $('reader-dialog').showModal();
-  $('reader-scroll').focus();
+  $('reader-scroll').focus({ preventScroll: true });
+  readerToTop();
+  requestAnimationFrame(readerToTop);
+}
+
+function readerToTop() {
+  const box = $('reader-scroll');
+  box.style.scrollBehavior = 'auto';
+  box.scrollTop = 0;
+  box.style.scrollBehavior = '';
   spyReader();
 }
 
@@ -41,10 +50,7 @@ function renderReader() {
   $('reader-pos').textContent = `${reader.pos + 1} / ${reader.list.length}`;
   document.querySelector('[data-reader-step="-1"]').disabled = reader.pos === 0;
   document.querySelector('[data-reader-step="1"]').disabled = reader.pos === reader.list.length - 1;
-  $('reader-scroll').style.scrollBehavior = 'auto';
-  $('reader-scroll').scrollTop = 0;
-  $('reader-scroll').style.scrollBehavior = '';
-  spyReader();
+  readerToTop();
 }
 
 function stepReader(delta) {

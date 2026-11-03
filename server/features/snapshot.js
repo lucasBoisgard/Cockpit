@@ -3,7 +3,7 @@ const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { REPO, BASE_BRANCH, CONFIG, TICK_ENABLED, SHELL_SESSION } = require('../config');
 const { run, ghAvailable } = require('../io/exec');
-const { loadStore, readSessions, readCheckpoints } = require('../io/store');
+const { loadStore, readSessions } = require('../io/store');
 const { effectiveStatus, paneOf, ownerOf } = require('../core/sessions');
 const { latestLimits } = require('../core/usage');
 const { cachedSnapshot, storeSnapshot } = require('../cache');
@@ -38,7 +38,6 @@ async function snapshot() {
       actions: session.actions || [],
       live,
       usage: usage ? { context: usage.context, costUsd: usage.costUsd, model: usage.model, modelId: usage.modelId, effort: usage.effort, at: usage.at } : null,
-      checkpoints: readCheckpoints(session.sessionId),
       queue: queues[session.sessionId] || [],
       externalRepos: await externalRepos(session, owner.path),
     });

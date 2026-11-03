@@ -12,7 +12,7 @@ const { snapshot, cleanupList } = require('./features/snapshot');
 const { markEventsRead, recentEvents } = require('./features/events');
 const { enqueue, dequeue, deliver, broadcast } = require('./features/queue');
 const { resolveTarget, pasteText, submitText, sendOps, screen, screenHash } = require('./features/terminal');
-const { startSession, resumeSession, closeWorktree, archiveWorktree, unarchiveWorktree, restoreCheckpoint } = require('./features/sessions');
+const { startSession, resumeSession, closeWorktree, archiveWorktree, unarchiveWorktree } = require('./features/sessions');
 const { appState, startApp, stopApp, serveWorktree, unserveWorktree } = require('./features/app');
 const { prDetails, sendCheckFailure, pushBranch, prDraft, createPr } = require('./features/pr');
 const { changesSince, ticketCommits, diff } = require('./features/changes');
@@ -120,7 +120,6 @@ const writeActions = {
   '/api/unarchive': (body) => unarchiveWorktree(body),
   '/api/app/serve': (body) => serveWorktree(body),
   '/api/app/unserve': () => unserveWorktree(),
-  '/api/restore': (body) => restoreCheckpoint(body),
   '/api/history/resume': (body) => resumeFromHistory(body),
   '/api/automations/save': (body) => saveAutomation(body),
   '/api/automations/delete': (body) => deleteAutomation(body),
@@ -197,7 +196,7 @@ function orBadRequest(res, value, message) {
 
 const readRoutes = {
   '/api/events': (res) => json(res, 200, recentEvents()),
-  '/api/changes': async (res, q) => orBadRequest(res, await changesSince(q.get('wt') || '', q.get('since') || ''), 'Checkpoint ou worktree invalide.'),
+  '/api/changes': async (res, q) => orBadRequest(res, await changesSince(q.get('wt') || '', q.get('since') || ''), 'Périmètre ou worktree invalide.'),
   '/api/commits': async (res, q) => orBadRequest(res, await ticketCommits(q.get('wt') || ''), 'Base de la branche introuvable.'),
   '/api/checks': async (res, q) => orBadRequest(res, await prDetails(q.get('wt') || ''), 'Worktree sans branche, ou gh absent.'),
   '/api/pr-draft': async (res, q) => orBadRequest(res, await prDraft(q.get('wt') || ''), 'Worktree sans branche.'),

@@ -4,8 +4,7 @@ const path = require('node:path');
 const { REPO, CONFIG, CLAUDE_BIN, REVIEWS_DIR, TMUX_SIZE, TMUX_PATH } = require('../config');
 const { run, git, tmux, sleep } = require('../io/exec');
 const { claudeLockAlive } = require('../io/proc');
-const { loadStore, saveStore, readSession, writeSessionOverride, readCheckpoints, sessionsIn } = require('../io/store');
-const { validSha } = require('../core/git');
+const { loadStore, saveStore, readSession, writeSessionOverride, sessionsIn } = require('../io/store');
 const { paneOf, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt } = require('../core/sessions');
 const { usageWorktree } = require('../core/usage');
 const { invalidateSnapshot } = require('../cache');
@@ -146,15 +145,4 @@ async function unarchiveWorktree({ name, resume }) {
   return { ok: true, branchRestored: !!hasBranch };
 }
 
-async function restoreCheckpoint({ path: wtPath, sha }) {
-  if (!validSha(sha)) return { error: 'Checkpoint invalide.' };
-  const wt = (await listWorktrees()).find((w) => w.path === wtPath);
-  if (!wt) return { error: 'Worktree inconnu.' };
-  const known = sessionsIn(wt.path).some((s) => readCheckpoints(s.sessionId).some((c) => c.sha === sha));
-  if (!known) return { error: 'Ce checkpoint n’appartient à aucune session de ce worktree.' };
-  const result = await run('git', ['-C', wt.path, 'checkout', sha, '--', '.']);
-  invalidateSnapshot();
-  return result.ok ? { ok: true } : { error: result.stderr.trim() };
-}
-
-module.exports = { startSession, resumeSession, resumeIn, closeWorktree, archiveWorktree, unarchiveWorktree, restoreCheckpoint };
+module.exports = { startSession, resumeSession, resumeIn, closeWorktree, archiveWorktree, unarchiveWorktree };

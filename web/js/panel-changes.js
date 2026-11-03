@@ -1,6 +1,5 @@
-const SCOPE_TITLE = { work: 'Fichiers modifiés', pr: 'Modifiés depuis la PR', branch: 'Modifiés par le ticket', commit: 'Modifiés par ce commit', checkpoint: 'Modifiés depuis ce point' };
-const isCheckpoint = (range) => /^[0-9a-f]{40}$/.test(range || '');
-const scopeKind = (range) => (!range ? 'work' : range === 'branch' || range === 'pr' ? range : range.startsWith('commit:') ? 'commit' : 'checkpoint');
+const SCOPE_TITLE = { work: 'Fichiers modifiés', pr: 'Modifiés depuis la PR', branch: 'Modifiés par le ticket', commit: 'Modifiés par ce commit' };
+const scopeKind = (range) => (!range ? 'work' : range === 'branch' || range === 'pr' ? range : 'commit');
 const dirOf = (file) => (file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : '');
 
 const changesPath = () => changesRepo || selected;

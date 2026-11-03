@@ -73,7 +73,7 @@ test('repoLabel reads owner/name from ssh and https remotes, else the folder nam
 });
 
 test('rangeSpec turns a range into git args or a base to resolve', () => {
-  assert.deepStrictEqual(rangeSpec(SHA), { args: [SHA] });
+  assert.strictEqual(rangeSpec(SHA), null);
   assert.deepStrictEqual(rangeSpec('branch'), { base: 'branch' });
   assert.deepStrictEqual(rangeSpec('pr'), { base: 'pr' });
   assert.deepStrictEqual(rangeSpec('work'), { args: [] });

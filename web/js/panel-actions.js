@@ -2,17 +2,6 @@ $('panel').addEventListener('click', async (e) => {
   const t = e.target;
   const dequeueBtn = t.closest('[data-dequeue]');
   if (dequeueBtn) { await post('/api/queue/remove', { target: chatSession, id: dequeueBtn.dataset.dequeue }); refresh(); return; }
-  const sinceLink = t.closest('[data-since]');
-  if (sinceLink) { resetChanges(); since = sinceLink.dataset.since; tab = 'changes'; renderTabs(); openChanges(); return; }
-  if (t.id === 'restore-btn' && !changesRepo) {
-    if (!confirm('Restaurer les fichiers suivis du worktree dans leur état d’avant ce tour ?\n\nLes modifications faites depuis sur ces fichiers sont perdues. Les nouveaux fichiers non suivis restent en place.')) return;
-    const result = await post('/api/restore', { path: selected, sha: since });
-    toast(result.ok ? 'Point restauré.' : result.data.error || 'Restauration impossible.', result.ok ? '' : 'error');
-    since = null;
-    loadSince();
-    refresh();
-    return;
-  }
   const readBtn = t.closest('[data-read]');
   if (readBtn) { openReaderAt(Number(readBtn.dataset.read)); return; }
   const delegateBtn = t.closest('[data-delegate]');

@@ -48,12 +48,10 @@ function renderPanel() {
   updateSetting('model');
   updateSetting('effort');
   const shown = shownFiles();
-  const checkpoints = [...(s?.checkpoints || [])].reverse();
   const commits = ticket?.path === changesPath() ? ticket.commits : [];
   const pr = ticket?.path === changesPath() ? ticket.pr : null;
   const repos = cardRepos(wt);
   const option = (value, label) => `<option value="${esc(value)}" ${(since || '') === value ? 'selected' : ''}>${esc(label)}</option>`;
-  if (changesRepo) checkpoints.length = 0;
   const repoOption = (value, label) => `<option value="${esc(value)}" ${(changesRepo || '') === value ? 'selected' : ''}>${esc(label)}</option>`;
   const repoBox = repos.length ? `<div class="since-box"><h3>Repo</h3>
       <select id="repo-select" aria-label="Repo des changements">
@@ -61,15 +59,13 @@ function renderPanel() {
         ${repos.map((r) => repoOption(r.path, `${r.name}${r.branch ? ` ⎇ ${r.branch}` : ''}`)).join('')}
       </select>
     </div>` : '';
-  const scopeBox = commits.length || checkpoints.length || pr ? `<div class="since-box"><h3>Périmètre</h3>
+  const scopeBox = commits.length || pr ? `<div class="since-box"><h3>Périmètre</h3>
       <select id="since-select" aria-label="Périmètre des changements">
         ${commits.length ? option('branch', `${!changesRepo && wt.pr?.state === 'OPEN' ? `PR #${wt.pr.number}` : 'Tout le ticket'} · ${commits.length} commit${commits.length > 1 ? 's' : ''} depuis ${ticket.base}`) : ''}
         ${pr ? option('pr', `Pas encore poussé sur ${pr.branch}`) : ''}
         ${option('', 'Non commité')}
         ${commits.length ? `<optgroup label="Un commit">${commits.map((c) => option(`commit:${c.sha}`, `${c.sha.slice(0, 7)} · ${String(c.subject).slice(0, 70)}`)).join('')}</optgroup>` : ''}
-        ${checkpoints.length ? `<optgroup label="Depuis un tour de Claude">${checkpoints.map((c, i) => option(c.sha, `Avant le tour ${checkpoints.length - i} · ${new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${String(c.prompt || '').slice(0, 50)}`)).join('')}</optgroup>` : ''}
       </select>
-      ${isCheckpoint(since) ? '<button class="btn danger" id="restore-btn" title="Remet les fichiers suivis dans leur état d\'avant ce tour">Restaurer ce point</button>' : ''}
     </div>` : '';
   const added = shown.reduce((n, f) => n + (f.added || 0), 0);
   const deleted = shown.reduce((n, f) => n + (f.deleted || 0), 0);

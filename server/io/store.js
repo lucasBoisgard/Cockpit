@@ -37,11 +37,6 @@ function readReview(name) {
   return { pr: meta?.pr || report?.pr?.url || null, startedAt: meta?.startedAt || null, report: report && Array.isArray(report.blocks) ? report : null };
 }
 
-function readCheckpoints(sessionId) {
-  const list = readJson(path.join(STATE_DIR, `${sessionId}.checkpoints.json`));
-  return Array.isArray(list) ? list : [];
-}
-
 function writeSessionOverride(sessionId, fields) {
   writeJsonAtomic(path.join(STATE_DIR, `${sessionId}.server.json`), fields);
 }
@@ -70,4 +65,4 @@ function sessionsIn(wtPath) {
   return readSessions().filter((s) => s.cwd === wtPath || s.cwd.startsWith(`${wtPath}/`));
 }
 
-module.exports = { readJson, loadStore, saveStore, removeStore, readReview, readCheckpoints, writeSessionOverride, readSession, readSessions, sessionsIn };
+module.exports = { readJson, loadStore, saveStore, removeStore, readReview, writeSessionOverride, readSession, readSessions, sessionsIn };

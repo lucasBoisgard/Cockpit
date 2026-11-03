@@ -30,7 +30,6 @@ A "Tokens utilisés" card shows how much of the account's usage limits is used (
 ### Review and delivery
 
 - **Diff comments.** In "Changements", `+` on a line adds a comment; "Envoyer à Claude" sends all pending comments as one structured message. Report blocks have "Faire corriger par Claude" and "Voir dans le diff".
-- **Checkpoints.** The hook records a git snapshot (`git stash create`, no commit, no index change) at every prompt. "Changements" can compare with the state before any turn, the conversation links each message to its changes, and "Restaurer ce point" checks the tracked files out as they were.
 - **PR and CI.** With `gh` logged in, each card shows its PR (number, draft, CI running or failing, changes requested, ready, merged), refreshed every minute. A PR tab lists checks, reviews and a "ready to merge" banner, and sends a failing check's log to Claude. "Pousser et ouvrir la PR" pushes the existing commits (no add, no commit) and opens the PR from a template with the configured labels and assignee, then checks them and the absence of a generated footer.
 - **Archive and cleanup.** "Archiver" stops the sessions and removes the worktree but keeps its branch and conversation; archived worktrees can be restored, with their session resumed. "Outils → Nettoyage" lists every worktree with its idle time, disk size and git state, for bulk archive or close (close only for merged branches).
 - **Serve the app from a worktree.** "Servir l'app" checks the main checkout out on the worktree's last commit (detached HEAD) and restarts the app; "Revenir au checkout principal" puts it back. Refused when the main checkout has uncommitted changes.
@@ -112,7 +111,7 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 - A session counts as running in tmux when its state file names a live pane, or when Claude Code's own registry (`~/.claude/sessions/<pid>.json`) maps it to a live pane and its process is alive. The second check keeps a session drivable after the same conversation was resumed in another terminal.
 - Sessions with no message (no transcript) are hidden unless they are running, and so are sessions whose worktree directory was removed.
 - `index.html`, `web/` and `server/` are read at startup: after editing them, click "Recharger le cockpit" (it reruns `start.sh`) or rerun `start.sh`.
-- The server keeps its own data in `~/.claude`: `worktree-events.json` (notifications), `worktree-queue.json` (queued messages), `worktree-links.json` (delegations), `worktree-archive.json`, `worktree-automations.json`, `worktree-app-serve.json` (app served from a worktree) and `worktree-state/<session>.checkpoints.json`.
+- The server keeps its own data in `~/.claude`: `worktree-events.json` (notifications), `worktree-queue.json` (queued messages), `worktree-links.json` (delegations), `worktree-archive.json`, `worktree-automations.json`, and `worktree-app-serve.json` (app served from a worktree).
 - Only one server should run its background loop at a time. `start.sh` turns it on with `COCKPIT_TICK=1`; an instance started directly with `node server.js` (a test instance) does not send queued messages, run automations or record events.
 
 ## Uninstall
