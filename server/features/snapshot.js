@@ -37,7 +37,7 @@ async function snapshot() {
       ...session,
       actions: session.actions || [],
       live,
-      usage: usage ? { context: usage.context, costUsd: usage.costUsd, model: usage.model, modelId: usage.modelId, at: usage.at } : null,
+      usage: usage ? { context: usage.context, costUsd: usage.costUsd, model: usage.model, modelId: usage.modelId, effort: usage.effort, at: usage.at } : null,
       checkpoints: readCheckpoints(session.sessionId),
       queue: queues[session.sessionId] || [],
       externalRepos: await externalRepos(session, owner.path),

@@ -44,7 +44,8 @@ function renderPanel() {
   renderChatBar(wt);
   renderComposer(s);
   updateMode();
-  updateModel();
+  updateSetting('model');
+  updateSetting('effort');
   const shown = shownFiles();
   const checkpoints = [...(s?.checkpoints || [])].reverse();
   const commits = ticket?.path === wt.path ? ticket.commits : [];
@@ -89,7 +90,7 @@ function closePanel() { selected = null; selectedFile = null; renderGrid(); rend
 
 $('panel').addEventListener('change', (e) => {
   if (e.target.id === 'mode-select') { setMode(e.target.value); return; }
-  if (e.target.id === 'model-select') { setModel(e.target.value); return; }
+  if (e.target.id === 'model-select' || e.target.id === 'effort-select') { setSetting(e.target.id.replace('-select', ''), e.target.value); return; }
   if (e.target.id !== 'session-select') return;
   chatSession = e.target.value; chatBarSignature = null;
   renderPanel(); loadChat(true);

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { modelOption, modelChoice } = require('../web/js/models');
+const { modelOption, modelChoice, effortOption, effortChoice } = require('../web/js/session-settings');
 
 test('modelOption maps ids and display names to the /model alias of their family', () => {
   assert.strictEqual(modelOption('claude-opus-5-5'), 'opus');
@@ -27,4 +27,20 @@ test('modelChoice settles a default choice on the next snapshot and keeps unknow
   assert.strictEqual(modelChoice({ modelId: 'claude-opus-5-5', at: 3000 }, { value: 'default', at: 2000 }, 3500), 'opus');
   assert.strictEqual(modelChoice({ modelId: 'mystery-1', at: 1 }, null, 2), 'other:mystery-1');
   assert.strictEqual(modelChoice(null, null, 2), '');
+});
+
+test('effortOption accepts the /effort levels only', () => {
+  assert.strictEqual(effortOption('xhigh'), 'xhigh');
+  assert.strictEqual(effortOption('HIGH'), 'high');
+  assert.strictEqual(effortOption('turbo'), null);
+  assert.strictEqual(effortOption(null), null);
+});
+
+test('effortChoice follows the status line and settles auto on the next snapshot', () => {
+  assert.strictEqual(effortChoice({ effort: 'medium', at: 1 }, null, 2), 'medium');
+  assert.strictEqual(effortChoice({ effort: 'medium', at: 1000 }, { value: 'max', at: 2000 }, 3000), 'max');
+  assert.strictEqual(effortChoice({ effort: 'max', at: 2500 }, { value: 'max', at: 2000 }, 3000), 'max');
+  assert.strictEqual(effortChoice({ effort: 'high', at: 2500 }, { value: 'auto', at: 2000 }, 3000), 'high');
+  assert.strictEqual(effortChoice({ effort: 'turbo', at: 1 }, null, 2), 'other:turbo');
+  assert.strictEqual(effortChoice({ at: 1 }, null, 2), '');
 });

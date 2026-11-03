@@ -62,28 +62,34 @@ async function setMode(target) {
   if (final !== target) toast("Ce mode n'est pas accessible avec Maj+Tab dans cette session.", 'error');
 }
 
-const modelPending = new Map();
+const SETTINGS = {
+  model: { options: MODELS, choice: modelChoice, command: 'model', name: 'modèle', done: 'Modèle changé.', raw: (u) => u?.model || u?.modelId, visible: () => true, label: (u, id) => (u?.model && modelOption(u.modelId, u.model) === id ? u.model : null) },
+  effort: { options: EFFORTS, choice: effortChoice, command: 'effort', name: "niveau d'effort", done: "Niveau d'effort changé.", raw: (u) => u?.effort, visible: (u, pending) => !!(u?.effort || pending), label: () => null },
+};
+const settingPending = { model: new Map(), effort: new Map() };
 
-function updateModel() {
+function updateSetting(key) {
   const s = currentSession();
-  $('model-box').hidden = !s?.live;
-  if (!s?.live) return;
-  const current = modelChoice(s.usage, modelPending.get(s.sessionId), Date.now());
-  const extra = current.startsWith('other:') ? [[current, s.usage.model || s.usage.modelId]] : current ? [] : [['', 'Inconnu']];
-  const label = (id, name) => (id === current && s.usage?.model && modelOption(s.usage.modelId, s.usage.model) === id ? s.usage.model : name);
-  setHtml($('model-select'), [...MODELS, ...extra].map(([id, name]) => `<option value="${esc(id)}" ${id === '' || id.startsWith('other:') ? 'disabled' : ''}>${esc(label(id, name))}</option>`).join(''));
-  $('model-select').value = current;
+  const setting = SETTINGS[key];
+  const pending = s && settingPending[key].get(s.sessionId);
+  $(`${key}-box`).hidden = !s?.live || !setting.visible(s.usage, pending);
+  if ($(`${key}-box`).hidden) return;
+  const current = setting.choice(s.usage, pending, Date.now());
+  const extra = current.startsWith('other:') ? [[current, setting.raw(s.usage)]] : current ? [] : [['', 'Inconnu']];
+  setHtml($(`${key}-select`), [...setting.options, ...extra].map(([id, name]) => `<option value="${esc(id)}" ${id === '' || id.startsWith('other:') ? 'disabled' : ''}>${esc((id === current && setting.label(s.usage, id)) || name)}</option>`).join(''));
+  $(`${key}-select`).value = current;
 }
 
-async function setModel(value) {
+async function setSetting(key, value) {
   const s = currentSession();
+  const setting = SETTINGS[key];
   if (!s?.live) return;
   const queue = s.status === 'working';
-  const result = await post(queue ? '/api/queue' : '/api/send', { target: s.sessionId, text: `/model ${value}` });
-  if (!result.ok) { toast(result.data.error || 'Changement de modèle impossible.', 'error'); updateModel(); return; }
-  modelPending.set(s.sessionId, { value, queued: queue, at: Date.now() });
-  updateModel();
-  toast(queue ? 'Changement de modèle mis en file : il part à la fin du tour.' : 'Modèle changé.');
+  const result = await post(queue ? '/api/queue' : '/api/send', { target: s.sessionId, text: `/${setting.command} ${value}` });
+  if (!result.ok) { toast(result.data.error || `Changement de ${setting.name} impossible.`, 'error'); updateSetting(key); return; }
+  settingPending[key].set(s.sessionId, { value, queued: queue, at: Date.now() });
+  updateSetting(key);
+  toast(queue ? `Changement de ${setting.name} mis en file : il part à la fin du tour.` : setting.done);
 }
 
 async function loadChat(force) {

@@ -51,6 +51,7 @@ function recordUsage(input, cwd) {
     at: Date.now(),
     model: input.model?.display_name || null,
     modelId: input.model?.id || null,
+    effort: input.effort?.level || null,
     context: {
       usedPercentage: context.used_percentage ?? null,
       size: context.context_window_size ?? null,
