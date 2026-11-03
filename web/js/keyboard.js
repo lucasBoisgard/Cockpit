@@ -44,7 +44,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'l' && panelOpen && currentSession()) { e.preventDefault(); openReaderFor(currentSession().sessionId, currentWt()?.name); return; }
   if (e.key === 'l' && focusedCard()?.dataset.path) {
     const wt = state.worktrees.find((w) => w.path === focusedCard().dataset.path);
-    if (wt?.sessions[0]) { e.preventDefault(); openReaderFor(wt.sessions[0].sessionId, wt.name); }
+    const first = wt && primarySession(wt);
+    if (first) { e.preventDefault(); openReaderFor(first.sessionId, wt.name); }
     return;
   }
   if (e.key === 'n') { e.preventDefault(); openNewSession(); return; }

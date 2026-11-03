@@ -4,7 +4,7 @@ const { execFile } = require('node:child_process');
 const { REPO, BASE_BRANCH, CONFIG, TICK_ENABLED, SHELL_SESSION } = require('../config');
 const { run, ghAvailable } = require('../io/exec');
 const { loadStore, readSessions } = require('../io/store');
-const { effectiveStatus, turnStatus, paneOf, ownerOf } = require('../core/sessions');
+const { effectiveStatus, turnStatus, sessionOverlap, primarySession, paneOf, ownerOf } = require('../core/sessions');
 const { latestLimits } = require('../core/usage');
 const { cachedSnapshot, storeSnapshot } = require('../cache');
 const { listWorktrees, livePanes, describe, hasTranscript, externalRepos, repoOf } = require('./worktrees');
@@ -49,12 +49,13 @@ async function snapshot() {
   for (const d of described) {
     d.sessions.sort((a, b) => b.updatedAt - a.updatedAt);
     d.pr = cachedPr(d.branch);
+    d.overlap = sessionOverlap(d.sessions.filter((s) => s.live));
     d.parent = links[d.name] || null;
   }
   for (const d of described) {
     d.children = Object.entries(links)
       .filter(([, link]) => d.sessions.some((s) => s.sessionId === link.parentSessionId))
-      .map(([name]) => ({ name, status: byName.has(name) ? (byName.get(name).sessions[0] ? turnStatus(byName.get(name).sessions[0]) : 'none') : 'closed' }));
+      .map(([name]) => ({ name, status: byName.has(name) ? (primarySession(byName.get(name).sessions) ? turnStatus(primarySession(byName.get(name).sessions)) : 'none') : 'closed' }));
   }
   const shellLive = [...panes.values()].some((p) => p.session === SHELL_SESSION);
   const data = {

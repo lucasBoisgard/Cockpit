@@ -18,7 +18,7 @@ $('panel').addEventListener('click', async (e) => {
   const fixBtn = t.closest('[data-fixblock]');
   if (fixBtn) {
     const b = reportBlocks[Number(fixBtn.dataset.fixblock)];
-    const target = liveSession(currentWt());
+    const target = currentSession()?.live ? currentSession() : liveSession(currentWt());
     if (!b || !target) { toast('Aucune session pilotable dans ce worktree.', 'error'); return; }
     const text = [`Corrige ce point de la review : ${b.title}${b.file ? ` (${b.file}${b.line ? `:${b.line}` : ''})` : ''}`, b.finding && `Constat : ${b.finding}`, b.fix && `Correctif proposé : ${b.fix}`].filter(Boolean).join('\n\n');
     const result = await post('/api/deliver', { target: target.sessionId, text });

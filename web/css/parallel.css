@@ -1,0 +1,12 @@
+.parallel-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.parallel-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 10px 3px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.parallel-pill:hover { border-color: var(--blue); }
+.parallel-pill .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.parallel-pill.working .dot { background: var(--blue); animation: pulse 1.2s infinite; }
+.parallel-pill.needs_input .dot { background: var(--amber); }
+.parallel-pill.done .dot { background: var(--green); }
+.parallel-pill:not(.working) .dot { animation: none; }
+.parallel-task { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parallel-state { flex: none; color: var(--muted); font-size: 11px; }
+.chip.parallel-warn { background: var(--amber-bg); color: var(--amber); }
+@media (prefers-reduced-motion: reduce) { .parallel-pill.working .dot { animation: none; } }

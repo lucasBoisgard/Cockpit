@@ -12,6 +12,12 @@ async function refresh() {
     const wt = state.worktrees.find((w) => w.name === pendingSelect && w.sessions.some((s) => s.live));
     if (wt) { select(wt.path); pendingSelect = null; }
   }
+  if (pendingParallel) {
+    const wt = state.worktrees.find((w) => w.path === pendingParallel.path);
+    const fresh = wt?.sessions.find((s) => !pendingParallel.known.has(s.sessionId));
+    if (fresh && selected === wt.path) { chatSession = fresh.sessionId; chatBarSignature = null; loadChat(true); }
+    if (fresh || Date.now() - pendingParallel.at > 60000) pendingParallel = null;
+  }
   if (selected && selected !== SHELL && selected !== USAGE && !currentWt()) selected = null;
   if (currentWt()) dropLostRepo();
   renderCounters(); renderGrid(); renderPanel();

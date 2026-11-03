@@ -15,6 +15,14 @@ function span(ms) {
 
 const backgroundOnly = (s) => !!s?.agentsRunning && ['done', 'idle'].includes(s.status);
 
+const turnRank = (s) => (s.status === 'needs_input' ? 0 : s.status === 'working' || backgroundOnly(s) ? 1 : 2);
+
+function pickPrimary(sessions) {
+  const live = sessions.filter((s) => s.live);
+  if (!live.length) return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)[0] || null;
+  return [...live].sort((a, b) => turnRank(a) - turnRank(b) || b.updatedAt - a.updatedAt)[0];
+}
+
 function statusLabel(s, st, labels) {
   return backgroundOnly(s) ? 'Agents en arrière-plan' : labels[st].label;
 }
@@ -42,4 +50,4 @@ function fmtTokens(n) {
 
 const fmtUsd = (n) => (n == null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`);
 
-if (typeof module !== 'undefined') module.exports = { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd, backgroundOnly, statusLabel };
+if (typeof module !== 'undefined') module.exports = { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd, backgroundOnly, statusLabel, pickPrimary };

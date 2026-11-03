@@ -57,7 +57,9 @@ async function loadEvents() {
 function openEvent(e) {
   post('/api/events/read', { ids: [e.id] });
   const wt = state.worktrees.find((w) => w.path === e.path || w.name === e.worktree);
-  if (wt) select(wt.path);
+  if (!wt) return;
+  select(wt.path);
+  if (e.sessionId && wt.sessions.some((s) => s.sessionId === e.sessionId)) { chatSession = e.sessionId; chatBarSignature = null; renderPanel(); loadChat(true); }
 }
 
 async function checkEvents() {

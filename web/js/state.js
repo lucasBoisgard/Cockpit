@@ -19,6 +19,7 @@ let chatSession = null;
 let chatSignature = null;
 let chatBarSignature = null;
 let pendingSelect = null;
+let pendingParallel = null;
 let usageData = null;
 const knownBranches = new Map();
 const branchChanges = new Map();
@@ -58,8 +59,14 @@ let faviconColor = null;
 let historyTimer = null;
 let cleanupRows = [];
 
+function liveSessions(wt) {
+  return wt.sessions.filter((s) => s.live);
+}
+
+const primarySession = (wt) => pickPrimary(wt.sessions);
+
 function sessionStatus(wt) {
-  const s = wt.sessions[0];
+  const s = primarySession(wt);
   if (!s) return 'none';
   if (backgroundOnly(s)) return 'working';
   return s.status || 'idle';
@@ -77,6 +84,6 @@ function sorted(list) {
 const currentWt = () => (selected && selected !== SHELL ? state?.worktrees.find((w) => w.path === selected) : null);
 const currentSession = () => currentWt()?.sessions.find((s) => s.sessionId === chatSession) || null;
 
-const lastActivity = (wt) => Math.max(wt.sessions[0]?.updatedAt || 0, wt.lastCommit?.at || 0);
-const liveSession = (wt) => wt.sessions.find((s) => s.live) || null;
+const lastActivity = (wt) => Math.max(...wt.sessions.map((s) => s.updatedAt || 0), wt.lastCommit?.at || 0);
+const liveSession = (wt) => (liveSessions(wt).length ? primarySession(wt) : null);
 const isBase = (wt) => wt.name === 'main' || !wt.branch || wt.branch === state.baseBranch;

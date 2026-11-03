@@ -78,3 +78,12 @@ test('a finished turn with background agents reads as agents at work, without co
   assert.strictEqual(backgroundOnly({ ...s, status: 'working' }), false);
   assert.strictEqual(statusLabel({ ...s, agentsRunning: 0 }, 'done', labels), 'Terminé');
 });
+
+test('pickPrimary follows the card status rules, background agents counting as working', () => {
+  const { pickPrimary } = require('../web/js/format');
+  const s = (sessionId, status, updatedAt, extra = {}) => ({ sessionId, status, updatedAt, live: true, ...extra });
+  assert.strictEqual(pickPrimary([s('d', 'done', 3), s('bg', 'done', 1, { agentsRunning: 1 })]).sessionId, 'bg');
+  assert.strictEqual(pickPrimary([s('w', 'working', 9), s('n', 'needs_input', 1)]).sessionId, 'n');
+  assert.strictEqual(pickPrimary([s('old', 'needs_input', 9, { live: false }), s('d', 'done', 1)]).sessionId, 'd');
+  assert.strictEqual(pickPrimary([s('x', 'needs_input', 1, { live: false }), s('y', 'done', 5, { live: false })]).sessionId, 'y');
+});

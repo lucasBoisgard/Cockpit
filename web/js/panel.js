@@ -35,12 +35,12 @@ function renderPanel() {
     renderUsage();
     return;
   }
-  if (!chatSession || !wt.sessions.some((x) => x.sessionId === chatSession)) chatSession = wt.sessions[0]?.sessionId || null;
+  if (!chatSession || !wt.sessions.some((x) => x.sessionId === chatSession)) chatSession = primarySession(wt)?.sessionId || null;
   const st = sessionStatus(wt);
   const s = currentSession();
   $('panel-head').innerHTML = `
     <div><div class="name">${esc(wt.name)}</div><div class="branch-row"><span class="repo-chip" title="Repo">${esc(state.repoName)}</span>${branchChip(wt)}${prChip(wt.pr)}<span class="branch">${esc(wt.path)}</span></div>${extChips(wt) ? `<div class="branch-row">${extChips(wt)}</div>` : ''}</div>
-    ${headEnd(`<span class="badge ${st}"><span class="dot"></span>${wt.sessions[0] ? statusLabel(wt.sessions[0], st, STATUS) : STATUS[st].label}</span>`)}`;
+    ${headEnd(`<span class="badge ${st}"><span class="dot"></span>${primarySession(wt) ? statusLabel(primarySession(wt), st, STATUS) : STATUS[st].label}</span>`)}`;
   renderReport(wt);
   renderChatBar(wt);
   renderComposer(s);
@@ -121,6 +121,7 @@ $('panel').addEventListener('click', async (e) => {
     return;
   }
   if (e.target.id === 'composer-send') { sendMessage(); return; }
+  if (e.target.id === 'composer-parallel') { sendParallel(); return; }
   if (e.target.id === 'resume-btn') {
     const result = await post('/api/resume', { session: chatSession });
     toast(result.ok ? 'Session relancée dans tmux. Elle sera pilotable dans quelques secondes.' : result.data.error || 'Reprise impossible.', result.ok ? '' : 'error');

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
+const { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, sessionOverlap, primarySession, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
 
 function panesWith(entries, { bySession = [], claudeStatus = [] } = {}) {
   const panes = new Map(entries);
@@ -99,4 +99,36 @@ test('turnStatus keeps a turn working while background agents run, so done fires
   assert.strictEqual(turnStatus({ status: 'idle', stale: true }), 'working');
   assert.strictEqual(sessionEvent('working', { status: turnStatus({ status: 'done', agentsRunning: 0 }) })?.type, 'done');
   assert.strictEqual(sessionEvent('working', { status: turnStatus({ status: 'done', agentsRunning: 1 }) }), null);
+});
+
+test('sessionOverlap lists files edited by more than one session of the same worktree', () => {
+  const edit = (detail, tool = 'Edit') => ({ tool, detail });
+  const sessions = [
+    { sessionId: 'a', actions: [edit('src/x.js'), edit('src/y.js'), { tool: 'Bash', detail: 'src/z.js' }] },
+    { sessionId: 'b', actions: [edit('src/y.js', 'Write'), edit('src/z.js'), { tool: 'Read', detail: 'src/x.js' }] },
+    { sessionId: 'c', actions: [] },
+  ];
+  assert.deepStrictEqual(sessionOverlap(sessions), [{ file: '/src/y.js', sessions: ['a', 'b'] }]);
+  assert.deepStrictEqual(sessionOverlap([sessions[0]]), []);
+  assert.deepStrictEqual(sessionOverlap([]), []);
+});
+
+test('sessionOverlap resolves paths against each session cwd and ignores old edits', () => {
+  const at = Date.now();
+  const sessions = [
+    { sessionId: 'a', cwd: '/repo', actions: [{ tool: 'Edit', detail: 'src/x.js', at }, { tool: 'Edit', detail: 'old.js', at: at - 3600000 }] },
+    { sessionId: 'b', cwd: '/repo/src', actions: [{ tool: 'Edit', detail: 'x.js', at }, { tool: 'Edit', detail: 'old.js', at }] },
+  ];
+  assert.deepStrictEqual(sessionOverlap(sessions, at).map((o) => o.file), ['/repo/src/x.js']);
+  assert.deepStrictEqual(sessionOverlap([{ ...sessions[0], cwd: '/a' }, { ...sessions[1], cwd: '/b' }], at), []);
+});
+
+test('primarySession prefers live sessions, then needs_input, then working, then the most recent', () => {
+  const s = (sessionId, status, updatedAt, extra = {}) => ({ sessionId, status, updatedAt, live: true, ...extra });
+  assert.strictEqual(primarySession([s('d', 'done', 3), s('w', 'working', 1), s('n', 'needs_input', 2)]).sessionId, 'n');
+  assert.strictEqual(primarySession([s('d', 'done', 3), s('w', 'working', 1)]).sessionId, 'w');
+  assert.strictEqual(primarySession([s('d1', 'done', 1), s('d2', 'done', 2)]).sessionId, 'd2');
+  assert.strictEqual(primarySession([s('dead', 'needs_input', 9, { live: false }), s('d', 'done', 1)]).sessionId, 'd');
+  assert.strictEqual(primarySession([s('old', 'needs_input', 1, { live: false }), s('new', 'done', 5, { live: false })]).sessionId, 'new');
+  assert.strictEqual(primarySession([]), null);
 });

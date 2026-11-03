@@ -1,11 +1,11 @@
 function renderChatBar(wt) {
   const chip = branchChip(wt);
-  const signature = `${wt.path}|${wt.sessions.map((s) => `${s.sessionId}:${s.live}`).join(',')}|${chatSession}|${chip}|${prChip(wt.pr)}|${extChips(wt)}`;
-  if (signature === chatBarSignature) return;
+  const signature = `${wt.path}|${wt.sessions.map((s) => `${s.sessionId}:${s.live}:${s.status}`).join(',')}|${chatSession}|${chip}|${prChip(wt.pr)}|${extChips(wt)}`;
+  if (signature === chatBarSignature || document.activeElement?.id === 'session-select') return;
   chatBarSignature = signature;
   const onBranch = `<span class="on-branch">Sur <span class="repo-chip">${esc(state.repoName)}</span>${chip}${prChip(wt.pr)}${extChips(wt)}</span>`;
   if (!wt.sessions.length) { $('chat-bar').innerHTML = `${onBranch} · Aucune session suivie pour ce worktree.`; return; }
-  const options = wt.sessions.map((s) => `<option value="${esc(s.sessionId)}" ${s.sessionId === chatSession ? 'selected' : ''}>${s.live ? '⌨ ' : ''}${esc((s.task || 'Session sans prompt').slice(0, 70))} · ${ago(s.updatedAt)}</option>`).join('');
+  const options = wt.sessions.map((s) => `<option value="${esc(s.sessionId)}" ${s.sessionId === chatSession ? 'selected' : ''}>${s.live ? '⌨ ' : ''}${s.live && (s.status === 'working' || backgroundOnly(s)) ? '● ' : ''}${s.live && s.status === 'needs_input' ? '❓ ' : ''}${esc((s.lastPrompt || s.task || 'Session sans prompt').slice(0, 70))} · ${ago(s.updatedAt)}</option>`).join('');
   $('chat-bar').innerHTML = `${onBranch}<label for="session-select">Session</label><select id="session-select">${options}</select>`;
 }
 
@@ -13,9 +13,13 @@ function renderComposer(s) {
   const live = !!s?.live;
   $('composer-input').disabled = !live;
   $('composer-send').disabled = !live;
+  $('composer-parallel').disabled = !live || sendingParallel;
+  $('composer-parallel').hidden = !live;
   $('composer-send').textContent = s?.status === 'working' ? 'Mettre en file' : 'Envoyer';
   $('queue-list').innerHTML = (s?.queue || []).map((q) => `<div class="queue-item"><span title="${esc(q.text)}">⏳ En file : ${esc(q.text)}</span><button data-dequeue="${esc(q.id)}" title="Retirer de la file">✕</button></div>`).join('');
-  if (live) $('composer-note').innerHTML = '';
+  const parallel = currentWt() ? liveSessions(currentWt()).length : 0;
+  if (live && parallel > 1) $('composer-note').textContent = `${parallel} sessions Claude travaillent dans ce worktree : évite qu'elles modifient les mêmes fichiers.`;
+  else if (live) $('composer-note').innerHTML = '';
   else if (s) $('composer-note').innerHTML = `Cette session ne tourne pas dans tmux : lecture seule. <button class="btn" id="resume-btn">Reprendre dans le cockpit</button>`;
   else $('composer-note').innerHTML = 'Lance une session avec « Nouvelle session » pour écrire à Claude depuis ici.';
 }
@@ -90,6 +94,27 @@ async function setSetting(key, value) {
   settingPending[key].set(s.sessionId, { value, queued: queue, at: Date.now() });
   updateSetting(key);
   toast(queue ? `Changement de ${setting.name} mis en file : il part à la fin du tour.` : setting.done);
+}
+
+let sendingParallel = false;
+
+async function sendParallel() {
+  if (sendingParallel) return;
+  const input = $('composer-input');
+  const text = input.value.trim();
+  const wt = currentWt();
+  if (!text || !wt) return;
+  hideSuggest();
+  sendingParallel = true;
+  $('composer-parallel').disabled = true;
+  const result = await post('/api/start', { worktree: wt.name, prompt: text });
+  sendingParallel = false;
+  $('composer-parallel').disabled = false;
+  if (!result.ok) { toast(result.data.error || 'Lancement impossible.', 'error'); return; }
+  input.value = '';
+  pendingParallel = { path: wt.path, known: new Set(wt.sessions.map((s) => s.sessionId)), at: Date.now() };
+  toast('Session parallèle lancée dans ce worktree.');
+  setTimeout(refresh, 2500);
 }
 
 async function loadChat(force) {

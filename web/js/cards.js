@@ -93,9 +93,17 @@ function cardActions(wt) {
   return actions.length ? `<div class="card-actions">${actions.join('')}</div>` : '';
 }
 
+function parallelRow(wt) {
+  const live = liveSessions(wt);
+  if (live.length < 2) return '';
+  const label = (s) => (s.status === 'needs_input' ? 'attend' : s.status === 'working' || backgroundOnly(s) ? 'en cours' : 'terminée');
+  const kind = (s) => (s.status === 'needs_input' ? 'needs_input' : s.status === 'working' || backgroundOnly(s) ? 'working' : 'done');
+  return `<div class="parallel-row" title="Sessions Claude qui travaillent en parallèle dans ce worktree">${live.map((s) => `<button class="parallel-pill ${kind(s)}" data-open-session="${esc(s.sessionId)}" title="${esc(s.task || 'Session sans prompt')}"><span class="dot"></span><span class="parallel-task">${esc((s.lastPrompt || s.task || 'Session').slice(0, 34))}</span><span class="parallel-state">${label(s)}</span></button>`).join('')}</div>`;
+}
+
 function card(wt) {
   const st = sessionStatus(wt);
-  const s = wt.sessions[0];
+  const s = primarySession(wt);
   const last = s?.actions?.[0];
   const meta = reviewChips(wt);
   const ctx = s?.usage?.context?.usedPercentage;
@@ -106,6 +114,7 @@ function card(wt) {
   if (wt.children?.length) meta.push(`<span class="chip link" title="${esc(wt.children.map((c) => `${c.name} : ${STATUS[c.status]?.label || c.status}`).join('\n'))}">→ ${wt.children.length} déléguée${wt.children.length > 1 ? 's' : ''}</span>`);
   if (ctx != null && level(ctx)) meta.push(`<span class="chip ctx-${level(ctx)}" title="Fenêtre de contexte de la session${level(ctx) === 'crit' ? ' : pense à /compact' : ''}">Contexte : ${Math.max(0, 100 - Math.round(ctx))} % restants</span>`);
   if (wt.sessions.some((x) => x.live)) meta.push('<span class="chip live">⌨ pilotable</span>');
+  if (wt.overlap?.length) meta.push(`<span class="chip parallel-warn" title="Fichiers modifiés par plusieurs sessions :\n${esc(wt.overlap.map((o) => o.file).join('\n'))}">⚠ ${wt.overlap.length} fichier${wt.overlap.length > 1 ? 's' : ''} en commun</span>`);
   if (wt.files.length) meta.push(`<span class="chip">✎ ${wt.files.length} fichier${wt.files.length > 1 ? 's' : ''}</span>`);
   if (wt.added || wt.deleted) meta.push(`<span class="chip"><span class="plus">+${wt.added}</span> <span class="minus">−${wt.deleted}</span></span>`);
   if (wt.ahead) meta.push(`<span class="chip">↑ ${wt.ahead} non poussé${wt.ahead > 1 ? 's' : ''}</span>`);
@@ -126,6 +135,7 @@ function card(wt) {
     ${s?.task ? `<div class="task">${esc(s.task)}</div>` : ''}
     ${st === 'needs_input' && s.message ? `<div class="message">${esc(s.message)}${s.updatedAt ? ` · depuis ${ago(s.statusSince || s.updatedAt)}` : ''}</div>` : ''}
     ${st === 'working' && last && !backgroundOnly(s) ? `<div class="action"><span class="tool">${esc(last.tool)}</span><span class="detail">${esc(last.detail)}</span></div>` : ''}
+    ${parallelRow(wt)}
     ${quickBlock(wt, s, st)}
     <div class="meta">${meta.join('')}</div>
     ${cardActions(wt)}
@@ -227,6 +237,14 @@ $('grid').addEventListener('click', async (e) => {
   const unarchiveBtn = t.closest('[data-unarchive]');
   if (unarchiveBtn) { unarchive(unarchiveBtn.dataset.unarchive, !!unarchiveBtn.dataset.resume); return; }
   if (t.closest('.archives summary')) { setTimeout(() => { archivesOpen = !!document.querySelector('#grid .archives')?.open; }, 0); return; }
+  const openSession = t.closest('[data-open-session]');
+  if (openSession) {
+    select(openSession.closest('.card').dataset.path);
+    tab = 'chat'; renderTabs();
+    chatSession = openSession.dataset.openSession; chatBarSignature = null;
+    renderPanel(); loadChat(true);
+    return;
+  }
   if (t.closest('a')) return;
   const c = t.closest('.card, .tool-pill');
   if (!c) return;

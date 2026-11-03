@@ -53,3 +53,5 @@
 
 .msg .read { border: 0; background: none; color: var(--blue); font-size: 11.5px; cursor: pointer; padding: 0; margin-left: 8px; }
 .msg .read-top { float: right; margin: -2px -4px 4px 10px; border: 1px solid var(--border); background: var(--surface); color: var(--blue); font-size: 11.5px; font-weight: 600; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.composer-buttons { display: flex; flex-direction: column; gap: 6px; }
+.composer-buttons .btn[hidden] { display: none; }

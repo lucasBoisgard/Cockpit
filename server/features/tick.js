@@ -28,7 +28,8 @@ function detectTransitions(snap) {
       if (!event) continue;
       pushEvent({ worktree: wt.name, path: wt.path, sessionId: session.sessionId, ...event });
       const link = links[wt.name];
-      if (event.type === 'done' && link?.notify && readSession(link.parentSessionId)) enqueue(link.parentSessionId, delegatedDoneText(wt.name, session.lastAssistant));
+      const first = wt.sessions.reduce((a, b) => (b.startedAt < a.startedAt ? b : a));
+      if (event.type === 'done' && link?.notify && first.sessionId === session.sessionId && readSession(link.parentSessionId)) enqueue(link.parentSessionId, delegatedDoneText(wt.name, session.lastAssistant));
     }
   }
   const appNow = snap.app?.state || null;

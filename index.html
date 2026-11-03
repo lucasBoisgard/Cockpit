@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="/web/css/reader.css">
 <link rel="stylesheet" href="/web/css/agents.css">
 <link rel="stylesheet" href="/web/css/skills.css">
+<link rel="stylesheet" href="/web/css/parallel.css">
 </head>
 <body>
 <header>
@@ -71,7 +72,10 @@
       <div class="queue-list" id="queue-list"></div>
       <div class="composer-row">
         <textarea id="composer-input" placeholder="Écris à Claude… (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)"></textarea>
-        <button class="btn primary" id="composer-send">Envoyer</button>
+        <div class="composer-buttons">
+          <button class="btn primary" id="composer-send">Envoyer</button>
+          <button class="btn" id="composer-parallel" title="Lance une nouvelle session Claude dans ce worktree avec ce message, sans attendre la session en cours">En parallèle</button>
+        </div>
       </div>
       <div class="composer-foot">
         <div class="note" id="composer-note"></div>

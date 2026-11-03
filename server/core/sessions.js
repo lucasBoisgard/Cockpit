@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 const STALE_MS = 30 * 60 * 1000;
 
 function withClaudeStatus(session, panes) {
@@ -14,6 +16,30 @@ function effectiveStatus(session, panes, now) {
 
 function turnStatus(session) {
   return session.stale || (session.agentsRunning > 0 && ['done', 'idle'].includes(session.status)) ? 'working' : session.status;
+}
+
+const EDITING_TOOLS = ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'];
+
+const OVERLAP_WINDOW_MS = 30 * 60 * 1000;
+
+function primarySession(sessions) {
+  const live = sessions.filter((s) => s.live);
+  if (!live.length) return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)[0] || null;
+  const rank = (s) => (s.status === 'needs_input' ? 0 : turnStatus(s) === 'working' ? 1 : 2);
+  return [...live].sort((a, b) => rank(a) - rank(b) || b.updatedAt - a.updatedAt)[0];
+}
+
+function sessionOverlap(sessions, now = Date.now()) {
+  const editors = new Map();
+  for (const session of sessions) {
+    for (const action of session.actions || []) {
+      if (!EDITING_TOOLS.includes(action.tool) || !action.detail || (action.at && now - action.at > OVERLAP_WINDOW_MS)) continue;
+      const file = path.resolve(session.cwd || '/', action.detail);
+      if (!editors.has(file)) editors.set(file, new Set());
+      editors.get(file).add(session.sessionId);
+    }
+  }
+  return [...editors].filter(([, ids]) => ids.size > 1).map(([file, ids]) => ({ file, sessions: [...ids] })).sort((a, b) => a.file.localeCompare(b.file));
 }
 
 function paneOf(session, panes) {
@@ -71,4 +97,4 @@ function reviewPrompt(prRef, prompt) {
   return `Review the pull request ${prRef}.${prompt && String(prompt).trim() ? `\n\n${String(prompt).trim()}` : ''}`;
 }
 
-module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };
+module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, primarySession, sessionOverlap, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };
