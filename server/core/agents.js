@@ -148,8 +148,18 @@ function agentTree({ main, agents, workflows, now }) {
   return root;
 }
 
+const GRACE_MS = 45 * 1000;
+
+function agentNodes(node) {
+  return node.children.flatMap((child) => [...(child.kind === 'agent' ? [child] : []), ...agentNodes(child)]);
+}
+
+function countActive(tree, updatedAt, now) {
+  return agentNodes(tree).filter((n) => n.state === 'running' || (n.background && n.state === 'done' && n.at > (updatedAt || 0) && now - n.at < GRACE_MS)).length;
+}
+
 function countRunning(node) {
   return node.children.reduce((n, child) => n + (child.kind === 'agent' && child.state === 'running' ? 1 : 0) + countRunning(child), 0);
 }
 
-module.exports = { emptyActivity, applyText, agentActivity, emptyProgress, applyJournal, workflowProgress, agentTree, countRunning };
+module.exports = { emptyActivity, applyText, agentActivity, emptyProgress, applyJournal, workflowProgress, agentTree, countRunning, countActive };

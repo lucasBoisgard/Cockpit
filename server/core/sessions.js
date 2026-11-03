@@ -12,6 +12,10 @@ function effectiveStatus(session, panes, now) {
   return { ...merged, status: 'idle', statusSince: merged.updatedAt, stale: true };
 }
 
+function turnStatus(session) {
+  return session.stale || (session.agentsRunning > 0 && ['done', 'idle'].includes(session.status)) ? 'working' : session.status;
+}
+
 function paneOf(session, panes) {
   if (!session) return null;
   const pane = session.tmuxPane && session.status !== 'ended' ? panes.get(session.tmuxPane) : null;
@@ -67,4 +71,4 @@ function reviewPrompt(prRef, prompt) {
   return `Review the pull request ${prRef}.${prompt && String(prompt).trim() ? `\n\n${String(prompt).trim()}` : ''}`;
 }
 
-module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };
+module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };

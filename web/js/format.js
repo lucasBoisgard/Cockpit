@@ -13,13 +13,20 @@ function span(ms) {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 }
 
+const backgroundOnly = (s) => !!s?.agentsRunning && ['done', 'idle'].includes(s.status);
+
+function statusLabel(s, st, labels) {
+  return backgroundOnly(s) ? 'Agents en arrière-plan' : labels[st].label;
+}
+
 function statusAge(s, st) {
+  if (backgroundOnly(s)) return `${s.agentsRunning} agent${s.agentsRunning > 1 ? 's' : ''}`;
   if (st === 'working') return span(Date.now() - (s.turnStartedAt || s.statusSince || s.updatedAt));
   return `il y a ${ago(st === s.status ? s.statusSince || s.updatedAt : s.updatedAt)}`;
 }
 
 function workedTime(s, st) {
-  return (s?.workedMs || 0) + (st === 'working' ? Date.now() - (s.statusSince || s.updatedAt) : 0);
+  return (s?.workedMs || 0) + (st === 'working' && !backgroundOnly(s) ? Date.now() - (s.statusSince || s.updatedAt) : 0);
 }
 
 function duration(ms) {
@@ -35,4 +42,4 @@ function fmtTokens(n) {
 
 const fmtUsd = (n) => (n == null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`);
 
-if (typeof module !== 'undefined') module.exports = { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd };
+if (typeof module !== 'undefined') module.exports = { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd, backgroundOnly, statusLabel };

@@ -71,10 +71,10 @@ function quickBlock(wt, s, st) {
     if (s.question?.options?.length) parts.push(`<div class="quick-keys">${s.question.options.map((o, i) => keyBtn(i + 1, `${i + 1}. ${o}`)).join('')}</div>`);
     else if (s.permission) parts.push(`<div class="quick-keys">${keyBtn(1, 'Autoriser', 'allow')}${keyBtn(2, 'Toujours autoriser')}${keyBtn(3, 'Refuser', 'deny')}</div>`);
   }
-  if (s.lastAssistant && ['done', 'idle'].includes(st)) {
+  if (s.lastAssistant && ['done', 'idle'].includes(s.status)) {
     parts.push(`<div class="peek ${openPeeks.has(wt.path) ? 'open' : ''}" data-peek="${esc(wt.path)}" title="Clique pour déplier"><b>Claude :</b> ${esc(s.lastAssistant)}<button class="read" data-read-session="${esc(s.sessionId)}" data-read-title="${esc(wt.name)}">Lire ⤢</button></div>`);
   }
-  if (s.live && st !== 'working') parts.push(`<form class="quick" data-quick="${esc(s.sessionId)}"><input name="q" placeholder="${st === 'needs_input' ? 'Répondre à Claude…' : 'Message rapide à Claude…'}" autocomplete="off" aria-label="Message rapide à Claude"></form>`);
+  if (s.live && s.status !== 'working') parts.push(`<form class="quick" data-quick="${esc(s.sessionId)}"><input name="q" placeholder="${st === 'needs_input' ? 'Répondre à Claude…' : 'Message rapide à Claude…'}" autocomplete="off" aria-label="Message rapide à Claude"></form>`);
   return parts.join('');
 }
 
@@ -120,12 +120,12 @@ function card(wt) {
     <div class="top">
       ${selecting ? `<input type="checkbox" class="pick" data-pick="${esc(wt.path)}" ${picked.has(wt.path) ? 'checked' : ''} aria-label="Sélectionner ${esc(wt.name)}">` : ''}
       <div><div class="name">${esc(wt.name)}</div><div class="branch-row">${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}</div></div>
-      <span class="badge ${st}"><span class="dot"></span>${STATUS[st].label}${s ? ` · ${statusAge(s, st)}` : ''}</span>
+      <span class="badge ${st}"><span class="dot"></span>${s ? statusLabel(s, st, STATUS) : STATUS[st].label}${s ? ` · ${statusAge(s, st)}` : ''}</span>
       <button class="pin ${pinned ? 'on' : ''}" data-pin="${esc(wt.path)}" title="${pinned ? 'Désépingler' : 'Épingler'}">${pinned ? '★' : '☆'}</button>
     </div>
     ${s?.task ? `<div class="task">${esc(s.task)}</div>` : ''}
     ${st === 'needs_input' && s.message ? `<div class="message">${esc(s.message)}${s.updatedAt ? ` · depuis ${ago(s.statusSince || s.updatedAt)}` : ''}</div>` : ''}
-    ${st === 'working' && last ? `<div class="action"><span class="tool">${esc(last.tool)}</span><span class="detail">${esc(last.detail)}</span></div>` : ''}
+    ${st === 'working' && last && !backgroundOnly(s) ? `<div class="action"><span class="tool">${esc(last.tool)}</span><span class="detail">${esc(last.detail)}</span></div>` : ''}
     ${quickBlock(wt, s, st)}
     <div class="meta">${meta.join('')}</div>
     ${cardActions(wt)}

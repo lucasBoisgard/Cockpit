@@ -61,6 +61,7 @@ let cleanupRows = [];
 function sessionStatus(wt) {
   const s = wt.sessions[0];
   if (!s) return 'none';
+  if (backgroundOnly(s)) return 'working';
   return s.status || 'idle';
 }
 

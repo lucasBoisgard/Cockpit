@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { STALE_MS, withClaudeStatus, effectiveStatus, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
+const { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
 
 function panesWith(entries, { bySession = [], claudeStatus = [] } = {}) {
   const panes = new Map(entries);
@@ -89,4 +89,14 @@ test('sessionEvent still reports done after a stale turn when callers pass the l
   const stale = effectiveStatus({ sessionId: 's', status: 'working', updatedAt: 0 }, panes, STALE_MS);
   assert.strictEqual(stale.stale, true);
   assert.strictEqual(sessionEvent('working', { ...stale, status: 'done' })?.type, 'done');
+});
+
+test('turnStatus keeps a turn working while background agents run, so done fires once they finish', () => {
+  assert.strictEqual(turnStatus({ status: 'done', agentsRunning: 2 }), 'working');
+  assert.strictEqual(turnStatus({ status: 'idle', agentsRunning: 1 }), 'working');
+  assert.strictEqual(turnStatus({ status: 'needs_input', agentsRunning: 1 }), 'needs_input');
+  assert.strictEqual(turnStatus({ status: 'done', agentsRunning: 0 }), 'done');
+  assert.strictEqual(turnStatus({ status: 'idle', stale: true }), 'working');
+  assert.strictEqual(sessionEvent('working', { status: turnStatus({ status: 'done', agentsRunning: 0 }) })?.type, 'done');
+  assert.strictEqual(sessionEvent('working', { status: turnStatus({ status: 'done', agentsRunning: 1 }) }), null);
 });

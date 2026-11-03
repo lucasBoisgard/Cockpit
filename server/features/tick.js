@@ -1,6 +1,6 @@
 const { TICK_MS } = require('../config');
 const { loadStore, readSession } = require('../io/store');
-const { sessionEvent, delegatedDoneText } = require('../core/sessions');
+const { sessionEvent, delegatedDoneText, turnStatus } = require('../core/sessions');
 const { appWentKo } = require('../core/app');
 const { invalidateSnapshot } = require('../cache');
 const { listWorktrees } = require('./worktrees');
@@ -22,7 +22,7 @@ function detectTransitions(snap) {
   for (const wt of snap.worktrees) {
     for (const session of wt.sessions) {
       const before = lastStatus.get(session.sessionId);
-      const live = session.stale ? { ...session, status: 'working' } : session;
+      const live = { ...session, status: turnStatus(session) };
       lastStatus.set(session.sessionId, live.status);
       const event = sessionEvent(before, live);
       if (!event) continue;

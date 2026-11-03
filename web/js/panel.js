@@ -40,7 +40,7 @@ function renderPanel() {
   const s = currentSession();
   $('panel-head').innerHTML = `
     <div><div class="name">${esc(wt.name)}</div><div class="branch-row"><span class="repo-chip" title="Repo">${esc(state.repoName)}</span>${branchChip(wt)}${prChip(wt.pr)}<span class="branch">${esc(wt.path)}</span></div>${extChips(wt) ? `<div class="branch-row">${extChips(wt)}</div>` : ''}</div>
-    ${headEnd(`<span class="badge ${st}"><span class="dot"></span>${STATUS[st].label}</span>`)}`;
+    ${headEnd(`<span class="badge ${st}"><span class="dot"></span>${wt.sessions[0] ? statusLabel(wt.sessions[0], st, STATUS) : STATUS[st].label}</span>`)}`;
   renderReport(wt);
   renderChatBar(wt);
   renderComposer(s);

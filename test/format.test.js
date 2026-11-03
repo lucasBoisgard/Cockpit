@@ -66,3 +66,15 @@ test('fmtUsd shows two decimals or a dash', () => {
   assert.strictEqual(fmtUsd(0.5), '0,50 $');
   assert.match(fmtUsd(1234.5), /^1\s234,50 \$$/);
 });
+
+test('a finished turn with background agents reads as agents at work, without counting working time', () => {
+  const { backgroundOnly, statusLabel, statusAge, workedTime } = require('../web/js/format');
+  const labels = { working: { label: 'En cours' }, done: { label: 'Terminé' } };
+  const s = { status: 'done', agentsRunning: 2, workedMs: 1000, statusSince: 0, updatedAt: 0 };
+  assert.strictEqual(backgroundOnly(s), true);
+  assert.strictEqual(statusLabel(s, 'working', labels), 'Agents en arrière-plan');
+  assert.strictEqual(statusAge(s, 'working'), '2 agents');
+  assert.strictEqual(workedTime(s, 'working'), 1000);
+  assert.strictEqual(backgroundOnly({ ...s, status: 'working' }), false);
+  assert.strictEqual(statusLabel({ ...s, agentsRunning: 0 }, 'done', labels), 'Terminé');
+});

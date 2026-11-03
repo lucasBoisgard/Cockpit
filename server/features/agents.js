@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readJson, readSession } = require('../io/store');
 const { readTail, subdirs } = require('../io/files');
-const { emptyActivity, applyText, emptyProgress, applyJournal, agentTree, countRunning } = require('../core/agents');
+const { emptyActivity, applyText, emptyProgress, applyJournal, agentTree, countRunning, countActive } = require('../core/agents');
 const { effectiveStatus } = require('../core/sessions');
 const { transcriptFor } = require('./chat');
 const { builtinCommandNames } = require('./commands');
@@ -59,10 +59,7 @@ function agentsIn(dir, workflowId, now) {
   });
 }
 
-function agentsOf(sessionId, now = Date.now()) {
-  const session = readSession(String(sessionId || ''));
-  const transcript = transcriptFor(session);
-  if (!transcript) return null;
+function subagentsOf(transcript, now) {
   const dir = path.join(transcript.replace(/\.jsonl$/, ''), 'subagents');
   const workflowsDir = path.join(dir, 'workflows');
   const workflows = new Map();
@@ -74,6 +71,23 @@ function agentsOf(sessionId, now = Date.now()) {
     workflows.set(id, journalOf(journal, stat, now));
     agents.push(...agentsIn(path.join(workflowsDir, id), id, now));
   }
+  return { agents, workflows };
+}
+
+function agentsRunning(session, now = Date.now()) {
+  if (!session.live || !['done', 'idle'].includes(session.status)) return 0;
+  const transcript = transcriptFor(session);
+  if (!transcript || !fs.existsSync(path.join(transcript.replace(/\.jsonl$/, ''), 'subagents'))) return 0;
+  const { agents, workflows } = subagentsOf(transcript, now);
+  if (!agents.length) return 0;
+  return countActive(agentTree({ main: { status: session.status, activity: null }, agents, workflows, now }), session.updatedAt, now);
+}
+
+function agentsOf(sessionId, now = Date.now()) {
+  const session = readSession(String(sessionId || ''));
+  const transcript = transcriptFor(session);
+  if (!transcript) return null;
+  const { agents, workflows } = subagentsOf(transcript, now);
   const last = session.actions?.[0];
   const status = effectiveStatus(session, {}, now).status;
   const stat = fs.statSync(transcript, { throwIfNoEntry: false });
@@ -84,4 +98,4 @@ function agentsOf(sessionId, now = Date.now()) {
   return { tree, running: countRunning(tree) };
 }
 
-module.exports = { agentsOf, follow };
+module.exports = { agentsOf, agentsRunning, forgetOld, follow };
