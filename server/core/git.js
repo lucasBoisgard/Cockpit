@@ -91,6 +91,27 @@ function describeWorktree(wt, name, { status, numstat, lastCommit }, review) {
   };
 }
 
+function assignWorktreeNames(worktrees, primary) {
+  const names = new Map();
+  const taken = new Set();
+  const ordered = [...worktrees].sort((a, b) => (a.repo === primary ? 0 : 1) - (b.repo === primary ? 0 : 1));
+  for (const wt of ordered) {
+    const repo = wt.repo || primary;
+    const own = wt.path === repo ? 'main' : path.basename(wt.path);
+    const base = repo === primary ? own : `${path.basename(repo)}.${own}`;
+    let name = base;
+    for (let i = 2; taken.has(name); i++) name = `${base}-${i}`;
+    taken.add(name);
+    names.set(wt.path, name);
+  }
+  return names;
+}
+
+function repoCandidates({ primary, own, extra, sessions, now, recentMs }) {
+  const recent = (sessions || []).filter((s) => s.cwd && now - (s.updatedAt || 0) < recentMs).map((s) => s.cwd);
+  return [...new Set([primary, own, ...(extra || []), ...recent].filter(Boolean))];
+}
+
 function repoLabel(remote, top) {
   const match = String(remote || '').trim().match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
   return match ? match[1] : path.basename(top);
@@ -125,4 +146,4 @@ function parseCommitLog(log) {
   });
 }
 
-module.exports = { validSha, parseWorktreeList, parseStatus, parseNumstat, describeWorktree, repoLabel, rangeSpec, baseRefs, parseChanges, parseCommitLog };
+module.exports = { validSha, parseWorktreeList, parseStatus, parseNumstat, describeWorktree, assignWorktreeNames, repoCandidates, repoLabel, rangeSpec, baseRefs, parseChanges, parseCommitLog };

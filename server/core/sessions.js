@@ -80,7 +80,7 @@ function validName(name) {
 
 const validPrRef = (ref) => /^(https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+(\/[\w./-]*)?|#?\d+)$/.test(ref);
 
-const tmuxSessionName = (name, now) => `cw-${name}-${now.toString(36).slice(-4)}`;
+const tmuxSessionName = (name, now) => `cw-${name.replace(/[.:]/g, '_')}-${now.toString(36).slice(-4)}`;
 
 function reviewSystemPrompt(skills, reportFile) {
   return [

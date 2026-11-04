@@ -81,8 +81,9 @@ async function archive(wtPath) {
   refresh();
 }
 
-async function unarchive(name, resume) {
-  const result = await post('/api/unarchive', { name, resume });
+async function unarchive(archivedPath, resume) {
+  const name = (state.archives || []).find((a) => a.path === archivedPath)?.name || archivedPath.split('/').pop();
+  const result = await post('/api/unarchive', { path: archivedPath, resume });
   toast(result.ok ? (result.data.warning || `${name} restauré${resume ? ', la session reprend dans tmux' : ''}.`) : result.data.error || 'Restauration impossible.', result.ok && !result.data.warning ? '' : 'error');
   if (result.ok && resume) pendingSelect = name;
   refresh();

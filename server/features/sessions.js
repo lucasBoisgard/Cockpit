@@ -8,7 +8,7 @@ const { loadStore, saveStore, readSession, writeSessionOverride, sessionsIn } = 
 const { paneOf, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt } = require('../core/sessions');
 const { usageWorktree } = require('../core/usage');
 const { invalidateSnapshot } = require('../cache');
-const { listWorktrees, worktreeName, livePanes, hasTranscript } = require('./worktrees');
+const { listWorktrees, worktreeName, isMainCheckout, livePanes, hasTranscript } = require('./worktrees');
 const { cachedPr } = require('./pr');
 
 const launchClaude = (name, cwd, args) => tmux(['new-session', '-d', '-s', name, ...TMUX_SIZE, '-c', cwd, '-e', TMUX_PATH, CLAUDE_BIN, ...args]);
@@ -78,16 +78,16 @@ async function removeWorktree(wt, force) {
   if (wt.claudeLock) {
     for (let i = 0; i < 20 && claudeLockAlive(wt.claudeLock); i++) await sleep(150);
     if (claudeLockAlive(wt.claudeLock)) return { error: `Une session Claude ouverte hors cockpit tient ce worktree (pid ${wt.claudeLock.pid}) : quitte-la (/exit) puis réessaie.` };
-    await run('git', ['-C', REPO, 'worktree', 'unlock', wt.path]);
+    await run('git', ['-C', wt.repo || REPO, 'worktree', 'unlock', wt.path]);
   }
-  const removed = await run('git', ['-C', REPO, 'worktree', 'remove', ...(force ? ['--force'] : []), wt.path]);
+  const removed = await run('git', ['-C', wt.repo || REPO, 'worktree', 'remove', ...(force ? ['--force'] : []), wt.path]);
   return removed.ok ? { ok: true } : { error: removed.stderr.trim() };
 }
 
 async function closeWorktree({ path: wtPath, force, deleteBranch }) {
   const wt = (await listWorktrees()).find((w) => w.path === wtPath);
   if (!wt) return { error: 'Worktree inconnu.' };
-  if (wt.path === REPO) return { error: 'Le repo principal ne peut pas être fermé.' };
+  if (isMainCheckout(wt)) return { error: 'Un checkout principal ne peut pas être fermé.' };
   if (wt.locked) return { error: 'Ce worktree est verrouillé (git worktree unlock pour le libérer).' };
   const dirty = ((await git(wt.path, ['status', '--porcelain'])) || '').trim();
   if (dirty && !force) return { error: 'Ce worktree a des changements non commités.', dirty: true };
@@ -96,7 +96,7 @@ async function closeWorktree({ path: wtPath, force, deleteBranch }) {
   if (removed.error) return removed;
   for (const suffix of ['.json', '.report.json']) fs.rmSync(path.join(REVIEWS_DIR, `${worktreeName(wt.path)}${suffix}`), { force: true });
   if (deleteBranch && wt.branch) {
-    const branch = await run('git', ['-C', REPO, 'branch', '-d', wt.branch]);
+    const branch = await run('git', ['-C', wt.repo || REPO, 'branch', '-d', wt.branch]);
     if (!branch.ok) return { ok: true, warning: `Worktree fermé, branche ${wt.branch} conservée : ${branch.stderr.trim()}` };
   }
   return { ok: true };
@@ -105,14 +105,15 @@ async function closeWorktree({ path: wtPath, force, deleteBranch }) {
 async function archiveWorktree({ path: wtPath }) {
   const wt = (await listWorktrees()).find((w) => w.path === wtPath);
   if (!wt) return { error: 'Worktree inconnu.' };
-  if (wt.path === REPO) return { error: 'Le repo principal ne peut pas être archivé.' };
+  if (isMainCheckout(wt)) return { error: 'Un checkout principal ne peut pas être archivé.' };
   if (wt.locked) return { error: 'Ce worktree est verrouillé.' };
   if (((await git(wt.path, ['status', '--porcelain'])) || '').trim()) return { error: 'Ce worktree a des changements non commités : commite-les avant d’archiver, ou ferme-le.' };
   const sessions = sessionsIn(wt.path).filter(hasTranscript).sort((a, b) => b.updatedAt - a.updatedAt);
-  const pr = cachedPr(wt.branch);
+  const pr = cachedPr(wt.branch, wt.repo);
   const entry = {
     name: worktreeName(wt.path),
     path: wt.path,
+    repo: wt.repo || REPO,
     branch: wt.branch || null,
     head: wt.head || null,
     sessions: sessions.map((s) => ({ sessionId: s.sessionId, task: s.task || null, lastAssistant: s.lastAssistant || null })),
@@ -121,21 +122,22 @@ async function archiveWorktree({ path: wtPath }) {
   };
   const removed = await removeWorktree(wt, false);
   if (removed.error) return removed;
-  const archives = loadStore('worktree-archive.json', []).filter((a) => a.name !== entry.name);
+  const archives = loadStore('worktree-archive.json', []).filter((a) => a.path !== entry.path);
   saveStore('worktree-archive.json', [entry, ...archives].slice(0, 200));
   invalidateSnapshot();
   return { ok: true };
 }
 
-async function unarchiveWorktree({ name, resume }) {
+async function unarchiveWorktree({ path: archivedPath, name, resume }) {
   const archives = loadStore('worktree-archive.json', []);
-  const entry = archives.find((a) => a.name === name);
+  const entry = archives.find((a) => (archivedPath ? a.path === archivedPath : a.name === name));
   if (!entry) return { error: 'Archive inconnue.' };
   if (fs.existsSync(entry.path)) return { error: `${entry.path} existe déjà.` };
-  const hasBranch = entry.branch && (await run('git', ['-C', REPO, 'rev-parse', '--verify', '--quiet', `refs/heads/${entry.branch}`])).ok;
-  const added = await run('git', ['-C', REPO, 'worktree', 'add', ...(hasBranch ? [entry.path, entry.branch] : ['--detach', entry.path, entry.head || 'HEAD'])]);
+  const repo = entry.repo || REPO;
+  const hasBranch = entry.branch && (await run('git', ['-C', repo, 'rev-parse', '--verify', '--quiet', `refs/heads/${entry.branch}`])).ok;
+  const added = await run('git', ['-C', repo, 'worktree', 'add', ...(hasBranch ? [entry.path, entry.branch] : ['--detach', entry.path, entry.head || 'HEAD'])]);
   if (!added.ok) return { error: added.stderr.trim() };
-  saveStore('worktree-archive.json', archives.filter((a) => a.name !== name));
+  saveStore('worktree-archive.json', archives.filter((a) => a !== entry));
   invalidateSnapshot();
   const last = entry.sessions?.[0];
   if (resume && last) {

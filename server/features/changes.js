@@ -1,9 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { BASE_BRANCH } = require('../config');
 const { run, git } = require('../io/exec');
 const { validSha, rangeSpec, baseRefs, parseChanges, parseCommitLog } = require('../core/git');
-const { findWorktree } = require('./worktrees');
+const { findWorktree, defaultBranch, baseBranchOf } = require('./worktrees');
 const { snapshot } = require('./snapshot');
 const { cachedPr } = require('./pr');
 
@@ -25,15 +24,8 @@ async function changesTarget(targetPath) {
   return repo ? { path: repo.path, branch: repo.branch, external: true } : null;
 }
 
-async function defaultBranch(repoPath) {
-  const head = ((await git(repoPath, ['rev-parse', '--abbrev-ref', 'origin/HEAD'])) || '').trim();
-  if (head.startsWith('origin/')) return head.slice('origin/'.length);
-  for (const branch of ['main', 'master']) if (await git(repoPath, ['rev-parse', '--verify', '-q', `origin/${branch}`])) return branch;
-  return BASE_BRANCH;
-}
-
 async function ticketBase(wt) {
-  const { fetch, refs } = wt.external ? baseRefs(null, await defaultBranch(wt.path)) : baseRefs(cachedPr(wt.branch)?.base, BASE_BRANCH);
+  const { fetch, refs } = wt.external ? baseRefs(null, await defaultBranch(wt.path)) : baseRefs(cachedPr(wt.branch, wt.repo)?.base, await baseBranchOf(wt.repo));
   await fetchBase(wt.path, fetch);
   for (const ref of refs) {
     const sha = ((await git(wt.path, ['merge-base', 'HEAD', ref])) || '').trim();
@@ -43,7 +35,7 @@ async function ticketBase(wt) {
 }
 
 async function prBase(wt) {
-  const pr = !wt.external && cachedPr(wt.branch);
+  const pr = !wt.external && cachedPr(wt.branch, wt.repo);
   if (!pr || pr.state !== 'OPEN') return null;
   const sha = ((await git(wt.path, ['merge-base', 'HEAD', `origin/${wt.branch}`])) || '').trim();
   return validSha(sha) ? { number: pr.number, branch: wt.branch, sha } : null;

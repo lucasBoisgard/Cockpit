@@ -36,7 +36,7 @@ function appPane() {
       ${app.serving
         ? `<div class="branch">App servie depuis le worktree <b>${esc(app.serving.name)}</b> · ⎇ ${esc(app.serving.branch || '?')} @ ${esc(String(app.serving.sha).slice(0, 7))} (commit, sans les changements non commités) <button class="btn" data-app="unserve">Revenir au checkout principal</button></div>`
         : `<div class="branch">App lancée depuis ${esc(state.repo)} · branche ${esc(main ? branchLabel(main) : '?')}</div>`}
-      ${!app.serving && currentWt() && currentWt().name !== 'main' && main && branchLabel(currentWt()) !== branchLabel(main) ? `<div class="reason warn">Ce worktree est sur ⎇ ${esc(branchLabel(currentWt()))} : l'app sert ⎇ ${esc(branchLabel(main))}, pas ce worktree. <button class="btn" data-serve="${esc(currentWt().path)}">Servir ce worktree</button></div>` : ''}
+      ${!app.serving && canServe(currentWt()) && main && branchLabel(currentWt()) !== branchLabel(main) ? `<div class="reason warn">Ce worktree est sur ⎇ ${esc(branchLabel(currentWt()))} : l'app sert ⎇ ${esc(branchLabel(main))}, pas ce worktree. <button class="btn" data-serve="${esc(currentWt().path)}">Servir ce worktree</button></div>` : ''}
       ${lines.join('')}<div class="app-actions">${actions}</div>
     </div>`;
 }

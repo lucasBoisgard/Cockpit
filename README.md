@@ -51,7 +51,8 @@ No npm dependency and no build step: Node, git and tmux only (`gh` for the PR fe
 
 | Key | Default | Role |
 | --- | --- | --- |
-| `repo` | main checkout of the current directory | Repository whose worktrees are shown |
+| `repo` | main checkout of the current directory | Main repository: new sessions, the app and the history work on it |
+| `repos` | none | Other repositories whose worktrees are shown. The cockpit's own repository and every repository where a Claude session ran in the last 14 days are shown anyway, each card labelled with its repository |
 | `container` | none | Docker container to run in: `start.sh` re-runs itself there with `docker exec` |
 | `hosts` | `[]` | Extra hostnames allowed in the `Host` header |
 | `claudeBin` | `~/.local/bin/claude` | Claude Code binary used for sessions started from the cockpit |

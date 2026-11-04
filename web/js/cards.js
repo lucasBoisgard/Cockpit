@@ -1,4 +1,5 @@
 const branchLabel = (wt) => wt.branch || `HEAD détachée @ ${wt.head || '?'}`;
+const canServe = (wt) => !!wt && !wt.mainCheckout && !wt.otherRepo;
 
 function branchChip(wt) {
   const change = branchChanges.get(wt.path);
@@ -31,7 +32,7 @@ function renderCounters() {
   ].map(([cls, n, label]) => `<span class="counter ${n ? cls : ''}">${n} ${label}</span>`).join('')
     + limitAlerts().map((w) => `<span class="counter limit-${w.level}" title="${esc(resetText(w))}">Limite ${esc(w.label)} : ${w.pct} % utilisés</span>`).join('');
   $('updated').textContent = `${state.worktrees.length} worktrees · mis à jour ${new Date(state.generatedAt).toLocaleTimeString()}`;
-  $('worktree-names').innerHTML = state.worktrees.filter((w) => w.name !== 'main').map((w) => `<option value="${esc(w.name)}">`).join('');
+  $('worktree-names').innerHTML = state.worktrees.filter((w) => !w.mainCheckout).map((w) => `<option value="${esc(w.name)}">`).join('');
 }
 
 function shellCard() {
@@ -85,8 +86,8 @@ function cardActions(wt) {
     if (wt.pr?.state === 'OPEN' && wt.ahead) actions.push(`<button class="btn" data-push="${esc(wt.path)}">Pousser ${wt.ahead} commit${wt.ahead > 1 ? 's' : ''}</button>`);
     else if (wt.pr?.state !== 'OPEN' && wt.pr?.state !== 'MERGED' && (wt.ahead || !wt.upstream) && wt.lastCommit) actions.push(`<button class="btn" data-pr="${esc(wt.path)}">Pousser et ouvrir la PR</button>`);
   }
-  if (state.app && wt.name !== 'main' && wt.headSha && serving?.name !== wt.name) actions.push(`<button class="btn" data-serve="${esc(wt.path)}" title="Relance l'app sur le dernier commit de ce worktree">Servir l'app</button>`);
-  if (wt.name !== 'main' && !wt.locked) {
+  if (state.app && canServe(wt) && wt.headSha && serving?.name !== wt.name) actions.push(`<button class="btn" data-serve="${esc(wt.path)}" title="Relance l'app sur le dernier commit de ce worktree">Servir l'app</button>`);
+  if (!wt.mainCheckout && !wt.locked) {
     actions.push(`<button class="btn ${wt.pr?.state === 'MERGED' ? 'primary' : ''}" data-archive="${esc(wt.path)}" title="Retire le worktree en gardant la branche et la session">Archiver</button>`);
     actions.push(`<button class="card-close" data-close="${esc(wt.path)}" title="Fermer ce worktree">Fermer</button>`);
   }
@@ -128,7 +129,7 @@ function card(wt) {
   return `<div class="card ${st} ${selected === wt.path ? 'selected' : ''} ${freshDone.has(wt.path) && st === 'done' ? 'fresh' : ''}" data-path="${esc(wt.path)}">
     <div class="top">
       ${selecting ? `<input type="checkbox" class="pick" data-pick="${esc(wt.path)}" ${picked.has(wt.path) ? 'checked' : ''} aria-label="Sélectionner ${esc(wt.name)}">` : ''}
-      <div><div class="name">${esc(wt.name)}</div><div class="branch-row">${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}</div></div>
+      <div><div class="name">${esc(wt.label || wt.name)}</div><div class="branch-row">${wt.otherRepo ? `<span class="repo-chip" title="${esc(wt.repo)}">${esc(wt.repoName)}</span>` : ''}${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}</div></div>
       <span class="badge ${st}"><span class="dot"></span>${s ? statusLabel(s, st, STATUS) : STATUS[st].label}${s ? ` · ${statusAge(s, st)}` : ''}</span>
       <button class="pin ${pinned ? 'on' : ''}" data-pin="${esc(wt.path)}" title="${pinned ? 'Désépingler' : 'Épingler'}">${pinned ? '★' : '☆'}</button>
     </div>
@@ -147,8 +148,8 @@ function archivesSection() {
   const rows = state.archives.map((a) => `<div class="archive-row">
       <div class="grow"><b>${esc(a.name)}</b> · ⎇ ${esc(a.branch || a.head?.slice(0, 7) || '?')} · archivé il y a ${ago(a.archivedAt)}${a.sessions?.[0]?.task ? `<div class="hint">${esc(a.sessions[0].task)}</div>` : ''}</div>
       ${a.pr ? `<a class="chip pr ${a.pr.state === 'MERGED' ? 'pr-merged' : 'pr-open'}" href="${esc(a.pr.url)}" target="_blank" rel="noopener">#${a.pr.number}</a>` : ''}
-      <button class="btn" data-unarchive="${esc(a.name)}">Restaurer</button>
-      ${a.sessions?.length ? `<button class="btn primary" data-unarchive="${esc(a.name)}" data-resume="1">Restaurer et reprendre</button>` : ''}
+      <button class="btn" data-unarchive="${esc(a.path)}">Restaurer</button>
+      ${a.sessions?.length ? `<button class="btn primary" data-unarchive="${esc(a.path)}" data-resume="1">Restaurer et reprendre</button>` : ''}
     </div>`).join('');
   return `<section class="grid-section"><details class="archives" ${archivesOpen ? 'open' : ''}><summary>Archivées <span class="count">${state.archives.length}</span></summary><div class="archive-list">${rows}</div></details></section>`;
 }

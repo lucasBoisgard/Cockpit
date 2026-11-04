@@ -188,6 +188,7 @@ async function serveWorktree({ path: wtPath }) {
   if (!APP) return { error: 'Aucune app configurée.' };
   const wt = (await listWorktrees()).find((w) => w.path === wtPath);
   if (!wt?.head || wt.path === REPO) return { error: 'Worktree inconnu, ou checkout principal.' };
+  if ((wt.repo || REPO) !== REPO) return { error: 'Seuls les worktrees du repo de l’app peuvent la servir.' };
   const dirty = ((await git(REPO, ['status', '--porcelain', '--untracked-files=no'])) || '').trim();
   if (dirty) return { error: 'Le checkout principal a des changements non commités : impossible de basculer.' };
   const current = loadStore(SERVE_STORE, null);

@@ -1,22 +1,63 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { REPO, CLAUDE_SESSIONS_DIR } = require('../config');
+const { REPO, ROOT, CONFIG, BASE_BRANCH, CLAUDE_SESSIONS_DIR } = require('../config');
 const { git, tmux } = require('../io/exec');
 const { processAlive } = require('../io/proc');
-const { readReview } = require('../io/store');
-const { parseWorktreeList, describeWorktree, repoLabel } = require('../core/git');
+const { readReview, readSessions } = require('../io/store');
+const { parseWorktreeList, describeWorktree, assignWorktreeNames, repoCandidates, repoLabel } = require('../core/git');
 const { EDIT_TOOLS } = require('../core/transcript');
 
 const REPO_CACHE_TTL_MS = 30000;
+const RECENT_SESSION_MS = 14 * 24 * 3600 * 1000;
 const repoCache = new Map();
+const mainRepoCache = new Map();
+const baseCache = new Map();
+let worktreeNames = new Map();
+
+async function mainRepoOf(dir) {
+  const cached = mainRepoCache.get(dir);
+  if (cached && (cached.repo || Date.now() - cached.at < REPO_CACHE_TTL_MS)) return cached.repo;
+  let repo = null;
+  if (fs.existsSync(dir)) {
+    const common = ((await git(dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'])) || '').trim();
+    if (path.basename(common) === '.git') repo = path.dirname(common);
+  }
+  mainRepoCache.set(dir, { at: Date.now(), repo });
+  return repo;
+}
+
+async function knownRepos() {
+  const dirs = repoCandidates({ primary: REPO, own: ROOT, extra: CONFIG.repos, sessions: readSessions(), now: Date.now(), recentMs: RECENT_SESSION_MS });
+  const repos = await Promise.all(dirs.map((dir) => (dir === REPO ? REPO : mainRepoOf(dir))));
+  return [...new Set(repos.filter(Boolean))];
+}
 
 async function listWorktrees() {
-  return parseWorktreeList(await git(REPO, ['worktree', 'list', '--porcelain'])).filter((wt) => fs.existsSync(wt.path));
+  const lists = await Promise.all((await knownRepos()).map(async (repo) => parseWorktreeList(await git(repo, ['worktree', 'list', '--porcelain'])).map((wt) => ({ ...wt, repo }))));
+  const seen = new Set();
+  const worktrees = lists.flat().filter((wt) => !seen.has(wt.path) && seen.add(wt.path) && fs.existsSync(wt.path));
+  worktreeNames = assignWorktreeNames(worktrees, REPO);
+  return worktrees;
 }
 
 const findWorktree = async (wtPath) => (await listWorktrees()).find((wt) => wt.path === wtPath) || null;
 
-const worktreeName = (wtPath) => (wtPath === REPO ? 'main' : path.basename(wtPath));
+const worktreeName = (wtPath) => worktreeNames.get(wtPath) || (wtPath === REPO ? 'main' : path.basename(wtPath));
+
+const isMainCheckout = (wt) => wt.path === (wt.repo || REPO);
+
+async function defaultBranch(repoPath) {
+  const head = ((await git(repoPath, ['rev-parse', '--abbrev-ref', 'origin/HEAD'])) || '').trim();
+  if (head.startsWith('origin/')) return head.slice('origin/'.length);
+  for (const branch of ['main', 'master']) if (await git(repoPath, ['rev-parse', '--verify', '-q', `origin/${branch}`])) return branch;
+  return BASE_BRANCH;
+}
+
+async function baseBranchOf(repo) {
+  if (!repo || repo === REPO) return BASE_BRANCH;
+  if (!baseCache.has(repo)) baseCache.set(repo, await defaultBranch(repo));
+  return baseCache.get(repo);
+}
 
 function claudePanes(panes) {
   const bySession = new Map();
@@ -89,7 +130,17 @@ async function describe(wt) {
     git(wt.path, ['log', '-1', '--format=%s%x00%ct']),
   ]);
   const name = worktreeName(wt.path);
-  return describeWorktree(wt, name, { status, numstat, lastCommit }, readReview(name));
+  const repo = wt.repo || REPO;
+  const otherRepo = repo !== REPO;
+  return {
+    ...describeWorktree(wt, name, { status, numstat, lastCommit }, readReview(name)),
+    repo,
+    otherRepo,
+    repoName: otherRepo ? (await repoOf(repo))?.name || path.basename(repo) : null,
+    label: otherRepo ? path.basename(isMainCheckout(wt) ? repo : wt.path) : name,
+    baseBranch: await baseBranchOf(repo),
+    mainCheckout: isMainCheckout(wt),
+  };
 }
 
-module.exports = { listWorktrees, findWorktree, worktreeName, livePanes, hasTranscript, repoOf, externalRepos, describe };
+module.exports = { listWorktrees, findWorktree, worktreeName, isMainCheckout, defaultBranch, baseBranchOf, livePanes, hasTranscript, repoOf, externalRepos, describe };

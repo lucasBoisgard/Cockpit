@@ -5,8 +5,8 @@ function buildPalette() {
   if (wt) {
     for (const b of document.querySelectorAll('#tabs button')) items.push({ label: `Onglet ${b.textContent.trim()}`, kind: wt.name, run: () => b.click() });
     if (!isBase(wt) && state.pr?.enabled && wt.pr?.state !== 'OPEN') items.push({ label: 'Pousser et ouvrir la PR', kind: wt.name, run: () => openPrDialog(wt.path) });
-    if (wt.name !== 'main') items.push({ label: 'Archiver ce worktree', kind: wt.name, run: () => archive(wt.path) });
-    if (state.app && wt.name !== 'main') items.push({ label: "Servir l'app depuis ce worktree", kind: wt.name, run: () => serveApp(wt.path) });
+    if (!wt.mainCheckout) items.push({ label: 'Archiver ce worktree', kind: wt.name, run: () => archive(wt.path) });
+    if (state.app && canServe(wt)) items.push({ label: "Servir l'app depuis ce worktree", kind: wt.name, run: () => serveApp(wt.path) });
   }
   items.push(
     { label: 'Nouvelle session', kind: 'action', run: () => openNewSession() },

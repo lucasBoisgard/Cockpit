@@ -86,4 +86,4 @@ const currentSession = () => currentWt()?.sessions.find((s) => s.sessionId === c
 
 const lastActivity = (wt) => Math.max(...wt.sessions.map((s) => s.updatedAt || 0), wt.lastCommit?.at || 0);
 const liveSession = (wt) => (liveSessions(wt).length ? primarySession(wt) : null);
-const isBase = (wt) => wt.name === 'main' || !wt.branch || wt.branch === state.baseBranch;
+const isBase = (wt) => wt.mainCheckout || !wt.branch || wt.branch === (wt.baseBranch || state.baseBranch);

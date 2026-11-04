@@ -7,7 +7,7 @@ const { loadStore, readSessions } = require('../io/store');
 const { effectiveStatus, turnStatus, sessionOverlap, primarySession, paneOf, ownerOf } = require('../core/sessions');
 const { latestLimits } = require('../core/usage');
 const { cachedSnapshot, storeSnapshot } = require('../cache');
-const { listWorktrees, livePanes, describe, hasTranscript, externalRepos, repoOf } = require('./worktrees');
+const { listWorktrees, livePanes, describe, hasTranscript, externalRepos, repoOf, baseBranchOf } = require('./worktrees');
 const { agentsRunning, forgetOld } = require('./agents');
 const { appState } = require('./app');
 const { readUsageSnapshots } = require('./usage');
@@ -48,7 +48,7 @@ async function snapshot() {
   const byName = new Map(described.map((d) => [d.name, d]));
   for (const d of described) {
     d.sessions.sort((a, b) => b.updatedAt - a.updatedAt);
-    d.pr = cachedPr(d.branch);
+    d.pr = cachedPr(d.branch, d.repo);
     d.overlap = sessionOverlap(d.sessions.filter((s) => s.live));
     d.parent = links[d.name] || null;
   }
@@ -88,15 +88,20 @@ function dirSize(wtPath) {
 
 async function cleanupList() {
   const snap = await snapshot();
-  await run('git', ['-C', REPO, 'fetch', '-q', 'origin', BASE_BRANCH]);
-  return Promise.all(snap.worktrees.filter((w) => w.path !== REPO).map(async (w) => {
-    const merged = w.headSha ? (await run('git', ['-C', REPO, 'merge-base', '--is-ancestor', w.headSha, `origin/${BASE_BRANCH}`])).ok : false;
+  const bases = new Map();
+  for (const repo of new Set(snap.worktrees.map((w) => w.repo))) {
+    const base = await baseBranchOf(repo);
+    await run('git', ['-C', repo, 'fetch', '-q', 'origin', base]);
+    bases.set(repo, base);
+  }
+  return Promise.all(snap.worktrees.filter((w) => !w.mainCheckout).map(async (w) => {
+    const merged = w.headSha ? (await run('git', ['-C', w.repo, 'merge-base', '--is-ancestor', w.headSha, `origin/${bases.get(w.repo)}`])).ok : false;
     let mtime = 0;
     try {
       mtime = fs.statSync(w.path).mtimeMs;
     } catch {}
     const lastActivity = Math.max(mtime, w.lastCommit?.at || 0, ...w.sessions.map((s) => s.updatedAt || 0));
-    return { name: w.name, path: w.path, branch: w.branch, dirty: w.files.length, ahead: w.ahead, upstream: w.upstream, merged, pr: w.pr ? { number: w.pr.number, state: w.pr.state } : null, live: w.sessions.some((s) => s.live), locked: w.locked, lastActivity, sizeKb: dirSize(w.path) };
+    return { name: w.name, path: w.path, repoName: w.repoName, branch: w.branch, dirty: w.files.length, ahead: w.ahead, upstream: w.upstream, merged, pr: w.pr ? { number: w.pr.number, state: w.pr.state } : null, live: w.sessions.some((s) => s.live), locked: w.locked, lastActivity, sizeKb: dirSize(w.path) };
   }));
 }
 

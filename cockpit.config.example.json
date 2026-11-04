@@ -1,5 +1,6 @@
 {
   "repo": "/path/to/your/repo",
+  "repos": [],
   "container": "",
   "hosts": [],
   "app": {
