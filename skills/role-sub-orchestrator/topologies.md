@@ -4,7 +4,7 @@ Roles are named by skill: `role-framer`, `role-challenger`, `pr-reviewer`, `pr-c
 
 ## T1 Deliver a slice (kind implement; budget ~60 min; 2 leaves at once)
 1. Implementer (`sonnet·medium`; high for business invariants) → `impl-r1.md`, snapshot, size. Over 1000 lines: `BLOQUÉ` (master redispatches to the slicer).
-2. `pr-reviewer` (`sonnet·low`, high targeted on risk) → CANDIDATEEs; you assign ids.
+2. `pr-reviewer` (`sonnet·low`, high targeted on risk) → CANDIDATEs; you assign ids.
 3. `role-challenger` → statuses. Loop: resume implementer on CONFIRMED → new snapshot → delta review → challenger. Max 3 cycles.
 4. Writer: PR description.
 5. Grants `commit`/`push`/`pr` missing → `BLOQUÉ` P2. Else `pr-ci-keeper` alone in the worktree: commit by announced groups, content fingerprint check, push, PR, CI on that SHA.
@@ -15,7 +15,7 @@ Roles are named by skill: `role-framer`, `role-challenger`, `pr-reviewer`, `pr-c
 2. One `pr-reviewer` `sonnet·low`; big PR: add one high on risk zones; front: biscui reviewer. Light mode (small, no risk): the reviewer's native refuter statuses every CANDIDATE in `review-r<k>.md` (the only case where the reviewer's file carries statuses); a Cockpit challenger for blockers. No native refuter: Cockpit challenger for all.
 3. `role-challenger`. PLAUSIBLE blocking: one targeted proof (resume reviewer), then challenger again.
 4. Writer: drafts ≤ 2 lines for the CONFIRMED. You write the `review-report` JSON and `final.md`.
-- Default exit: all CANDIDATEEs statused, ticket read before the review. Reports: mergeable yes / no / to decide (F<n>), CONFIRMED blockers, JSON path.
+- Default exit: all CANDIDATEs statused, ticket read before the review. Reports: mergeable yes / no / to decide (F<n>), CONFIRMED blockers, JSON path.
 - Delta ("check it was handled"): the master resumes you; new snapshot, delta reviewer, challenger, JSON updated.
 
 ## T3 Feedback received on my PR (kind review; ~45 min; 3 leaves; grants set the scope)

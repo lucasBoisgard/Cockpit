@@ -61,7 +61,7 @@ Absolute path in the brief. One file = one author, named at its top.
 - Counters live in the **parent's** `journal.md`, persist across `resume`; 1 spare cycle per run, granted only by the level above. Oracles (tests, typecheck, lint, CI) come before any LLM judge.
 
 ## Scale, effort and time
-Choose mode by risk + ambiguity + size, never size alone (a 10-line diff touching permissions or destructive queries is not small). Default effort `low`/`medium`; `high` needs a one-line reason; model per `pick-agent-model`. Measured 2026-11-06: one `sonnet·low` first pass has the best yield per minute; two low reviewers do not beat one high; high only for timing, concurrency, permissions, external tools. Searching = one agent. Refuting = a challenger of another family at `medium`.
+Choose mode by risk + ambiguity + size, never size alone (a 10-line diff touching permissions or destructive queries is not small). Effort and model: single source `pick-agent-model` §2b. Measured 2026-11-06: one `sonnet·low` first pass has the best yield per minute; two low reviewers do not beat one high; high only for timing, concurrency, permissions, external tools. Searching = one agent. Refuting = a challenger of another family at `medium`.
 
 ## The user's decision points (only the master asks)
 P1 scope or business ambiguity · P2 missing grant · P3 QA in the app · P4 merge · P5 publishing or prod (never done by the tree: drafts and queries only).
