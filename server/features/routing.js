@@ -6,6 +6,7 @@ const core = require('../core/routing');
 const { listWorktrees, worktreeName, livePanes } = require('./worktrees');
 const { enqueue, sendToSession } = require('./queue');
 const { startSession } = require('./sessions');
+const { isSwitching } = require('./agent-mode');
 
 const DECIDE_TIMEOUT_MS = 12000;
 
@@ -35,6 +36,10 @@ async function sendMessage({ target, text }) {
   const panes = await livePanes();
   if (!paneOf(raw, panes)) return { error: 'Cette session ne tourne pas dans tmux, le cockpit ne peut pas lui écrire.' };
   const session = withClaudeStatus(raw, panes);
+  if (isSwitching(session.sessionId)) {
+    enqueue(session.sessionId, message);
+    return { route: 'queued' };
+  }
   const quick = core.quickRoute(session.status, message);
   if (quick === 'queue') {
     enqueue(session.sessionId, message);

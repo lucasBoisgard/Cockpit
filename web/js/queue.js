@@ -25,7 +25,7 @@ function queueReason(wt, s, st) {
 }
 
 function queueItems() {
-  return state.worktrees.map((wt) => {
+  return shownWorktrees().map((wt) => {
     const s = primarySession(wt);
     return { key: wt.path, wt, s, status: sessionStatus(wt), pinned: pins.has(wt.path), since: s?.statusSince || s?.updatedAt || 0, activity: lastActivity(wt) };
   });
@@ -61,16 +61,21 @@ function queueArchives() {
   return `<div class="queue-archives"><button class="queue-section-btn" data-queue-archives aria-expanded="${queueArchivesOpen}">${queueArchivesOpen ? '▾' : '▸'} Archivées <span class="queue-n">${state.archives.length}</span></button>${queueArchivesOpen ? rows : ''}</div>`;
 }
 
+function queueFinished() {
+  const n = finishedBoardCount();
+  return n ? `<div class="queue-archives"><button class="queue-section-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedUi.show ? '▾' : '▸'} ${finishedWorktreeLabel(n)}</button></div>` : '';
+}
+
 function renderQueue() {
   const nav = $('queue');
   if (!nav || !state || !isWorkstation()) return;
   const groups = queueGroups(queueItems());
   const flat = queueFlat(groups);
   const todo = flat.filter((i) => ['needs', 'review'].includes(queueGroupOf(i.status))).length;
-  const full = `<div class="queue-head"><span>${state.worktrees.length} worktrees · <kbd>j</kbd> <kbd>k</kbd></span><button class="queue-fold" data-queue-fold title="Replier la file ([)" aria-label="Replier la file">«</button></div>
+  const full = `<div class="queue-head"><span>${shownWorktrees().length} worktrees · <kbd>j</kbd> <kbd>k</kbd></span><button class="queue-fold" data-queue-fold title="Replier la file ([)" aria-label="Replier la file">«</button></div>
     <div class="queue-scroll">${groups.map((g) => `<div class="queue-group queue-g-${g.id}"><span>${g.label}</span><span class="queue-n">${g.items.length}</span></div>${g.items.map(queueRow).join('')}`).join('')}
       <div class="queue-end">${todo ? `Rien d’autre après ${todo === 1 ? 'celle-ci' : `ces ${todo}`}` : 'Rien à faire pour l’instant'}</div>
-      ${queueArchives()}</div>`;
+      ${queueFinished()}${queueArchives()}</div>`;
   const mini = `<div class="queue-head"><button class="queue-fold" data-queue-fold title="Déplier la file ([)" aria-label="Déplier la file">»</button></div>
     <div class="queue-scroll queue-mini">${flat.map(queueDot).join('')}</div>`;
   const scroll = nav.querySelector('.queue-scroll')?.scrollTop || 0;

@@ -81,8 +81,11 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 - **Skills**: run `orchestrate skills` once, then give an agent the skills that match its task
   (`--skill` may be repeated). The agent loads them before starting.
 - **Permission mode**: agents default to the mode set by the user for this master (usually
-  `acceptEdits`). Use `--mode plan` for an agent that must only analyze. Never ask for a mode that
-  skips permissions: the cockpit refuses it.
+  `acceptEdits`). Use `--mode plan` for an agent that must only analyze: an explicit mode is accepted only when it is
+  stricter than the user's, a looser one is refused, and a stricter agent keeps its mode when the user loosens the setting. Never ask for a mode that
+  skips permissions: the cockpit refuses it. When the user changes that mode in the Réglages, the cockpit
+  applies it itself to you and to every agent already running, sub-agents included: never relaunch agents
+  for it.
 - **How many**: only as many agents as there are truly independent tasks. The cockpit refuses
   launches beyond the user's limit; when refused, wait for a notification instead of retrying.
 

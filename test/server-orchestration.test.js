@@ -142,5 +142,75 @@ test('canLaunch refuses a launch at the configured depth and accepts below it', 
 test('system prompts state the configured depth', () => {
   const settings = { ...core.DEFAULT_SETTINGS, maxDepth: 3 };
   assert.match(core.masterSystemPrompt({ settings, root: '/cockpit' }), /3 levels deep below you/);
-  assert.match(core.agentSystemPrompt({ agent: agent('w2'), masterWorktree: 'wt', isolated: false, root: '/cockpit', settings }), /3 levels deep below the master/);
+});
+
+test('validateLaunch refuses an explicit mode looser than the orchestration when the agent inherits it', () => {
+  const orch = orchWith([], { settings: { ...core.DEFAULT_SETTINGS, agentMode: 'acceptEdits' } });
+  const inherit = { inheritMode: true };
+  assert.strictEqual(core.validateLaunch({ name: 'x', brief: 'b', mode: 'plan' }, orch, undefined, inherit).agent.mode, 'plan');
+  assert.strictEqual(core.validateLaunch({ name: 'x', brief: 'b' }, orch, undefined, inherit).agent.mode, 'acceptEdits');
+  assert.match(core.validateLaunch({ name: 'x', brief: 'b', mode: 'auto' }, orch, undefined, inherit).error, /refusé/);
+  assert.strictEqual(core.validateLaunch({ name: 'maître', brief: 'b', mode: 'auto' }, orch).agent.mode, 'auto');
+});
+
+test('agentSystemPrompt names the real parent and carries the autonomy level', () => {
+  const orch = orchWith([agent('w1', { name: 'Front' }), agent('w2', { parentId: 'w1' })], { settings: { ...core.DEFAULT_SETTINGS, autonomy: 'decisions' } });
+  const child = core.agentSystemPrompt({ agent: orch.agents[1], orch, masterWorktree: 'wt', isolated: false, root: '/cockpit' });
+  assert.match(child, /launched by agent w1 \("Front"\)/);
+  assert.match(child, /Agent w1 \("Front"\), who launched you answers you/);
+  assert.match(child, /read by agent w1/);
+  assert.doesNotMatch(child, /The master answers you/);
+  assert.match(child, new RegExp(core.AUTONOMY.decisions.slice(0, 30)));
+  const top = core.agentSystemPrompt({ agent: orch.agents[0], orch, masterWorktree: 'wt', isolated: false, root: '/cockpit' });
+  assert.match(top, /The master answers you/);
+  assert.match(top, /read by the master/);
+});
+
+test('an agent at the maximum depth is not told it may launch sub-agents', () => {
+  const orch = orchWith([agent('w1'), agent('w2', { parentId: 'w1' })]);
+  assert.strictEqual(core.agentDepth(orch, orch.agents[0]), 1);
+  assert.strictEqual(core.agentDepth(orch, orch.agents[1]), 2);
+  assert.strictEqual(core.agentDepth(orch, agent('w3', { parentId: 'w2' })), 3);
+  const shallow = core.agentSystemPrompt({ agent: orch.agents[0], orch, masterWorktree: 'wt', isolated: false, root: '/cockpit' });
+  assert.match(shallow, /you may launch sub-agents/);
+  const deep = core.agentSystemPrompt({ agent: orch.agents[1], orch, masterWorktree: 'wt', isolated: false, root: '/cockpit' });
+  assert.doesNotMatch(deep, /you may launch sub-agents/);
+  assert.match(deep, /maximum depth/);
+  assert.strictEqual(core.canLaunchSubAgents(orch, agent('w9', { provider: 'codex' })), false);
+});
+
+test('a new agent about to be launched is counted one level below its parent', () => {
+  const orch = orchWith([agent('w1'), agent('w2', { parentId: 'w1' })]);
+  const fresh = agent('w3', { parentId: 'w2' });
+  assert.strictEqual(core.canLaunchSubAgents(orch, fresh), false);
+  assert.strictEqual(core.canLaunchSubAgents(orch, agent('w4', { parentId: 'w1' })), false);
+  assert.strictEqual(core.canLaunchSubAgents(orch, agent('w5')), true);
+});
+
+test('autonomyNotice carries the new level', () => {
+  assert.match(core.autonomyNotice('milestones'), new RegExp(core.AUTONOMY.milestones.slice(0, 30)));
+  assert.match(core.autonomyNotice('milestones'), /^\[cockpit\]/);
+});
+
+test('noticeRoute never pastes into a running session: next message, or the rules on resume', () => {
+  for (const status of ['working', 'done', 'needs', 'starting']) assert.strictEqual(core.noticeRoute(status), 'next-message');
+  assert.strictEqual(core.noticeRoute('stopped'), 'resume');
+});
+
+test('agentRefs keeps only what the board needs to hide finished agents', () => {
+  const orch = orchWith([agent('w1', { sessionId: 's1', worktree: 'wt', brief: 'long brief' }), agent('w2', { parentId: 'w1', worktree: 'wt--w2', isolated: true, lostAt: 9 })], { masterSessionId: 'm', worktree: 'wt', endedAt: 5 });
+  assert.deepStrictEqual(core.agentRefs(orch, { w1: 'stopped', w2: 'working' }), {
+    masterSessionId: 'm',
+    worktree: 'wt',
+    agents: [
+      { id: 'w1', status: 'stopped', parentId: null, sessionId: 's1', worktree: 'wt', stoppedAt: null, lostAt: null },
+      { id: 'w2', status: 'working', parentId: 'w1', sessionId: null, worktree: 'wt--w2', stoppedAt: null, lostAt: 9 },
+    ],
+  });
+});
+
+test('agentRefs carries stoppedAt and lostAt so a crashed agent is told from a stopped one', () => {
+  const orch = orchWith([agent('w1', { stoppedAt: 7 }), agent('w2', { lostAt: 9 })], { masterSessionId: 'm', worktree: 'wt' });
+  const refs = core.agentRefs(orch, { w1: 'stopped', w2: 'stopped' }).agents;
+  assert.deepStrictEqual(refs.map((a) => [a.stoppedAt, a.lostAt]), [[7, null], [null, 9]]);
 });

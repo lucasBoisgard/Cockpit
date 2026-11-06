@@ -4,6 +4,7 @@ const { STALE_MS, paneOf, withClaudeStatus, shouldQueue } = require('../core/ses
 const { invalidateSnapshot } = require('../cache');
 const { livePanes } = require('./worktrees');
 const { submitText } = require('./terminal');
+const { isSwitching } = require('./agent-mode');
 
 const MERGED_MAX_CHARS = 16000;
 const loadQueues = () => loadStore('worktree-queue.json', {});
@@ -54,7 +55,7 @@ async function deliver(sessionId, text, queueWhenWaiting = false) {
   if (!raw) return 'unknown';
   if (!paneOf(raw, panes)) return 'offline';
   const session = withClaudeStatus(raw, panes);
-  if (shouldQueue(session, queueWhenWaiting, Date.now(), STALE_MS)) {
+  if (isSwitching(session.sessionId) || shouldQueue(session, queueWhenWaiting, Date.now(), STALE_MS)) {
     enqueue(session.sessionId, text);
     return 'queued';
   }
@@ -77,7 +78,7 @@ async function flushQueues(snap, onSent) {
   for (const wt of snap.worktrees) {
     for (const session of wt.sessions) {
       const items = queues[session.sessionId];
-      if (!items?.length || !session.live || session.stale || !['done', 'idle'].includes(session.status)) continue;
+      if (!items?.length || !session.live || session.stale || !['done', 'idle'].includes(session.status) || isSwitching(session.sessionId)) continue;
       const [first] = items;
       if (!(await sendToSession(session.sessionId, first.text))) continue;
       dequeue(session.sessionId, first.id);

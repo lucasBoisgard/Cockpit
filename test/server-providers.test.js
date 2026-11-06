@@ -44,3 +44,9 @@ test('parseCodexRollout keeps the conversation, tools and their output, and hide
   assert.deepStrictEqual(chat.items.map((i) => [i.kind, i.text || `${i.tool} ${i.detail}`]), [['user', 'Liste les fichiers'], ['tool', 'Bash ls -la'], ['tool', 'apply_patch b.js'], ['assistant', 'Fini.']]);
   assert.strictEqual(chat.items[1].result, 'a.js');
 });
+
+test('a Claude launch or resume always carries its permission mode, default included', () => {
+  const resume = p.launchArgs('claude', { resume: true, sessionId: 's1', mode: 'default' });
+  assert.deepStrictEqual(resume.slice(resume.indexOf('--permission-mode')), ['--permission-mode', 'default']);
+  assert.ok(!p.launchArgs('claude', { resume: true, sessionId: 's1' }).includes('--permission-mode'));
+});

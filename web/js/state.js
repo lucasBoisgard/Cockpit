@@ -69,7 +69,7 @@ function liveSessions(wt) {
   return wt.sessions.filter((s) => s.live);
 }
 
-const primarySession = (wt) => pickPrimary(wt.sessions);
+const primarySession = (wt) => pickPrimary(shownSessions(wt));
 
 function sessionStatus(wt) {
   const s = primarySession(wt);
@@ -90,6 +90,6 @@ function sorted(list) {
 const currentWt = () => (selected && selected !== SHELL ? state?.worktrees.find((w) => w.path === selected) : null);
 const currentSession = () => currentWt()?.sessions.find((s) => s.sessionId === chatSession) || null;
 
-const lastActivity = (wt) => Math.max(...wt.sessions.map((s) => s.updatedAt || 0), wt.lastCommit?.at || 0);
+const lastActivity = (wt) => Math.max(...shownSessions(wt).map((s) => s.updatedAt || 0), wt.lastCommit?.at || 0);
 const liveSession = (wt) => (liveSessions(wt).length ? primarySession(wt) : null);
 const isBase = (wt) => wt.mainCheckout || !wt.branch || wt.branch === (wt.baseBranch || state.baseBranch);
