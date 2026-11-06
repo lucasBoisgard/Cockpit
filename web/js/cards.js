@@ -98,7 +98,8 @@ function cardActions(wt) {
 }
 
 function parallelRow(wt) {
-  const live = liveSessions(wt);
+  const folded = sessionPicker(wt.sessions, state.orchestrations, null, false);
+  const live = liveSessions(wt).filter((s) => !folded.agents.includes(s) || s.status === 'needs_input');
   if (live.length < 2) return '';
   const label = (s) => (s.status === 'needs_input' ? 'attend' : s.status === 'working' || backgroundOnly(s) ? 'en cours' : 'terminée');
   const kind = (s) => (s.status === 'needs_input' ? 'needs_input' : s.status === 'working' || backgroundOnly(s) ? 'working' : 'done');
@@ -145,6 +146,7 @@ function card(wt) {
     ${st === 'needs_input' && s.message ? `<div class="message">${esc(s.message)}${s.updatedAt ? ` · depuis ${ago(s.statusSince || s.updatedAt)}` : ''}</div>` : ''}
     ${st === 'working' && last && !backgroundOnly(s) ? `<div class="action"><span class="tool">${esc(last.tool)}</span><span class="detail">${esc(last.detail)}</span></div>` : ''}
     ${parallelRow(wt)}
+    ${agentsStrip(wt, 'card')}
     ${quickBlock(wt, s, st)}
     <div class="meta">${meta.join('')}</div>
     ${cardActions(wt)}
@@ -163,7 +165,7 @@ function archivesSection() {
 }
 
 function renderGrid() {
-  const visible = shownWorktrees();
+  const visible = boardWorktrees(shownWorktrees());
   const list = sorted(filter === 'active' ? visible.filter(isActive) : visible);
   const standard = list.filter((w) => !w.review);
   const reviews = list.filter((w) => w.review);

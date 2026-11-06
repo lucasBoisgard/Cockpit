@@ -25,7 +25,7 @@ function queueReason(wt, s, st) {
 }
 
 function queueItems() {
-  return shownWorktrees().map((wt) => {
+  return boardWorktrees(shownWorktrees()).map((wt) => {
     const s = primarySession(wt);
     return { key: wt.path, wt, s, status: sessionStatus(wt), pinned: pins.has(wt.path), since: s?.statusSince || s?.updatedAt || 0, activity: lastActivity(wt) };
   });
@@ -45,6 +45,7 @@ function queueRow(item) {
     <span class="queue-title">${master ? '<span class="queue-master" title="Maître orchestrateur">◆</span>' : ''}${wt.review ? '<span class="queue-tag">REVIEW</span>' : ''}${isGpt(s) ? '<span class="queue-tag queue-gpt">GPT</span>' : ''}<span class="queue-name">${esc(wt.label || wt.name)}</span>${item.pinned ? '<span class="queue-pin" title="Épinglé">★</span>' : ''}</span>
     <span class="queue-why" title="${esc(queueReason(wt, s, status))}">${esc(oneLineText(queueReason(wt, s, status)))}</span>
     <span class="queue-sub"><span class="queue-where">${esc(where)}</span><span class="queue-age">${esc(age)}</span></span>
+    ${agentsStrip(wt, 'queue')}
   </button>`;
 }
 

@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/web/css/usage-orchestration.css">
 <link rel="stylesheet" href="/web/css/panel.css">
 <link rel="stylesheet" href="/web/css/chat.css">
+<link rel="stylesheet" href="/web/css/master-nav.css">
 <link rel="stylesheet" href="/web/css/terminal.css">
 <link rel="stylesheet" href="/web/css/changes.css">
 <link rel="stylesheet" href="/web/css/review.css">
@@ -92,6 +93,7 @@
     <div class="composer" id="composer">
       <div class="suggest" id="suggest" role="listbox" hidden></div>
       <div class="queue-list" id="queue-list"></div>
+      <div class="composer-target" id="composer-target" hidden></div>
       <div class="composer-row">
         <textarea id="composer-input" placeholder="Écris à Claude… (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)"></textarea>
         <div class="composer-buttons">
@@ -419,6 +421,7 @@
 <script src="/web/js/session-settings.js"></script>
 <script src="/web/js/markdown.js"></script>
 <script src="/web/js/util.js"></script>
+<script src="/web/js/master-first.js"></script>
 <script src="/web/js/state.js"></script>
 <script src="/web/js/queue-order.js"></script>
 <script src="/web/js/finished-agents.js"></script>
@@ -448,6 +451,7 @@
 <script src="/web/js/session-head.js"></script>
 <script src="/web/js/topbar.js"></script>
 <script src="/web/js/composer-compact.js"></script>
+<script src="/web/js/master-nav.js"></script>
 <script src="/web/js/ask.js"></script>
 <script src="/web/js/orchestration.js"></script>
 <script src="/web/js/connections.js"></script>

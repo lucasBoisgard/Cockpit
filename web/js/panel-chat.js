@@ -1,17 +1,21 @@
 function renderChatBar(wt) {
   const chip = branchChip(wt);
   const listed = wt.sessions.filter((s) => s.sessionId === chatSession || shownSessions(wt).includes(s));
-  const signature = `${wt.path}|${listed.map((s) => `${s.sessionId}:${s.live}:${s.status}`).join(',')}|${chatSession}|${finishedSessionCount(wt)}|${finishedUi.show}|${chip}|${prChip(wt.pr)}|${extChips(wt)}`;
+  const picker = sessionPicker(listed, state.orchestrations, chatSession, chatAgentsOpen);
+  const orch = orchestrationOfSession(chatSession, state.orchestrations);
+  const signature = `${wt.path}|${listed.map((s) => `${s.sessionId}:${s.live}:${s.status}`).join(',')}|${chatSession}|${chatAgentsOpen}|${orch?.masterSessionId || ''}|${finishedSessionCount(wt)}|${finishedUi.show}|${chip}|${prChip(wt.pr)}|${extChips(wt)}`;
   if (signature === chatBarSignature || document.activeElement?.id === 'session-select') return;
   chatBarSignature = signature;
   const onBranch = `<span class="on-branch">Sur <span class="repo-chip">${esc(state.repoName)}</span>${chip}${prChip(wt.pr)}${extChips(wt)}</span>`;
   if (!wt.sessions.length) { $('chat-bar').innerHTML = `${onBranch} · Aucune session suivie pour ce worktree.`; return; }
-  const options = listed.map((s) => `<option value="${esc(s.sessionId)}" ${s.sessionId === chatSession ? 'selected' : ''}>${s.live ? '⌨ ' : ''}${s.live && (s.status === 'working' || backgroundOnly(s)) ? '● ' : ''}${s.live && s.status === 'needs_input' ? '❓ ' : ''}${esc((s.lastPrompt || s.task || 'Session sans prompt').slice(0, 70))} · ${ago(s.updatedAt)}</option>`).join('');
-  $('chat-bar').innerHTML = `${onBranch}<label for="session-select">Session</label><select id="session-select">${options}</select>${finishedSessionCount(wt) ? `<button class="btn" data-finished-toggle>${finishedUi.show ? 'Masquer les terminés' : `+ ${finishedSessionCount(wt)} terminé${finishedSessionCount(wt) > 1 ? 's' : ''}`}</button>` : ''}`;
+  const option = (s) => `<option value="${esc(s.sessionId)}" ${s.sessionId === chatSession ? 'selected' : ''}>${s.live ? '⌨ ' : ''}${s.live && (s.status === 'working' || backgroundOnly(s)) ? '● ' : ''}${s.live && s.status === 'needs_input' ? '❓ ' : ''}${esc((s.lastPrompt || s.task || 'Session sans prompt').slice(0, 70))} · ${ago(s.updatedAt)}</option>`;
+  const options = picker.peers.map(option).join('') + (picker.shownAgents.length ? `<optgroup label="Agents">${picker.shownAgents.map(option).join('')}</optgroup>` : '');
+  $('chat-bar').innerHTML = `${onBranch}${masterButton(orch)}<label for="session-select">Session</label><select id="session-select">${options}</select>${agentsToggle(picker)}${finishedSessionCount(wt) ? `<button class="btn" data-finished-toggle>${finishedUi.show ? 'Masquer les terminés' : `+ ${finishedSessionCount(wt)} terminé${finishedSessionCount(wt) > 1 ? 's' : ''}`}</button>` : ''}`;
 }
 
 function renderComposer(s) {
   const live = !!s?.live;
+  renderComposerTarget(s);
   $('composer-input').disabled = !live;
   $('composer-send').disabled = !live;
   $('queue-list').innerHTML = (s?.queue || []).map((q) => `<div class="queue-item"><span title="${esc(q.text)}">⏳ En file : ${esc(q.text)}</span><button data-dequeue="${esc(q.id)}" title="Retirer de la file">✕</button></div>`).join('');

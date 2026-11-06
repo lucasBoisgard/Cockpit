@@ -49,7 +49,7 @@ function renderPanelBody() {
     renderUsage();
     return;
   }
-  if (!chatSession || !wt.sessions.some((x) => x.sessionId === chatSession)) chatSession = primarySession(wt)?.sessionId || null;
+  if (!chatSession || !wt.sessions.some((x) => x.sessionId === chatSession)) chatSession = defaultSessionId(wt.sessions, state.orchestrations, primarySession(wt)?.sessionId);
   const st = sessionStatus(wt);
   const s = currentSession();
   if (isWorkstation()) setHtml($('panel-head'), sessionHead(wt, st));
@@ -99,7 +99,7 @@ function renderPanelBody() {
 
 function select(target) {
   freshDone.delete(target);
-  selected = target; selectedFile = null; chatSession = null; chatLane = 'conversation'; chatSignature = null; chatBarSignature = null; reportSignature = null;
+  selected = target; selectedFile = null; chatSession = null; chatLane = 'conversation'; chatAgentsOpen = false; chatSignature = null; chatBarSignature = null; reportSignature = null;
   since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
