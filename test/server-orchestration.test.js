@@ -166,3 +166,9 @@ test('autonomyNotice carries the new level', () => {
   assert.match(core.autonomyNotice('milestones'), new RegExp(core.AUTONOMY.milestones.slice(0, 30)));
   assert.match(core.autonomyNotice('milestones'), /^\[cockpit\]/);
 });
+
+test('noticeRoute sends to a working agent now, holds it for the others, skips a stopped one', () => {
+  assert.strictEqual(core.noticeRoute('working'), 'send');
+  for (const status of ['done', 'needs', 'starting']) assert.strictEqual(core.noticeRoute(status), 'pending');
+  assert.strictEqual(core.noticeRoute('stopped'), 'none');
+});

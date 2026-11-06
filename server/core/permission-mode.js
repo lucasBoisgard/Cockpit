@@ -1,7 +1,6 @@
 // Pure decisions of the permission-mode propagation: reading the mode of a Claude Code session from its
-// screen, how many Shift+Tab presses reach another mode, and what to do for each kind of session.
+// screen, walking the Shift+Tab cycle to another mode, and what to do for each kind of session.
 
-const MODE_CYCLE = ['acceptEdits', 'plan', 'auto', 'default'];
 // From the strictest to the most permissive: an agent may be launched stricter than its orchestration, never looser.
 const MODE_RANK = ['plan', 'default', 'acceptEdits', 'auto'];
 const MODE_LABELS = { acceptEdits: 'accepter les modifs', auto: 'auto', default: 'par défaut', plan: 'plan' };
@@ -26,12 +25,25 @@ function modeFromScreen(text) {
   return null;
 }
 
-// Shift+Tab presses from one mode to another, or null when either is outside the cycle.
-function cyclePresses(current, target) {
-  const from = MODE_CYCLE.indexOf(current);
-  const to = MODE_CYCLE.indexOf(target);
-  if (from < 0 || to < 0) return null;
-  return (to - from + MODE_CYCLE.length) % MODE_CYCLE.length;
+// Walks a Claude Code prompt to `target` with one Shift+Tab at a time, reading the footer after each press.
+// The cycle differs between sessions (auto may be missing, bypass may be present), so it stops at the target,
+// or as soon as a mode comes back (the target is not in this cycle) and then never rests on bypass.
+// `io`: read() the current mode, press(), idle() whether the session is still at an idle prompt.
+async function cycleToMode(io, target, maxSteps = 8) {
+  const seen = new Set();
+  let current = await io.read();
+  for (let step = 0; step < maxSteps; step++) {
+    if (!current) return 'unreadable';
+    if (current === target) return step ? 'applied' : 'unchanged';
+    if (current !== 'bypass') {
+      if (seen.has(current)) return 'unreachable';
+      seen.add(current);
+    }
+    if (!(await io.idle())) return 'busy';
+    await io.press();
+    current = await io.read();
+  }
+  return current === target ? 'applied' : 'failed';
 }
 
 const isStricter = (a, b) => MODE_RANK.indexOf(a) < MODE_RANK.indexOf(b);
@@ -44,24 +56,26 @@ function overrideError(requested, inherited) {
 
 // What a new mode means for one agent, from its provider and status:
 //  - record: nothing runs, the stored mode is what the next resume uses;
-//  - cycle: a Claude prompt takes Shift+Tab, also during a turn (the next tool call uses the new mode);
+//  - cycle: an idle Claude prompt takes Shift+Tab, never one that works (a dialog may open under the keys);
 //  - relaunch: restart with --resume and the new mode, keeping the conversation;
-//  - keep: it was launched stricter than the new mode and stays so;
 //  - defer: no safe move now, applied when its turn ends.
-function agentModeAction({ provider, status, permission, kept }) {
-  if (kept) return 'keep';
+function agentModeAction({ provider, status, permission }) {
   if (status === 'stopped') return 'record';
   if (provider === 'codex') return status === 'needs' || status === 'done' ? 'relaunch' : 'defer';
-  if (status === 'working' || status === 'done') return 'cycle';
+  if (status === 'done') return 'cycle';
   if (status === 'needs' && permission) return 'relaunch';
   return 'defer';
 }
 
-// The master is never restarted: it runs the orchestration. Its prompt takes Shift+Tab; behind a dialog
-// it waits for its turn to end.
+// The master is never restarted: it runs the orchestration. Its prompt takes Shift+Tab once its turn is over.
 function masterModeAction(masterStatus) {
   if (masterStatus === 'ended') return 'record';
-  return ['working', 'idle', 'done'].includes(masterStatus) ? 'cycle' : 'defer';
+  return ['idle', 'done'].includes(masterStatus) ? 'cycle' : 'defer';
+}
+
+// The mode an agent ends up in: its stricter launch override survives a looser orchestration mode.
+function effectiveMode(agent, mode) {
+  return agent.modeOverride && isStricter(agent.modeOverride, mode) ? agent.modeOverride : mode;
 }
 
 // What happens when a deferred agent's turn ends or it hits a permission prompt.
@@ -86,4 +100,4 @@ function modeSummary(mode, agentOutcomes, masterOutcome) {
   return parts.length ? `${label} (${parts.join(', ')})` : `${label} (aucun agent à mettre à jour)`;
 }
 
-module.exports = { MODE_RANK, MODE_CYCLE, isStricter, overrideError, MODE_LABELS, modeFromScreen, cyclePresses, agentModeAction, masterModeAction, pendingModeAction, modeSummary };
+module.exports = { MODE_RANK, isStricter, overrideError, effectiveMode, MODE_LABELS, modeFromScreen, cycleToMode, agentModeAction, masterModeAction, pendingModeAction, modeSummary };

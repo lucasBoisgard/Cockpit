@@ -5,35 +5,30 @@ const core = require('../core/permission-mode');
 const { livePanes } = require('./worktrees');
 const { screen, sendOps } = require('./terminal');
 
-const PRESS_GAP_MS = 80;
-const SETTLE_MS = 600;
-const ROUNDS = 3;
+const SETTLE_MS = 500;
 
-const readPaneMode = async (pane) => core.modeFromScreen(await screen(pane));
-
-// Switches a live Claude Code prompt to `target` with Shift+Tab, as the user would. The presses go out
-// in one quick burst so the intermediate modes of the cycle last a few milliseconds, and the footer is
-// read back after each round: nothing more is pressed once it no longer shows a mode (a dialog opened).
-async function cyclePaneMode(pane, target) {
-  let current = await readPaneMode(pane);
-  for (let round = 0; round < ROUNDS; round++) {
-    if (!current) return 'unreadable';
-    if (current === target) return round ? 'applied' : 'unchanged';
-    const presses = core.cyclePresses(current, target);
-    if (presses === null) return 'unreachable';
-    for (let i = 0; i < presses; i++) {
+// Switches an idle Claude Code prompt to `target` with Shift+Tab, one press at a time. The footer is read
+// before every press and `idle` is checked right before it: in a dialog Shift+Tab confirms the choice, so
+// nothing is pressed once the prompt is not idle or shows no mode.
+function cyclePaneMode(pane, target, idle = async () => true) {
+  return core.cycleToMode({
+    read: async () => core.modeFromScreen(await screen(pane)),
+    idle,
+    press: async () => {
       await sendOps(pane, [{ key: 'BTab' }]);
-      await sleep(PRESS_GAP_MS);
-    }
-    await sleep(SETTLE_MS);
-    current = await readPaneMode(pane);
-  }
-  return current === target ? 'applied' : 'failed';
+      await sleep(SETTLE_MS);
+    },
+  }, target);
 }
 
+const idleSession = (sessionId) => async () => ['done', 'idle'].includes(readSession(sessionId)?.status);
+
 async function cycleSessionMode(sessionId, target) {
-  const pane = paneOf(readSession(String(sessionId || '')), await livePanes());
-  return pane ? cyclePaneMode(pane, target) : 'offline';
+  const id = String(sessionId || '');
+  const session = readSession(id);
+  if (!['done', 'idle'].includes(session?.status)) return session ? 'busy' : 'offline';
+  const pane = paneOf(session, await livePanes());
+  return pane ? cyclePaneMode(pane, target, idleSession(id)) : 'offline';
 }
 
 module.exports = { cyclePaneMode, cycleSessionMode };

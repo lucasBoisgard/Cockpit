@@ -212,6 +212,13 @@ function agentSystemPrompt({ agent, orch = { settings: DEFAULT_SETTINGS, agents:
   ].join('\n');
 }
 
+// How an agent hears about a new autonomy level: now when it works (a message to a working session is
+// taken into account during its turn), with its next message otherwise, never for a stopped agent.
+function noticeRoute(status) {
+  if (status === 'stopped') return 'none';
+  return status === 'working' ? 'send' : 'pending';
+}
+
 // What the cockpit tells a running agent when the autonomy level changes.
 function autonomyNotice(autonomy) {
   return `[cockpit] Le niveau d'autonomie de l'orchestration a changé. How often the master involves the user is now: ${AUTONOMY[autonomy]}`;
@@ -231,7 +238,7 @@ function findBySession(store, sessionId) {
 }
 
 module.exports = {
-  agentDepth, canLaunchSubAgents, autonomyNotice,
+  agentDepth, canLaunchSubAgents, autonomyNotice, noticeRoute,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, agentStatus, canLaunch,
   currentPhase, masterState, counts, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,

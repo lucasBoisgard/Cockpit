@@ -21,20 +21,10 @@ test('modeFromScreen prefers the footer over older text that mentions another mo
   assert.strictEqual(core.modeFromScreen(screen), 'auto');
 });
 
-test('cyclePresses counts Shift+Tab presses along acceptEdits, plan, auto, default', () => {
-  assert.strictEqual(core.cyclePresses('acceptEdits', 'acceptEdits'), 0);
-  assert.strictEqual(core.cyclePresses('acceptEdits', 'auto'), 2);
-  assert.strictEqual(core.cyclePresses('auto', 'acceptEdits'), 2);
-  assert.strictEqual(core.cyclePresses('default', 'acceptEdits'), 1);
-  assert.strictEqual(core.cyclePresses('plan', 'default'), 2);
-  assert.strictEqual(core.cyclePresses('bypass', 'auto'), null);
-  assert.strictEqual(core.cyclePresses('auto', 'bypass'), null);
-});
-
 test('agentModeAction picks the safest way to reach each agent', () => {
   const claude = (status, permission) => core.agentModeAction({ provider: 'claude', status, permission });
   assert.strictEqual(claude('stopped'), 'record');
-  assert.strictEqual(claude('working'), 'cycle');
+  assert.strictEqual(claude('working'), 'defer');
   assert.strictEqual(claude('done'), 'cycle');
   assert.strictEqual(claude('needs', true), 'relaunch');
   assert.strictEqual(claude('needs', false), 'defer');
@@ -47,8 +37,8 @@ test('agentModeAction picks the safest way to reach each agent', () => {
   assert.strictEqual(codex('done'), 'relaunch');
 });
 
-test('the master is never restarted: its prompt is cycled, or the switch waits for its turn to end', () => {
-  assert.strictEqual(core.masterModeAction('working'), 'cycle');
+test('the master is never restarted: its prompt is cycled once idle, or the switch waits for its turn to end', () => {
+  assert.strictEqual(core.masterModeAction('working'), 'defer');
   assert.strictEqual(core.masterModeAction('idle'), 'cycle');
   assert.strictEqual(core.masterModeAction('done'), 'cycle');
   assert.strictEqual(core.masterModeAction('needs_input'), 'defer');
@@ -79,8 +69,66 @@ test('overrideError lets an agent be stricter than its orchestration, never loos
   assert.match(core.overrideError('default', 'plan'), /aucun mode plus strict/);
 });
 
-test('an agent launched stricter keeps its mode when the new mode is looser', () => {
-  assert.strictEqual(core.agentModeAction({ provider: 'claude', status: 'working', kept: true }), 'keep');
-  assert.strictEqual(core.agentModeAction({ provider: 'codex', status: 'stopped', kept: true }), 'keep');
+test('effectiveMode keeps the stricter launch override and follows a stricter setting', () => {
+  assert.strictEqual(core.effectiveMode({ modeOverride: 'plan' }, 'auto'), 'plan');
+  assert.strictEqual(core.effectiveMode({ modeOverride: 'default' }, 'plan'), 'plan');
+  assert.strictEqual(core.effectiveMode({ modeOverride: 'default' }, 'default'), 'default');
+  assert.strictEqual(core.effectiveMode({}, 'auto'), 'auto');
   assert.strictEqual(core.modeSummary('auto', ['kept', 'applied'], null), 'auto (1 agent mis à jour, 1 gardent leur mode plus strict)');
+});
+
+// A simulated prompt: Shift+Tab moves along `cycle`, the footer shows the mode.
+function prompt(cycle, start, { idleAfter = Infinity, hideAfter = Infinity } = {}) {
+  const state = { index: cycle.indexOf(start), presses: 0, reads: 0 };
+  return {
+    state,
+    io: {
+      read: async () => (++state.reads > hideAfter ? null : cycle[state.index]),
+      press: async () => { state.presses++; state.index = (state.index + 1) % cycle.length; },
+      idle: async () => state.presses < idleAfter,
+    },
+  };
+}
+const CYCLE = ['default', 'acceptEdits', 'plan', 'auto'];
+
+test('cycleToMode presses once at a time up to the target', async () => {
+  const p = prompt(CYCLE, 'acceptEdits');
+  assert.strictEqual(await core.cycleToMode(p.io, 'auto'), 'applied');
+  assert.strictEqual(p.state.presses, 2);
+  assert.strictEqual(await core.cycleToMode(p.io, 'auto'), 'unchanged');
+  assert.strictEqual(p.state.presses, 2);
+});
+
+test('cycleToMode gives up when the target is not in the cycle, back on the mode it started from', async () => {
+  const p = prompt(['default', 'acceptEdits', 'plan'], 'acceptEdits');
+  assert.strictEqual(await core.cycleToMode(p.io, 'auto'), 'unreachable');
+  assert.strictEqual(p.state.presses, 3);
+  assert.strictEqual(p.io.read && (await p.io.read()), 'acceptEdits');
+});
+
+test('cycleToMode never rests on bypass', async () => {
+  const withBypass = ['default', 'acceptEdits', 'plan', 'bypass'];
+  const toDefault = prompt(withBypass, 'acceptEdits');
+  assert.strictEqual(await core.cycleToMode(toDefault.io, 'default'), 'applied');
+  assert.strictEqual(await toDefault.io.read(), 'default');
+  const missing = prompt(withBypass, 'plan');
+  assert.strictEqual(await core.cycleToMode(missing.io, 'auto'), 'unreachable');
+  assert.strictEqual(await missing.io.read(), 'plan');
+  const fromBypass = prompt(withBypass, 'bypass');
+  assert.strictEqual(await core.cycleToMode(fromBypass.io, 'acceptEdits'), 'applied');
+  const stuck = prompt(withBypass, 'bypass');
+  assert.notStrictEqual(await core.cycleToMode(stuck.io, 'auto'), 'applied');
+  assert.notStrictEqual(await stuck.io.read(), 'bypass');
+});
+
+test('cycleToMode stops as soon as the prompt is no longer idle or shows no mode', async () => {
+  const busy = prompt(CYCLE, 'default', { idleAfter: 1 });
+  assert.strictEqual(await core.cycleToMode(busy.io, 'auto'), 'busy');
+  assert.strictEqual(busy.state.presses, 1);
+  const dialog = prompt(CYCLE, 'default', { hideAfter: 1 });
+  assert.strictEqual(await core.cycleToMode(dialog.io, 'auto'), 'unreadable');
+  assert.strictEqual(dialog.state.presses, 1);
+  const unreadable = prompt(CYCLE, 'default', { hideAfter: 0 });
+  assert.strictEqual(await core.cycleToMode(unreadable.io, 'auto'), 'unreadable');
+  assert.strictEqual(unreadable.state.presses, 0);
 });

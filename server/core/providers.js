@@ -61,7 +61,8 @@ function codexHookArgs(hookCommand) {
   return HOOK_EVENTS_CODEX.flatMap((event) => ['-c', `hooks.${event}=[{hooks=[{type="command",command=${literal},timeout=10}]}]`]);
 }
 
-// Arguments of the provider's binary. `rules` is the cockpit's system prompt: Claude takes it as an
+// Arguments of the provider's binary. A Claude resume always carries its mode, `default` included: without
+// the flag Claude Code restores the mode stored in the session. `rules` is the cockpit's system prompt: Claude takes it as an
 // appended system prompt; Codex has none, so the rules lead the first message.
 function launchArgs(providerId, o) {
   if (providerId === 'codex') {
@@ -85,7 +86,7 @@ function launchArgs(providerId, o) {
     ...(o.rules ? ['--append-system-prompt', o.rules] : []),
     ...(o.model ? ['--model', o.model] : []),
     ...(o.effort ? ['--effort', o.effort] : []),
-    ...(o.mode && o.mode !== 'default' ? ['--permission-mode', o.mode] : []),
+    ...(o.mode ? ['--permission-mode', o.mode] : []),
     ...(o.prompt ? [o.prompt] : []),
   ];
 }
