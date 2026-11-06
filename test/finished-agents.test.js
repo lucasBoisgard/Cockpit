@@ -52,3 +52,10 @@ test('finishedScope hides the sessions of stopped agents and their own worktrees
 test('finishedScope copes with no orchestration', () => {
   assert.deepStrictEqual(finishedScope(undefined), { sessions: new Set(), worktrees: new Set(), count: 0 });
 });
+
+test('finishedScope also hides the stopped agents of ended orchestrations, but not those still running', () => {
+  const ended = { m: { worktree: 'main-wt', agents: [agent('w1', 'stopped', { worktree: 'main-wt--x-w1' }), agent('w2', 'working', { worktree: 'main-wt--x-w2' })] } };
+  const scope = finishedScope({}, ended);
+  assert.deepStrictEqual([...scope.sessions], ['s-w1']);
+  assert.deepStrictEqual([...scope.worktrees], ['main-wt--x-w1']);
+});

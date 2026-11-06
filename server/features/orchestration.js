@@ -396,6 +396,13 @@ async function orchestrations(givenPanes) {
   return out;
 }
 
+async function endedOrchestrations(givenPanes) {
+  const panes = givenPanes || (await livePanes());
+  const out = {};
+  for (const orch of Object.values(load())) if (orch.endedAt) out[orch.masterSessionId] = core.agentRefs(orch, liveStatuses(orch, panes).statuses);
+  return out;
+}
+
 async function setPaused({ master, paused }) {
   const pending = mutate(String(master || ''), (orch) => {
     orch.paused = !!paused;
@@ -519,7 +526,7 @@ function activeAgentsBySession(views) {
 }
 
 module.exports = {
-  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations,
+  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, endedOrchestrations,
   setPaused, updateSettings, endOrchestration, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree,
 };

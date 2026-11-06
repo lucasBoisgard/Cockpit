@@ -118,3 +118,15 @@ test('wakeTarget sends a sub-agent report to its parent even while the master is
   assert.deepStrictEqual(core.wakeTarget(orch, orch.agents[0]), { sessionId: 'm1', hold: true });
   assert.deepStrictEqual(core.wakeTarget({ ...orch, paused: false }, orch.agents[0]), { sessionId: 'm1', hold: false });
 });
+
+test('agentRefs keeps only what the board needs to hide finished agents', () => {
+  const orch = orchWith([agent('w1', { sessionId: 's1', worktree: 'wt', brief: 'long brief' }), agent('w2', { parentId: 'w1', worktree: 'wt--w2', isolated: true })], { masterSessionId: 'm', worktree: 'wt', endedAt: 5 });
+  assert.deepStrictEqual(core.agentRefs(orch, { w1: 'stopped', w2: 'working' }), {
+    masterSessionId: 'm',
+    worktree: 'wt',
+    agents: [
+      { id: 'w1', status: 'stopped', parentId: null, sessionId: 's1', worktree: 'wt' },
+      { id: 'w2', status: 'working', parentId: 'w1', sessionId: null, worktree: 'wt--w2' },
+    ],
+  });
+});

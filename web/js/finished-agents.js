@@ -18,11 +18,11 @@ function hiddenAgentIds(agents) {
 }
 
 // A worktree is only hidden when every agent working in it is hidden; the master's own worktree never is.
-function finishedScope(orchestrations) {
+function finishedScope(orchestrations, ended) {
   const sessions = new Set();
   const worktrees = new Set();
   let count = 0;
-  for (const orch of Object.values(orchestrations || {})) {
+  for (const orch of [...Object.values(orchestrations || {}), ...Object.values(ended || {})]) {
     const hidden = hiddenAgentIds(orch.agents);
     const byWorktree = new Map();
     for (const a of orch.agents) {
@@ -41,11 +41,12 @@ function agentsInSubtree(agents, id) {
   return kids.reduce((n, a) => n + agentsInSubtree(agents, a.id), kids.length);
 }
 
-let finishedCache = { source: null, scope: null };
+let finishedCache = { source: null, ended: null, scope: null };
 
 function finishedNow() {
   const source = state?.orchestrations;
-  if (finishedCache.source !== source || !finishedCache.scope) finishedCache = { source, scope: finishedScope(source) };
+  const ended = state?.endedOrchestrations;
+  if (finishedCache.source !== source || finishedCache.ended !== ended || !finishedCache.scope) finishedCache = { source, ended, scope: finishedScope(source, ended) };
   return finishedCache.scope;
 }
 
