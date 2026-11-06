@@ -61,7 +61,7 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
 ## A new job
 
 Once a job is delivered and reported, and the user asks for a new one, run `orchestrate new "<goal>"`
-**before anything else** (before `plan`, before any launch). The cockpit archives the delivered job
+**before anything else** (before `plan`, before any launch). Rate the agents of the delivered job first: an archived agent can no longer be rated. The cockpit archives the delivered job
 (still readable under "Jobs précédents"), stops the agents that only finished their turn, and gives
 you an empty board: no plan, no agent, ids from `w1` again, same settings. If it refuses because an
 agent is still working, wait for it or stop it, then retry.

@@ -40,6 +40,15 @@ function enqueueMerged(sessionId, text, kind) {
   invalidateSnapshot();
 }
 
+function dropQueued(sessionId, kind) {
+  const queues = loadQueues();
+  const kept = (queues[sessionId] || []).filter((item) => item.kind !== kind);
+  if (kept.length) queues[sessionId] = kept;
+  else delete queues[sessionId];
+  saveStore('worktree-queue.json', queues);
+  invalidateSnapshot();
+}
+
 function dequeue(sessionId, id) {
   const queues = loadQueues();
   queues[sessionId] = (queues[sessionId] || []).filter((item) => item.id !== id);
@@ -89,4 +98,4 @@ async function flushQueues(snap, onSent) {
   }
 }
 
-module.exports = { loadQueues, sendToSession, enqueue, enqueueMerged, dequeue, deliver, broadcast, flushQueues };
+module.exports = { loadQueues, sendToSession, enqueue, enqueueMerged, dropQueued, dequeue, deliver, broadcast, flushQueues };

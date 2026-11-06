@@ -9,7 +9,7 @@ const core = require('../core/orchestration');
 const { invalidateSnapshot } = require('../cache');
 const { listWorktrees, worktreeName, livePanes } = require('./worktrees');
 const { readChat } = require('./chat');
-const { deliver, enqueueMerged } = require('./queue');
+const { deliver, enqueueMerged, dropQueued } = require('./queue');
 const { skillEntries } = require('./skills');
 const { launchClaude, launchProcess } = require('./sessions');
 const matrix = require('./matrix');
@@ -670,26 +670,32 @@ function newJob({ caller, goal }) {
     const current = store[orch.masterSessionId];
     if (!current || current.endedAt) return { error: 'Orchestration introuvable.' };
     const now = Date.now();
-    const fresh = core.freshJob(current, text, now);
     core.pushEvent(current, { type: 'end', text: 'Job livré, nouveau job ouvert' }, now);
-    store[core.archiveKey(current)] = { ...current, endedAt: now, archivedOf: current.masterSessionId };
-    store[orch.masterSessionId] = fresh;
+    const free = store[core.archiveKey(current)] ? core.nextJobNumber(store, current.masterSessionId) : core.jobNumber(current);
+    const archived = { ...current, job: free, endedAt: now, archivedOf: current.masterSessionId };
+    store[core.archiveKey(archived)] = archived;
+    store[orch.masterSessionId] = core.freshJob(current, text, now, core.nextJobNumber(store, current.masterSessionId));
     save(store);
-    return { ok: true, job: fresh.job, archived: core.archiveKey(current) };
+    dropQueued(orch.masterSessionId, 'orchestration');
+    return { ok: true, job: store[orch.masterSessionId].job, archived: core.archiveKey(archived) };
   });
 }
 
 // The master rates an agent's work once it has checked it: the rating feeds the relevance matrix.
 async function rateAgent({ caller, id, score, note, kind }) {
   const found = agentOf(load(), caller, id);
-  if (found.error) return found;
+  if (found.error) {
+    const live = resolveCaller(load(), caller);
+    const archived = !live.error && Object.values(load()).some((o) => o.archivedOf === live.orch.masterSessionId && o.agents.some((a) => a.id === String(id)));
+    return archived ? { error: `${id} appartient à un job archivé : note les agents avant « orchestrate new ».` } : found;
+  }
   const checked = matrixCore.validateRating({ score, note });
   if (checked.error) return checked;
   const category = kind ? String(kind) : found.agent.kind;
   if (!category) return { error: `Donne la catégorie de tâche de ${found.agent.id} (--kind, voir orchestrate matrix).` };
   if (!matrix.categoryIds().includes(category)) return { error: `Catégorie inconnue : ${category}.` };
   const { agent, orch } = found;
-  const rating = { at: Date.now(), category, provider: agent.provider || 'claude', model: agent.model || null, effort: agent.effort || null, score: checked.score, note: checked.note, agent: agent.id, master: orch.masterSessionId, worktree: orch.worktree };
+  const rating = { at: Date.now(), category, provider: agent.provider || 'claude', model: agent.model || null, effort: agent.effort || null, score: checked.score, note: checked.note, agent: agent.id, master: orch.masterSessionId, job: core.jobNumber(orch), worktree: orch.worktree };
   matrix.recordRating(rating);
   mutate(orch.masterSessionId, (o) => {
     const target = o.agents.find((a) => a.id === agent.id);

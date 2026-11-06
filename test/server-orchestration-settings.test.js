@@ -27,7 +27,7 @@ const delivered = [];
 const queue = require('../server/features/queue');
 queue.sendToSession = async (sessionId, text) => { sent.push({ sessionId, text }); return true; };
 queue.deliver = async (sessionId, text) => { delivered.push({ sessionId, text }); return 'sent'; };
-const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks, newJob, orchestrationViews } = require('../server/features/orchestration');
+const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks, newJob, orchestrationViews, rateAgent, onSessionEvent } = require('../server/features/orchestration');
 require('../server/features/agent-mode').timing.attempts = 2;
 require('../server/features/agent-mode').timing.gapMs = 1;
 const core = require('../server/core/orchestration');
@@ -275,4 +275,48 @@ test('a second archived job gets its own key and the history lists both', async 
   const all = store();
   assert.deepStrictEqual(Object.keys(all).sort(), ['m1', 'm1#job1', 'm1#job2']);
   assert.deepStrictEqual(core.jobHistory(all, 'm1').map((j) => j.job), [1, 2]);
+});
+
+test('F1: archives never reuse a key after the master is ended and promoted again', async () => {
+  seed([], { goal: 'one' });
+  await newJob({ caller: 'm1', goal: 'two' });
+  const all = store();
+  all.m1.endedAt = 5;
+  fs.writeFileSync(path.join(home, '.claude', 'worktree-orchestration.json'), JSON.stringify({ ...all, m1: { ...all.m1, endedAt: undefined, job: undefined, goal: 'reborn' } }));
+  await newJob({ caller: 'm1', goal: 'next' });
+  const after = store();
+  assert.strictEqual(after['m1#job1'].goal, 'one');
+  const jobs = core.jobHistory(after, 'm1').map((j) => j.job);
+  assert.strictEqual(new Set(jobs).size, 2);
+  assert.ok(after.m1.job > Math.max(...jobs));
+});
+
+test('F2: a new job keeps the pause, and is refused while reports are held', async () => {
+  seed([], { paused: true });
+  assert.strictEqual((await newJob({ caller: 'm1', goal: 'x' })).ok, true);
+  assert.strictEqual(store().m1.paused, true);
+  seed([], { paused: true, pendingWake: ['w1 a fini'] });
+  assert.match((await newJob({ caller: 'm1', goal: 'x' })).error, /reprends d'abord/);
+  assert.strictEqual(store()['m1#job1'], undefined);
+});
+
+test('F3: rating an archived agent says so, and ratings carry their job', async () => {
+  seed([agent('w1', { kind: 'implement' })]);
+  await newJob({ caller: 'm1', goal: 'next' });
+  assert.match((await rateAgent({ caller: 'm1', id: 'w1', score: 4, kind: 'implement' })).error, /job archivé/);
+  seed([agent('w1')], { job: 3 });
+  await rateAgent({ caller: 'm1', id: 'w1', score: 4, kind: 'implement' });
+  const rated = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'worktree-matrix-ratings.json'), 'utf8'));
+  assert.strictEqual([].concat(rated).pop().job, 3);
+});
+
+test('F4: reports queued for the master before a new job are dropped, and an archived agent wakes nobody', async () => {
+  writeState('s-w1', 'done', '%900001');
+  seed([agent('w1')]);
+  queue.enqueueMerged('m1', 'w1 a fini : old', 'orchestration');
+  queue.enqueueMerged('m1', 'user note', 'user');
+  await newJob({ caller: 'm1', goal: 'next' });
+  assert.deepStrictEqual((queue.loadQueues().m1 || []).map((i) => i.kind), ['user']);
+  onSessionEvent('s-w1', { type: 'done' }, { lastAssistant: 'late' });
+  assert.deepStrictEqual((queue.loadQueues().m1 || []).map((i) => i.kind), ['user']);
 });

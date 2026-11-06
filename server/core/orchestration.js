@@ -253,6 +253,7 @@ function autonomyNotice(autonomy) {
 // A new job on the same master closes the current orchestration. Agents still busy are never cut off:
 // the master finishes or stops them first. Agents that merely finished their turn are stopped by the caller.
 function newJobRefusal(orch, statuses) {
+  if (orch.pendingWake?.length) return 'Des rapports sont retenus par la pause : reprends d\'abord le maître, puis relance « orchestrate new ».';
   const busy = orch.agents.filter((a) => ['starting', 'working', 'needs'].includes(statuses[a.id]));
   if (!busy.length) return null;
   return `${busy.map((a) => a.id).join(', ')} travaille${busy.length > 1 ? 'nt' : ''} encore : attends leur fin ou arrête-les (orchestrate stop), puis relance « orchestrate new ».`;
@@ -260,10 +261,12 @@ function newJobRefusal(orch, statuses) {
 
 const jobNumber = (orch) => orch.job || 1;
 
+const nextJobNumber = (store, masterSessionId) => 1 + Math.max(0, ...Object.values(store).filter((o) => o.masterSessionId === masterSessionId).map(jobNumber));
+
 const archiveKey = (orch) => `${orch.masterSessionId}#job${jobNumber(orch)}`;
 
 // Same master session and settings, empty plan, no agent, ids from w1 again. The goal is the new one.
-function freshJob(orch, goal, now) {
+function freshJob(orch, goal, now, job = jobNumber(orch) + 1) {
   return {
     masterSessionId: orch.masterSessionId,
     worktree: orch.worktree,
@@ -271,8 +274,8 @@ function freshJob(orch, goal, now) {
     model: orch.model,
     effort: orch.effort,
     tmux: orch.tmux,
-    job: jobNumber(orch) + 1,
-    phases: [], agents: [], events: [{ at: now, type: 'start', text: `Nouveau job : ${oneLine(goal, 160)}` }], paused: false, pendingWake: [],
+    job,
+    phases: [], agents: [], events: [{ at: now, type: 'start', text: `Nouveau job : ${oneLine(goal, 160)}` }], paused: !!orch.paused, pendingWake: [],
     settings: { ...orch.settings },
     createdAt: now,
   };
@@ -310,5 +313,5 @@ module.exports = {
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
   currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
-  masterSystemPrompt, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, agentTag, jobHistory,
+  masterSystemPrompt, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, nextJobNumber, agentTag, jobHistory,
 };
