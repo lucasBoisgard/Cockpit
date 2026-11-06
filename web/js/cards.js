@@ -269,11 +269,11 @@ $('grid').addEventListener('submit', async (e) => {
   const text = input.value.trim();
   if (!text) return;
   input.disabled = true;
-  const result = await post('/api/deliver', { target: form.dataset.quick, text });
+  const result = await post('/api/message', { target: form.dataset.quick, text });
   input.disabled = false;
   if (!result.ok) { toast(result.data.error || 'Envoi impossible.', 'error'); return; }
   input.value = '';
-  toast(result.data.outcome === 'queued' ? 'Message mis en file.' : 'Message envoyé à Claude.');
+  toast(SENT_NOTE[result.data.route] || 'Message envoyé à Claude.');
   setTimeout(refresh, 900);
 });
 

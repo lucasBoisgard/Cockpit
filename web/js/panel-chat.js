@@ -13,9 +13,6 @@ function renderComposer(s) {
   const live = !!s?.live;
   $('composer-input').disabled = !live;
   $('composer-send').disabled = !live;
-  $('composer-parallel').disabled = !live || sendingParallel;
-  $('composer-parallel').hidden = !live;
-  $('composer-send').textContent = s?.status === 'working' ? 'Mettre en file' : 'Envoyer';
   $('queue-list').innerHTML = (s?.queue || []).map((q) => `<div class="queue-item"><span title="${esc(q.text)}">⏳ En file : ${esc(q.text)}</span><button data-dequeue="${esc(q.id)}" title="Retirer de la file">✕</button></div>`).join('');
   const parallel = currentWt() ? liveSessions(currentWt()).length : 0;
   if (live && parallel > 1) $('composer-note').textContent = `${parallel} sessions Claude travaillent dans ce worktree : évite qu'elles modifient les mêmes fichiers.`;
@@ -96,28 +93,6 @@ async function setSetting(key, value) {
   toast(queue ? `Changement de ${setting.name} mis en file : il part à la fin du tour.` : setting.done);
 }
 
-let sendingParallel = false;
-
-async function sendParallel() {
-  if (sendingParallel) return;
-  const input = $('composer-input');
-  const text = input.value.trim();
-  const wt = currentWt();
-  if (!text || !wt) return;
-  hideSuggest();
-  sendingParallel = true;
-  $('composer-parallel').disabled = true;
-  const result = await post('/api/start', { worktree: wt.name, prompt: text });
-  sendingParallel = false;
-  $('composer-parallel').disabled = false;
-  if (!result.ok) { toast(result.data.error || 'Lancement impossible.', 'error'); return; }
-  input.value = '';
-  autosizeComposer();
-  pendingParallel = { path: wt.path, known: new Set(wt.sessions.map((s) => s.sessionId)), at: Date.now() };
-  toast('Session parallèle lancée dans ce worktree.');
-  setTimeout(refresh, 2500);
-}
-
 async function loadChat(force) {
   const box = $('chat');
   if (String(chatSession || '').startsWith('codex-screen:')) {
@@ -153,19 +128,31 @@ async function loadChat(force) {
   if (nearBottom || force) box.scrollTop = box.scrollHeight;
 }
 
+// One send, like the CLI: the server delivers the message to the session (taken into account during its
+// turn), holds it while Claude waits on a question, or starts a parallel session for an independent task.
+const SENT_NOTE = {
+  queued: 'Claude attend ta réponse à sa question : ton message part juste après.',
+  parallel: 'Tâche indépendante : lancée dans une nouvelle session de ce worktree.',
+};
+
 async function sendMessage() {
   const input = $('composer-input');
   const text = input.value.trim();
+  const wt = currentWt();
   if (!text || !chatSession) return;
   hideSuggest();
-  $('composer-send').disabled = true;
-  const s = currentSession();
-  const queue = s?.status === 'working';
-  const result = await post(queue ? '/api/queue' : '/api/send', { target: chatSession, text });
-  $('composer-send').disabled = false;
-  if (!result.ok) { toast(result.data.error || 'Envoi impossible.', 'error'); return; }
   input.value = '';
   autosizeComposer();
-  if (queue) toast('Message mis en file : il part dès que Claude a fini son tour.');
-  setTimeout(() => { loadChat(true); refresh(); }, 900);
+  const known = new Set((wt?.sessions || []).map((s) => s.sessionId));
+  const result = await post('/api/message', { target: chatSession, text });
+  if (!result.ok) {
+    if (!input.value.trim()) { input.value = text; autosizeComposer(); }
+    toast(result.data.error || 'Envoi impossible.', 'error');
+    return;
+  }
+  const { route, reason, during } = result.data;
+  if (route === 'parallel' && wt) pendingParallel = { path: wt.path, known, at: Date.now() };
+  const note = route === 'session' ? (during ? 'Envoyé : Claude en tient compte pendant son tour.' : null) : SENT_NOTE[route];
+  if (note) toast(reason && route === 'parallel' ? `${note} (${reason})` : note);
+  setTimeout(() => { loadChat(true); refresh(); }, route === 'parallel' ? 2500 : 900);
 }

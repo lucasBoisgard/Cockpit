@@ -41,6 +41,8 @@ Les pastilles en haut sont cliquables, `j` / `k` parcourent la file au clavier.
 
 > « Autoriser, Toujours autoriser, Refuser : la touche `a` suffit. Claude repart immédiatement et la session passe en *En cours*. »
 
+**Écrire à Claude pendant qu'il travaille.** Comme dans le terminal, on écrit quand on veut et on appuie sur Entrée. Claude tient compte du message pendant son tour, sans attendre la fin. Si le message est une tâche sans rapport (« Autre chose : documente l'API de remboursement »), le cockpit le détecte et lance une session en parallèle dans le même worktree. Il n'y a qu'un seul bouton, et le cockpit choisit la bonne voie.
+
 ---
 
 ## 3. Relire ce que Claude a fait
@@ -133,9 +135,9 @@ Pour chaque type de tâche (explorer, implémenter, déboguer, relire…), la ma
 
 ## 10. Pour finir
 
-Le thème sombre, le mode focus (`f` masque la file), et l'ancienne vue en cartes restent disponibles dans le menu ⋯.
+Le thème clair (ou celui du système), le mode focus (`f` masque la file) et l'ancienne vue en cartes sont dans le menu ⋯.
 
-![Le thème sombre](screenshots/13-sombre.png)
+![Le thème clair](screenshots/13-clair.png)
 
 **Le message à retenir :** on lance autant de sessions qu'on veut, et le cockpit dit à chaque instant laquelle a besoin de nous. On répond, on relit, on délègue, sans jamais chercher le bon terminal.
 

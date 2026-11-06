@@ -140,7 +140,6 @@ $('panel').addEventListener('click', async (e) => {
     return;
   }
   if (e.target.id === 'composer-send') { sendMessage(); return; }
-  if (e.target.id === 'composer-parallel') { sendParallel(); return; }
   if (e.target.id === 'resume-btn') {
     const result = await post('/api/resume', { session: chatSession });
     toast(result.ok ? 'Session relancée dans tmux. Elle sera pilotable dans quelques secondes.' : result.data.error || 'Reprise impossible.', result.ok ? '' : 'error');

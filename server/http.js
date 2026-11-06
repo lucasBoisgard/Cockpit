@@ -27,6 +27,7 @@ const orchestration = require('./features/orchestration');
 const { providersInfo } = require('./features/providers');
 const mcp = require('./features/mcp');
 const { answerAsk } = require('./features/asks');
+const { sendMessage } = require('./features/routing');
 const modelMatrix = require('./features/matrix');
 const connections = require('./features/connections');
 const codexScreens = require('./features/codex-screens');
@@ -218,6 +219,10 @@ async function handleWrite(req, res, route) {
     const result = await writeActions[route](body);
     invalidateSnapshot();
     return json(res, result?.error ? 400 : 200, result);
+  }
+  if (route === '/api/message') {
+    const result = await sendMessage(body);
+    return json(res, result.error ? 409 : 200, result);
   }
   if (route === '/api/queue') {
     const session = readSession(String(body.target || ''));

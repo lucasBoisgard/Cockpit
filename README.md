@@ -37,7 +37,7 @@ When Claude asks a question (`AskUserQuestion`) in a session launched or resumed
 
 ### Steering several sessions
 
-- **Message queue.** While Claude works, the composer becomes "Mettre en file": queued messages leave when the turn ends.
+- **One send, routed for you.** The composer has a single "Envoyer", like the CLI: the message always reaches the session, and while Claude works it is taken into account during the turn (Claude Code queues it itself). While Claude waits on a question or a permission, the message is held and leaves right after the answer. When a long message is sent to a busy session, a small model (`claude -p --model haiku`, about 2 s, `server/core/routing.js`) reads it against the current task: a clearly independent task starts a new session in the same worktree instead, and a toast says why. Short messages, follow-ups and slash commands skip that check.
 - **Broadcast.** "Outils → Écrire à plusieurs sessions" selects cards and sends one message to all of them (busy ones get it queued).
 - **Variants.** "Nouvelle session" can start N worktrees with the same prompt to compare approaches.
 - **Delegation.** "Déléguer" on a Claude message starts a linked session pre-filled with that context. Cards show the parent and child links, and the parent can be told when the child finishes a turn.

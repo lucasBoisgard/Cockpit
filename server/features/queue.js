@@ -88,4 +88,4 @@ async function flushQueues(snap, onSent) {
   }
 }
 
-module.exports = { loadQueues, enqueue, enqueueMerged, dequeue, deliver, broadcast, flushQueues };
+module.exports = { loadQueues, sendToSession, enqueue, enqueueMerged, dequeue, deliver, broadcast, flushQueues };

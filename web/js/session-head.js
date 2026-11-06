@@ -38,7 +38,6 @@ function headMenu(wt, s) {
     if (wt.pr) item('data-head-tab="checks"', `PR #${wt.pr.number}`, 'checks, reviews, CI');
   }
   if (s) item(`data-head-read="${esc(s.sessionId)}"`, 'Lire la dernière réponse', '', '');
-  if (s?.live) item('data-head-parallel', 'Nouvelle session ici', 'en parallèle, même worktree');
   if (s) item(`data-head-delegate="${esc(s.sessionId)}"`, 'Déléguer une sous-tâche', 'nouvelle session liée à celle-ci');
   item(`data-head-pin="${esc(wt.path)}"`, pins.has(wt.path) ? 'Désépingler' : 'Épingler en tête de file');
   if (state.app && canServe(wt) && wt.headSha && state.app?.serving?.name !== wt.name) item(`data-serve="${esc(wt.path)}"`, 'Servir l’app depuis ce worktree', 'checkout du dernier commit');
@@ -104,7 +103,6 @@ $('panel-head').addEventListener('click', (e) => {
   if (tabBtn) { closeMenu(); document.querySelector(`#tabs [data-tab="${tabBtn.dataset.headTab}"]`)?.click(); if (tabBtn.dataset.headTab === 'chat') $('composer-input').focus(); return; }
   const read = t.closest('[data-head-read]');
   if (read) { closeMenu(); renderPanel(); openReaderFor(read.dataset.headRead, currentWt()?.name); return; }
-  if (t.closest('[data-head-parallel]')) { closeMenu(); document.querySelector('#tabs [data-tab="chat"]')?.click(); $('composer-input').focus(); toast('Écris le message puis « En parallèle ».'); return; }
   const delegateBtn = t.closest('[data-head-delegate]');
   if (delegateBtn) { closeMenu(); renderPanel(); openNewSession({ parent: currentWt()?.sessions.find((x) => x.sessionId === delegateBtn.dataset.headDelegate) || null }); return; }
   const pin = t.closest('[data-head-pin]');
