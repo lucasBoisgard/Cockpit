@@ -63,10 +63,10 @@
       { "provider": "codex", "model": "gpt-6-astra", "effort": "high", "score": 4, "why": "Pour confronter deux propositions." }
     ] },
     { "id": "review", "label": "Revue indépendante", "description": "Relire le travail d'un autre agent avant de l'intégrer.", "picks": [
-      { "provider": "claude", "model": "sonnet", "effort": "medium", "score": 5, "why": "Relecture courante : medium ; pour traquer des défauts, la lancer en parallèle du pick GPT ci-dessous et fusionner les constats." },
-      { "provider": "codex", "model": "gpt-6-luna", "effort": "medium", "score": 5, "why": "Contradicteur d'une autre famille en parallèle, à bas coût (paire de lows plutôt qu'un high)." },
-      { "provider": "codex", "model": "gpt-6-astra", "effort": "medium", "score": 4, "why": "Autre famille plus profonde quand l'auteur est un agent Claude." },
-      { "provider": "claude", "model": "opus", "effort": "high", "score": 4, "why": "Changement sensible ou irréversible, ou auteur GPT/Sonnet sur du code critique." }
+      {"provider": "claude", "model": "sonnet", "effort": "low", "score": 5, "why": "Premier passage (mesuré : 45 % des défauts en ~1 min, meilleur rendement par minute) ; toute affirmation « sans problème » reste à revérifier."},
+      {"provider": "claude", "model": "sonnet", "effort": "high", "score": 5, "why": "Second passage ciblé quand le diff touche permissions, concurrence ou outils externes (mesuré : 59 %)."},
+      {"provider": "claude", "model": "opus", "effort": "high", "score": 4, "why": "Quand il faut vérifier le comportement de l'outil externe lui-même (seul à tout trouver, mais ~15 min), ou changement irréversible."},
+      {"provider": "codex", "model": "gpt-6-astra", "effort": "medium", "score": 4, "why": "Autre famille pour une seconde opinion sur un agent Claude ; une paire de low n'apporte rien (mesuré)."}
     ] },
     { "id": "large-context", "label": "Très gros contexte", "description": "Beaucoup de fichiers ou des fichiers très longs à garder en tête.", "picks": [
       { "provider": "claude", "model": "sonnet[1m]", "effort": "medium", "score": 5, "why": "Un million de tokens à coût moyen ; lecture plus que raisonnement." },

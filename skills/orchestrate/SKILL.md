@@ -52,7 +52,7 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
    - the work is wrong or partial → `orchestrate send` precise corrections, or stop it and launch a
      better-suited agent (another model, more effort, another skill).
 5. **Verify** before calling a phase done: launch a reviewer agent (`--skill code-review`, a different
-   model from the implementer when possible) and/or run the tests yourself.
+   model from the implementer when possible) and/or run the tests yourself. Start with one low-effort pass and add a targeted high pass only for risky diffs (see "Review passes" in `pick-agent-model`).
 6. **Deliver.** Summarize for the user: what was done, by which agents, what was checked, what is
    left. Pushing, opening a pull request or anything irreversible needs the user's go unless the goal
    says otherwise.
