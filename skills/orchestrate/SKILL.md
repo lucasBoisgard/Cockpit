@@ -93,7 +93,7 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 - **Skills**: run `orchestrate skills` once, then give an agent the skills that match its task
   (`--skill` may be repeated). The agent loads them before starting.
 - **Permission mode**: agents default to the mode set by the user for this master (usually
-  `acceptEdits`). Use `--mode plan` for an agent that must only analyze: an explicit mode is accepted only when it is
+  `acceptEdits`). Use `--mode plan` for an agent that must only analyze and writes no file; never for an agent that must write its deliverable (report file in the run dir): it could not. The mode inherited from the orchestration still applies; never ask for a looser one. An explicit mode is accepted only when it is
   stricter than the user's, a looser one is refused, and a stricter agent keeps its mode when the user loosens the setting. Never ask for a mode that
   skips permissions: the cockpit refuses it. When the user changes that mode in the Réglages, the cockpit
   applies it itself to you and to every agent already running, sub-agents included: never relaunch agents
@@ -119,7 +119,7 @@ Depth is limited by the cockpit setting `maxDepth` (default 2, ceiling 4) and th
 ## Where an agent works
 
 - **Default: your worktree.** Agents share it. Give agents of the same phase disjoint files or
-  directories in their briefs, and keep git operations (commit, rebase, merge) for yourself.
+  directories in their briefs, and keep git operations (commit, merge; never rebase, H3) out of their briefs: they go to `pr-ci-keeper`, only with the matching grant.
 - **`--isolated`**: the agent gets its own worktree, on a new branch made from your current `HEAD`
   (commit first what it must see). Use it for risky or exploratory work, for two agents that must
   touch the same files, or for competing variants. The agent commits on its branch; you merge it
@@ -127,13 +127,9 @@ Depth is limited by the cockpit setting `maxDepth` (default 2, ceiling 4) and th
 
 ## Writing a brief
 
-An agent knows nothing but its brief. A good brief:
+An agent knows nothing but its brief. Use the brief template of `agent-protocol` (section "Briefing a child"), and tell every agent to load `agent-protocol` (it reads `~/.claude/house-rules.md`). Allow sub-agents only when the task truly needs them ("Tu peux lancer des sous-agents pour …").
 
-- states the goal and why, in two or three sentences;
-- lists the files, directories or commands that matter, and what is out of scope;
-- gives the constraints (patterns to follow, things not to touch, tests to run);
-- says exactly what the final report must contain;
-- allows sub-agents only when the task truly needs them ("Tu peux lancer des sous-agents pour …").
+Roles: when the request has no verifiable success criteria, launch `role-framer` first. Other role skills: `role-challenger` (refute before anything is acted on), `role-sub-orchestrator`, `pr-reviewer`, `pr-ci-keeper`. At the end of a long job, write the report with `run-report`.
 
 Write long briefs to a file and pass `--brief-file`, or use a quoted heredoc so nothing is expanded.
 
