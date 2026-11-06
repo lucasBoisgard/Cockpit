@@ -4,7 +4,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 const { spawn } = require('node:child_process');
-const { ROOT, STARTED_AT, TOKEN_FILE, ALLOWED_HOSTS } = require('./config');
+const { ROOT, REPO, STARTED_AT, TOKEN_FILE, ALLOWED_HOSTS } = require('./config');
+const { listWorktrees } = require('./features/worktrees');
 const { sleep } = require('./io/exec');
 const { readSession } = require('./io/store');
 const { invalidateSnapshot } = require('./cache');
@@ -22,10 +23,19 @@ const { agentsOf } = require('./features/agents');
 const { listSkills, readSkill, createSkill, assistSkill } = require('./features/skills');
 const { usageHistory } = require('./features/usage');
 const { listCommands } = require('./features/commands');
+const orchestration = require('./features/orchestration');
+const { providersInfo } = require('./features/providers');
+const mcp = require('./features/mcp');
+const { answerAsk } = require('./features/asks');
+const modelMatrix = require('./features/matrix');
+const connections = require('./features/connections');
+const codexScreens = require('./features/codex-screens');
+const providerCore = require('./core/providers');
+const { codexHookCommand, codexCatalog, CODEX_BIN } = require('./features/providers');
 const { saveAutomation, deleteAutomation, listAutomations, runAutomation } = require('./features/automations');
 
 const BODY_MAX_BYTES = 1024 * 1024;
-const ASSET_TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const ASSET_TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.woff2': 'font/woff2' };
 const OFFLINE_ERROR = 'Cette session ne tourne pas dans tmux, le cockpit ne peut pas lui écrire.';
 
 function readToken() {
@@ -84,7 +94,7 @@ function readBody(req) {
 
 function send(res, status, type, body, extraHeaders = {}) {
   const headers = { 'Content-Type': type, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY', Vary: 'Accept-Encoding', ...extraHeaders };
-  if (body && Buffer.byteLength(body) > 2048 && /\bgzip\b/.test(res.req?.headers['accept-encoding'] || '')) {
+  if (body && !type.startsWith('font/') && Buffer.byteLength(body) > 2048 && /\bgzip\b/.test(res.req?.headers['accept-encoding'] || '')) {
     headers['Content-Encoding'] = 'gzip';
     body = zlib.gzipSync(body, { level: 4 });
   }
@@ -99,7 +109,10 @@ function loadAssets(dir, prefix = '/web') {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) for (const [key, value] of loadAssets(full, `${prefix}/${entry.name}`)) assets.set(key, value);
-    else if (ASSET_TYPES[path.extname(entry.name)]) assets.set(`${prefix}/${entry.name}`, { type: ASSET_TYPES[path.extname(entry.name)], body: fs.readFileSync(full, 'utf8') });
+    else if (ASSET_TYPES[path.extname(entry.name)]) {
+      const type = ASSET_TYPES[path.extname(entry.name)];
+      assets.set(`${prefix}/${entry.name}`, { type, body: type.startsWith('font/') ? fs.readFileSync(full) : fs.readFileSync(full, 'utf8') });
+    }
   }
   return assets;
 }
@@ -124,6 +137,37 @@ const writeActions = {
   '/api/automations/save': (body) => saveAutomation(body),
   '/api/automations/delete': (body) => deleteAutomation(body),
   '/api/automations/run': (body) => runAutomation(String(body.id || '')),
+  '/api/ask/answer': (body) => answerAsk(body),
+  '/api/matrix/category': (body) => modelMatrix.saveCategory(body),
+  '/api/matrix/reset': (body) => modelMatrix.resetCategory(body),
+  '/api/orch/rate': (body) => orchestration.rateAgent(body),
+  '/api/mcp/add': (body) => mcp.addMcp(body),
+  '/api/mcp/share': (body) => mcp.shareMcp(body),
+  '/api/connect/codex/device': () => connections.codexDeviceLogin(),
+  '/api/connect/codex/key': (body) => connections.codexApiKey(body),
+  '/api/connect/claude': (body) => connections.claudeLogin(body),
+  '/api/connect/claude/code': (body) => connections.claudeCode(body),
+  '/api/connect/cancel': (body) => connections.cancelLogin(body),
+  '/api/codex/screen': (body) => codexScreens.answerScreen(body),
+  '/api/codex/hooks': (body) => codexScreens.openHooks(body),
+  '/api/connect/codex/setup': async (body) => {
+    const repos = new Set([REPO, ...(await listWorktrees()).map((w) => w.repo).filter(Boolean)]);
+    if (!repos.has(String(body.repo || ''))) return { error: 'Dépôt inconnu.' };
+    const light = (await codexCatalog()).map((m) => m.id).find((id) => /luna/.test(id)) || null;
+    return codexScreens.setupRepo({ repo: body.repo, bin: CODEX_BIN, args: providerCore.launchArgs('codex', { hookCommand: codexHookCommand(), mode: 'plan', model: light, effort: light ? 'low' : null, prompt: 'Réponds seulement : prêt. N’utilise aucun outil.' }) });
+  },
+  '/api/connect/codex/setup/end': (body) => codexScreens.endSetup(body),
+  '/api/mcp/remove': (body) => mcp.removeMcp(body),
+  '/api/orch/start': (body) => orchestration.startMaster(body),
+  '/api/orch/promote': (body) => orchestration.promote(body),
+  '/api/orch/plan': (body) => orchestration.setPlan(body),
+  '/api/orch/launch': (body) => orchestration.launchAgent(body),
+  '/api/orch/stop': (body) => orchestration.stopAgent(body),
+  '/api/orch/resume': (body) => orchestration.resumeAgent(body),
+  '/api/orch/send': (body) => orchestration.sendToAgent(body),
+  '/api/orch/pause': (body) => orchestration.setPaused(body),
+  '/api/orch/settings': (body) => orchestration.updateSettings(body),
+  '/api/orch/end': (body) => orchestration.endOrchestration(body),
 };
 
 const terminalActions = {
@@ -195,6 +239,20 @@ function orBadRequest(res, value, message) {
 }
 
 const readRoutes = {
+  '/api/orch': async (res, q) => {
+    const result = await orchestration.status({ caller: q.get('caller') });
+    return json(res, result.error ? 404 : 200, result);
+  },
+  '/api/orch/read': async (res, q) => {
+    const result = await orchestration.readAgent({ caller: q.get('caller'), id: q.get('id') });
+    return json(res, result.error ? 404 : 200, result);
+  },
+  '/api/orch/skills': async (res) => json(res, 200, await orchestration.skillsForAgents()),
+  '/api/providers': async (res) => json(res, 200, await providersInfo()),
+  '/api/matrix': async (res) => json(res, 200, await modelMatrix.getMatrix()),
+  '/api/mcp': async (res, q) => json(res, 200, await mcp.listMcp({ refresh: q.get('refresh') === '1' })),
+  '/api/connect': async (res) => json(res, 200, { ...(await connections.status()), repos: [...new Set([REPO, ...(await listWorktrees()).map((w) => w.repo).filter(Boolean)])] }),
+  '/api/connect/codex/setup': async (res, q) => json(res, 200, await codexScreens.setupState({ tmux: q.get('tmux') })),
   '/api/events': (res) => json(res, 200, recentEvents()),
   '/api/changes': async (res, q) => orBadRequest(res, await changesSince(q.get('wt') || '', q.get('since') || ''), 'Périmètre ou worktree invalide.'),
   '/api/commits': async (res, q) => orBadRequest(res, await ticketCommits(q.get('wt') || ''), 'Base de la branche introuvable.'),

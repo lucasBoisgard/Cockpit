@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "note": "Estimations initiales : à ajuster depuis la page Matrice des modèles, et à confronter aux notes que les maîtres donnent à leurs agents. Score de 1 (à éviter) à 5 (premier choix). Coût et vitesse de 1 (bas) à 3 (élevé).",
+  "models": [
+    { "provider": "claude", "model": "opus", "label": "Claude Opus", "cost": 3, "speed": 1, "context": 200000, "summary": "Le plus capable de la gamme Claude : raisonnement profond, changements délicats, conception." },
+    { "provider": "claude", "model": "opus[1m]", "label": "Claude Opus · 1M", "cost": 3, "speed": 1, "context": 1000000, "summary": "Opus avec un contexte d'un million de tokens, pour les très gros périmètres." },
+    { "provider": "claude", "model": "sonnet", "label": "Claude Sonnet", "cost": 2, "speed": 2, "context": 200000, "summary": "Le cheval de trait : implémentation, tests, front, bon rapport qualité/coût." },
+    { "provider": "claude", "model": "sonnet[1m]", "label": "Claude Sonnet · 1M", "cost": 2, "speed": 2, "context": 1000000, "summary": "Sonnet avec un contexte d'un million de tokens." },
+    { "provider": "claude", "model": "haiku", "label": "Claude Haiku", "cost": 1, "speed": 3, "context": 200000, "summary": "Rapide et économique : recherche, inventaire, résumés, tâches simples." },
+    { "provider": "claude", "model": "fable", "label": "Claude Fable", "cost": null, "speed": null, "context": null, "summary": "À évaluer : aucun score par défaut tant que les notes des agents ne le situent pas." },
+    { "provider": "codex", "model": "gpt-6-astra", "label": "GPT-6 Astra", "cost": 3, "speed": 1, "context": 272000, "summary": "Selon OpenAI : intelligence de pointe pour le travail le plus exigeant." },
+    { "provider": "codex", "model": "gpt-6.1-sol", "label": "GPT-6.1 Sol", "cost": 2, "speed": 2, "context": 272000, "summary": "Selon OpenAI : le modèle de travail le plus récent, pour le code et le quotidien." },
+    { "provider": "codex", "model": "gpt-6.1-terra", "label": "GPT-6.1 Terra", "cost": 2, "speed": 2, "context": 500000, "summary": "Contexte de 500 000 tokens." },
+    { "provider": "codex", "model": "gpt-6-luna", "label": "GPT-6 Luna", "cost": 1, "speed": 3, "context": 272000, "summary": "Selon OpenAI : rapide et abordable, pour les tâches simples." },
+    { "provider": "codex", "model": "gpt-6-sol", "label": "GPT-6 Sol", "cost": 2, "speed": 2, "context": 272000, "summary": "Génération précédente de Sol." },
+    { "provider": "codex", "model": "gpt-5.6-sol", "label": "GPT-5.6 Sol", "cost": 2, "speed": 2, "context": 272000, "summary": "Génération plus ancienne." }
+  ],
+  "categories": [
+    { "id": "explore", "label": "Explorer, chercher", "description": "Repérer des usages, lister des fichiers, cartographier un module.", "picks": [
+      { "provider": "claude", "model": "haiku", "effort": "low", "score": 5, "why": "Rapide et peu cher, largement suffisant pour chercher et lister." },
+      { "provider": "codex", "model": "gpt-6-luna", "effort": "low", "score": 4, "why": "Équivalent rapide côté GPT." },
+      { "provider": "claude", "model": "sonnet", "effort": "low", "score": 3, "why": "Quand la recherche demande d'interpréter le code." }
+    ] },
+    { "id": "summarize", "label": "Lire et résumer", "description": "Ticket, threads, documentation, rapports d'autres agents.", "picks": [
+      { "provider": "claude", "model": "haiku", "effort": "medium", "score": 4, "why": "Bon résumé à faible coût." },
+      { "provider": "claude", "model": "sonnet", "effort": "medium", "score": 4, "why": "Quand il faut arbitrer entre des sources contradictoires." },
+      { "provider": "codex", "model": "gpt-6-luna", "effort": "medium", "score": 3, "why": "Alternative rapide." }
+    ] },
+    { "id": "implement", "label": "Implémentation courante", "description": "Fonctionnalité qui suit un motif existant du code.", "picks": [
+      { "provider": "claude", "model": "sonnet", "effort": "high", "score": 5, "why": "Meilleur rapport qualité/coût pour coder en suivant l'existant." },
+      { "provider": "codex", "model": "gpt-6.1-sol", "effort": "medium", "score": 4, "why": "Modèle de travail GPT, utile pour une variante concurrente." },
+      { "provider": "claude", "model": "opus", "effort": "medium", "score": 4, "why": "Si le code existant est peu clair ; plus cher." }
+    ] },
+    { "id": "frontend", "label": "Interface, front", "description": "Composants, styles, accessibilité, interactions.", "picks": [
+      { "provider": "claude", "model": "sonnet", "effort": "high", "score": 5, "why": "Solide sur les composants et les styles." },
+      { "provider": "claude", "model": "opus", "effort": "high", "score": 4, "why": "Pour une refonte d'écran ou des interactions complexes." },
+      { "provider": "codex", "model": "gpt-6.1-sol", "effort": "medium", "score": 4, "why": "Variante GPT à comparer." }
+    ] },
+    { "id": "tests", "label": "Écrire des tests", "description": "Tests unitaires et d'intégration d'un code existant.", "picks": [
+      { "provider": "claude", "model": "sonnet", "effort": "medium", "score": 5, "why": "Suit bien les conventions de test du dépôt." },
+      { "provider": "codex", "model": "gpt-6.1-sol", "effort": "medium", "score": 4, "why": "Une autre famille trouve d'autres cas limites." },
+      { "provider": "claude", "model": "haiku", "effort": "medium", "score": 3, "why": "Pour des tests simples et répétitifs." }
+    ] },
+    { "id": "refactor", "label": "Refactor large", "description": "Déplacer, renommer, découper sur beaucoup de fichiers.", "picks": [
+      { "provider": "claude", "model": "opus", "effort": "high", "score": 5, "why": "Garde la cohérence d'ensemble sur un grand périmètre." },
+      { "provider": "claude", "model": "sonnet[1m]", "effort": "high", "score": 4, "why": "Quand le périmètre ne tient pas dans un contexte normal." },
+      { "provider": "codex", "model": "gpt-6.1-terra", "effort": "high", "score": 4, "why": "Contexte de 500 000 tokens." }
+    ] },
+    { "id": "debug", "label": "Déboguer un problème difficile", "description": "Bug intermittent, cause racine inconnue, comportement en prod.", "picks": [
+      { "provider": "claude", "model": "opus", "effort": "high", "score": 5, "why": "Raisonnement profond sur les causes." },
+      { "provider": "codex", "model": "gpt-6-astra", "effort": "high", "score": 4, "why": "Deuxième hypothèse indépendante." },
+      { "provider": "claude", "model": "sonnet", "effort": "xhigh", "score": 4, "why": "Moins cher quand la piste est déjà réduite." }
+    ] },
+    { "id": "delicate", "label": "Changement sensible", "description": "Données de prod, migrations, sécurité, concurrence, scripts one-shot.", "picks": [
+      { "provider": "claude", "model": "opus", "effort": "max", "score": 5, "why": "Le moins de risque : effort maximal sur ce qui ne se rattrape pas." },
+      { "provider": "codex", "model": "gpt-6-astra", "effort": "xhigh", "score": 4, "why": "En relecture croisée de l'agent Claude." },
+      { "provider": "claude", "model": "sonnet", "effort": "xhigh", "score": 3, "why": "Seulement si le changement est bien cadré et relu." }
+    ] },
+    { "id": "architecture", "label": "Conception, architecture", "description": "Découper un système, choisir une approche, écrire un plan.", "picks": [
+      { "provider": "claude", "model": "opus", "effort": "high", "score": 5, "why": "Meilleur pour peser les compromis." },
+      { "provider": "codex", "model": "gpt-6-astra", "effort": "high", "score": 4, "why": "Pour confronter deux propositions." }
+    ] },
+    { "id": "review", "label": "Revue indépendante", "description": "Relire le travail d'un autre agent avant de l'intégrer.", "picks": [
+      { "provider": "codex", "model": "gpt-6-astra", "effort": "high", "score": 5, "why": "Quand l'auteur est un agent Claude : une autre famille voit d'autres défauts." },
+      { "provider": "claude", "model": "opus", "effort": "high", "score": 5, "why": "Quand l'auteur est un agent GPT ou Sonnet." },
+      { "provider": "claude", "model": "sonnet", "effort": "high", "score": 4, "why": "Relecture courante, moins chère." }
+    ] },
+    { "id": "large-context", "label": "Très gros contexte", "description": "Beaucoup de fichiers ou des fichiers très longs à garder en tête.", "picks": [
+      { "provider": "claude", "model": "sonnet[1m]", "effort": "high", "score": 5, "why": "Un million de tokens à coût moyen." },
+      { "provider": "claude", "model": "opus[1m]", "effort": "high", "score": 5, "why": "Un million de tokens avec le meilleur raisonnement." },
+      { "provider": "codex", "model": "gpt-6.1-terra", "effort": "medium", "score": 4, "why": "500 000 tokens côté GPT." }
+    ] }
+  ]
+}

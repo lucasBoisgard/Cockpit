@@ -3,11 +3,14 @@ const headEnd = (extra = '') => `<div class="head-end">${extra}${appButton()}<bu
 function renderTabs() {
   const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', 'Changements'], ['agents', 'Agents']];
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
+  const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
+  if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${orch.counts.total}</span>`]);
   if (currentWt() && !isBase(currentWt()) && state.pr?.enabled) tabs.push(['checks', currentWt().pr ? `PR #${currentWt().pr.number}` : 'PR']);
   if (state.app) tabs.push(['app', `App<span class="tab-dot ${esc(state.app.state)}"></span>`]);
   if (!tabs.some(([id]) => id === tab)) tab = tabs[0][0];
   $('tabs').innerHTML = tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? 'on' : ''}">${label}</button>`).join('');
   $('report-view').hidden = tab !== 'report';
+  $('orch-view').hidden = tab !== 'orch';
   $('chat-view').hidden = tab !== 'chat';
   $('agents-view').hidden = tab !== 'agents';
   $('term-view').hidden = tab !== 'term';
@@ -16,9 +19,18 @@ function renderTabs() {
   $('usage-view').hidden = tab !== 'usage';
   $('app-view').hidden = tab !== 'app';
   $('checks-view').hidden = tab !== 'checks';
+  if (typeof renderRail === 'function') renderRail();
 }
 
 function renderPanel() {
+  renderPanelBody();
+  if (typeof renderOrchestration === 'function') renderOrchestration();
+  if (typeof renderAskCard === 'function') renderAskCard();
+  if (typeof renderRail === 'function') renderRail();
+  if (typeof updateComposerPill === 'function') { updateComposerPill(); setTimeout(updateComposerPill, 300); }
+}
+
+function renderPanelBody() {
   const panel = $('panel');
   const wt = currentWt();
   const open = selected === SHELL || selected === USAGE || !!wt;
@@ -27,10 +39,12 @@ function renderPanel() {
   renderTabs();
   $('app-pane').innerHTML = appPane();
   if (selected === SHELL) {
+    delete $('panel-head').dataset.html;
     $('panel-head').innerHTML = `<div><div class="name">Terminal</div><div class="branch">bash · ${esc(state.repo)} · session tmux cw-shell</div></div>${headEnd()}`;
     return;
   }
   if (selected === USAGE) {
+    delete $('panel-head').dataset.html;
     $('panel-head').innerHTML = `<div><div class="name">Tokens</div><div class="branch">limites du compte, sessions et usage des 7 derniers jours</div></div>${headEnd()}`;
     renderUsage();
     return;
@@ -38,9 +52,13 @@ function renderPanel() {
   if (!chatSession || !wt.sessions.some((x) => x.sessionId === chatSession)) chatSession = primarySession(wt)?.sessionId || null;
   const st = sessionStatus(wt);
   const s = currentSession();
-  $('panel-head').innerHTML = `
+  if (isWorkstation()) setHtml($('panel-head'), sessionHead(wt, st));
+  else {
+    $('panel-head').innerHTML = `
     <div><div class="name">${esc(wt.label || wt.name)}</div><div class="branch-row"><span class="repo-chip" title="${esc(wt.repo || 'Repo')}">${esc(wt.repoName || state.repoName)}</span>${branchChip(wt)}${prChip(wt.pr)}<span class="branch">${esc(wt.path)}</span></div>${extChips(wt) ? `<div class="branch-row">${extChips(wt)}</div>` : ''}</div>
     ${headEnd(`<span class="badge ${st}"><span class="dot"></span>${primarySession(wt) ? statusLabel(primarySession(wt), st, STATUS) : STATUS[st].label}</span>`)}`;
+    delete $('panel-head').dataset.html;
+  }
   renderReport(wt);
   renderChatBar(wt);
   renderComposer(s);
@@ -86,6 +104,7 @@ function select(target) {
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
   if (currentWt()?.review?.report) tab = 'report';
+  if (currentWt() && orchestrationOf(currentWt())) tab = 'orch';
   renderGrid(); renderPanel();
   if (tab === 'app') loadScreen();
   if (target === USAGE) loadUsage();
@@ -136,6 +155,7 @@ $('panel').addEventListener('click', async (e) => {
     if (tab === 'app') loadScreen();
     if (tab === 'changes') openChanges();
     if (tab === 'agents') loadAgents();
+    if (tab === 'orch') renderOrchestration(true);
     return;
   }
   const goto = e.target.closest('[data-goto]');

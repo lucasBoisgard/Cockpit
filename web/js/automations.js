@@ -5,7 +5,7 @@ function describeSchedule(a) {
 }
 
 async function openAutomations() {
-  if (!$('auto-dialog').open) $('auto-dialog').showModal();
+  openPage($('auto-dialog'));
   const res = await api('/api/automations').catch(() => null);
   const list = res?.ok ? await res.json() : [];
   const when = (t) => new Date(t).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

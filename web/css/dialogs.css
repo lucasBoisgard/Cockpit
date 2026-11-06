@@ -60,3 +60,8 @@ dialog select, dialog input[type="number"], dialog input[type="time"] { font-fam
 .auto-state.failed { background: var(--red-bg); color: var(--red); }
 .auto-state.paused { background: var(--grey-bg); color: var(--faint); }
 .notice { border-radius: 10px; padding: 10px 14px; font-size: 13px; background: var(--amber-bg); color: var(--amber); }
+
+.orch-new { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.orch-new label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.orch-new select, .orch-new input { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 6px 8px; }
+.orch-new[hidden] { display: none; }

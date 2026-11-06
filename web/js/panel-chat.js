@@ -43,8 +43,8 @@ async function readMode(target) {
 
 async function updateMode() {
   const s = currentSession();
-  $('mode-box').hidden = !s?.live;
-  if (!s?.live || modeBusy) return;
+  $('mode-box').hidden = !s?.live || isGpt(s);
+  if (!s?.live || isGpt(s) || modeBusy) return;
   const mode = await readMode(s.sessionId);
   if (mode && !modeBusy) $('mode-select').value = mode;
 }
@@ -76,7 +76,7 @@ function updateSetting(key) {
   const s = currentSession();
   const setting = SETTINGS[key];
   const pending = s && settingPending[key].get(s.sessionId);
-  $(`${key}-box`).hidden = !s?.live || !setting.visible(s.usage, pending);
+  $(`${key}-box`).hidden = !s?.live || isGpt(s) || !setting.visible(s.usage, pending);
   if ($(`${key}-box`).hidden) return;
   const current = setting.choice(s.usage, pending, Date.now());
   const extra = current.startsWith('other:') ? [[current, setting.raw(s.usage)]] : current ? [] : [['', 'Inconnu']];
@@ -112,6 +112,7 @@ async function sendParallel() {
   $('composer-parallel').disabled = false;
   if (!result.ok) { toast(result.data.error || 'Lancement impossible.', 'error'); return; }
   input.value = '';
+  autosizeComposer();
   pendingParallel = { path: wt.path, known: new Set(wt.sessions.map((s) => s.sessionId)), at: Date.now() };
   toast('Session parallèle lancée dans ce worktree.');
   setTimeout(refresh, 2500);
@@ -119,6 +120,10 @@ async function sendParallel() {
 
 async function loadChat(force) {
   const box = $('chat');
+  if (String(chatSession || '').startsWith('codex-screen:')) {
+    setHtml(box, '<div class="placeholder">Cette session GPT n’a pas encore commencé : Codex attend une décision, ci-dessous.</div>');
+    return;
+  }
   if (!chatSession) { box.innerHTML = '<div class="placeholder">Les conversations apparaissent ici dès qu\'une session Claude démarre dans ce worktree.</div>'; chatSignature = null; return; }
   let chat;
   try {
@@ -160,6 +165,7 @@ async function sendMessage() {
   $('composer-send').disabled = false;
   if (!result.ok) { toast(result.data.error || 'Envoi impossible.', 'error'); return; }
   input.value = '';
+  autosizeComposer();
   if (queue) toast('Message mis en file : il part dès que Claude a fini son tour.');
   setTimeout(() => { loadChat(true); refresh(); }, 900);
 }

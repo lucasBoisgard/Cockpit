@@ -5,6 +5,7 @@ const { invalidateSnapshot } = require('../cache');
 const { livePanes } = require('./worktrees');
 const { submitText } = require('./terminal');
 
+const MERGED_MAX_CHARS = 16000;
 const loadQueues = () => loadStore('worktree-queue.json', {});
 
 async function sendToSession(sessionId, text) {
@@ -21,6 +22,21 @@ function enqueue(sessionId, text) {
   saveStore('worktree-queue.json', queues);
   invalidateSnapshot();
   return item;
+}
+
+// Appends to the last queued item of the same kind (still unsent) instead of adding one more turn.
+function enqueueMerged(sessionId, text, kind) {
+  const queues = loadQueues();
+  const items = queues[sessionId] || [];
+  const last = items[items.length - 1];
+  if (last && last.kind === kind) {
+    const merged = `${last.text}\n\n${text}`;
+    last.text = merged.length > MERGED_MAX_CHARS ? `[cockpit] Messages plus anciens tronqués.\n\n${merged.slice(-MERGED_MAX_CHARS)}` : merged;
+  }
+  else items.push({ id: crypto.randomBytes(4).toString('hex'), text: String(text), kind, at: Date.now() });
+  queues[sessionId] = items;
+  saveStore('worktree-queue.json', queues);
+  invalidateSnapshot();
 }
 
 function dequeue(sessionId, id) {
@@ -72,4 +88,4 @@ async function flushQueues(snap, onSent) {
   }
 }
 
-module.exports = { loadQueues, enqueue, dequeue, deliver, broadcast, flushQueues };
+module.exports = { loadQueues, enqueue, enqueueMerged, dequeue, deliver, broadcast, flushQueues };

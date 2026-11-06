@@ -5,9 +5,9 @@ aside.open { transform: none; }
 .head-end { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 .head-end .badge, .head-end .close { margin-left: 0; }
 .app-btn { border: 1px solid var(--border); background: var(--grey-bg); color: var(--muted); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 650; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; white-space: nowrap; }
-.app-btn.stopped { background: var(--blue); border-color: var(--blue); color: #fff; }
+.app-btn.stopped { background: var(--blue); border-color: var(--blue); color: var(--on-accent); }
 .app-btn.building, .app-btn.starting { background: var(--amber-bg); border-color: var(--amber-bg); color: var(--amber); }
-.app-btn.building .dot, .app-btn.starting .dot { animation: pulse 1.2s infinite; }
+.app-btn.building .dot, .app-btn.starting .dot { animation: breathe 2.6s ease-in-out infinite; }
 .app-btn.up { background: var(--green-bg); border-color: var(--green-bg); color: var(--green); }
 .app-btn.degraded { background: var(--green-bg); border-color: var(--amber); color: var(--amber); }
 .app-info .reason.warn { color: var(--amber); }

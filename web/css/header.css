@@ -9,8 +9,8 @@ h1 { font-size: 16px; margin: 0; font-weight: 650; }
 .filters { display: flex; gap: 6px; }
 .btn { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
 .btn.on { color: var(--text); border-color: var(--text); }
-.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
-.btn.danger { background: var(--red); border-color: var(--red); color: #fff; font-weight: 600; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }
+.btn.danger { background: var(--red); border-color: var(--red); color: var(--on-accent); font-weight: 600; }
 .btn:disabled { opacity: .5; cursor: default; }
 .updated { font-size: 12px; color: var(--faint); }
 
@@ -23,3 +23,7 @@ h1 .repo { font: 600 12.5px var(--mono); color: var(--violet); background: var(-
 .menu-list button { text-align: left; border: 0; background: none; color: var(--text); padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; }
 .menu-list button:hover { background: var(--surface-2); }
 .menu-list kbd, .help kbd { font: 11px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+
+.theme-choice { display: flex; gap: 4px; padding: 6px 4px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+.theme-choice button { flex: 1; justify-content: center; border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 6px; padding: 5px 6px; font-size: 12px; cursor: pointer; }
+.theme-choice button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }

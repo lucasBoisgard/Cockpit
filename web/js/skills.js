@@ -86,7 +86,7 @@ function setSkillsMode(mode) {
 }
 
 function openSkills(mode = 'browse') {
-  if (!$('skills-dialog').open) $('skills-dialog').showModal();
+  openPage($('skills-dialog'));
   setSkillsMode(mode);
   loadSkills();
   if (!$('skills-detail').innerHTML) $('skills-detail').innerHTML = '<div class="placeholder">Choisis un skill à gauche pour lire son SKILL.md.</div>';

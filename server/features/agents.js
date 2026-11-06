@@ -75,7 +75,7 @@ function subagentsOf(transcript, now) {
 }
 
 function agentsRunning(session, now = Date.now()) {
-  if (!session.live || !['done', 'idle'].includes(session.status)) return 0;
+  if (!session.live || session.provider === 'codex' || !['done', 'idle'].includes(session.status)) return 0;
   const transcript = transcriptFor(session);
   if (!transcript || !fs.existsSync(path.join(transcript.replace(/\.jsonl$/, ''), 'subagents'))) return 0;
   const { agents, workflows } = subagentsOf(transcript, now);
@@ -85,7 +85,7 @@ function agentsRunning(session, now = Date.now()) {
 
 function agentsOf(sessionId, now = Date.now()) {
   const session = readSession(String(sessionId || ''));
-  const transcript = transcriptFor(session);
+  const transcript = session?.provider === 'codex' ? null : transcriptFor(session);
   if (!transcript) return null;
   const { agents, workflows } = subagentsOf(transcript, now);
   const last = session.actions?.[0];

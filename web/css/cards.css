@@ -24,8 +24,7 @@ main { padding: 20px; display: flex; flex-direction: column; gap: 26px; }
 .badge.done { background: var(--green-bg); color: var(--green); }
 .badge.shell { background: #262b33; color: #c5c8cd; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.working .dot { animation: pulse 1.2s infinite; }
-@keyframes pulse { 50% { opacity: .25; } }
+.working .dot { animation: breathe 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .working .dot { animation: none; } .card { transition: none; } }
 .task { font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .message { font-size: 13px; color: var(--amber); font-weight: 550; }

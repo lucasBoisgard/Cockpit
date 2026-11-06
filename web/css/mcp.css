@@ -1,0 +1,38 @@
+/* MCP servers page. */
+.mcp-page { gap: 12px; }
+.mcp-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mcp-head h2 { margin: 0 8px 0 0; font-size: 18px; }
+.mcp-head select, .mcp-form select, .mcp-form input, .mcp-form textarea, .mcp-search { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--ground); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 13px; }
+.mcp-grow { flex: 1; }
+.mcp-summary { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mcp-search { margin-left: auto; min-width: 200px; }
+.mcp-pill { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--well); }
+.mcp-muted { font-size: 12.5px; color: var(--ink-3); }
+.mcp-group { display: grid; gap: 2px; }
+.mcp-group h3 { display: flex; gap: 8px; align-items: baseline; margin: 10px 0 4px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.mcp-group h3 small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.mcp-n { font: 700 11px var(--mono); background: var(--well); color: var(--ink-2); border-radius: 999px; padding: 0 7px; }
+.mcp-row { display: flex; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; }
+.mcp-row:hover { background: var(--ground); border-color: var(--line); }
+.mcp-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--line-strong); }
+.mcp-h-ok { background: var(--jade); } .mcp-h-auth, .mcp-h-pending { background: var(--saffron); } .mcp-h-failed { background: var(--rose); }
+.mcp-h-checking { background: var(--slate); animation: breathe 2.6s ease-in-out infinite; }
+.mcp-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.mcp-name { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 700; font-size: 13.5px; }
+.mcp-chip { font: 600 10.5px var(--mono); background: var(--well); color: var(--ink-2); border-radius: 4px; padding: 0 5px; }
+.mcp-key { font: 600 10.5px var(--mono); color: var(--violet); background: var(--violet-bg); border-radius: 4px; padding: 0 5px; }
+.mcp-target { font: 12px var(--mono); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcp-state { font-size: 12.5px; white-space: nowrap; color: var(--ink-3); }
+.mcp-c-ok { color: var(--jade); } .mcp-c-auth, .mcp-c-pending { color: var(--saffron); } .mcp-c-failed { color: var(--rose); }
+.mcp-pill.mcp-c-ok { background: var(--jade-bg); } .mcp-pill.mcp-c-auth, .mcp-pill.mcp-c-pending { background: var(--saffron-bg); } .mcp-pill.mcp-c-failed { background: var(--rose-bg); }
+.mcp-actions { display: flex; gap: 6px; flex: none; }
+.mcp-remove { color: var(--rose); }
+.mcp-form { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--ground); }
+.mcp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.mcp-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
+.mcp-form label[hidden] { display: none; }
+.mcp-form small { color: var(--ink-3); font-weight: 400; }
+.mcp-form textarea { font-family: var(--mono); font-size: 12px; resize: vertical; }
+.mcp-buttons { display: flex; gap: 8px; }
+@media (max-width: 760px) { .mcp-row { flex-wrap: wrap; } .mcp-search { margin-left: 0; } }
+@media (prefers-reduced-motion: reduce) { .mcp-h-checking { animation: none; } }

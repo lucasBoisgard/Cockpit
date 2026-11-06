@@ -1,0 +1,30 @@
+/* Connections page: AI sign-in cards (connections.js) above the MCP servers (mcp.js). */
+.conn-page { gap: 16px; }
+.conn-head { display: flex; gap: 8px; align-items: center; }
+.conn-head h2 { margin: 0; font-size: 18px; }
+.conn-grow { flex: 1; }
+.conn-section { margin: 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.conn-ai { display: grid; gap: 8px; }
+.conn-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+.conn-card { display: grid; gap: 8px; align-content: start; border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; background: var(--paper); }
+.conn-card.is-ok { border-color: var(--jade-ring); }
+.conn-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.conn-title b { font-size: 15px; }
+.conn-line { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.conn-state { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 700; }
+.conn-state i { width: 9px; height: 9px; border-radius: 50%; }
+.conn-state.is-ok { color: var(--jade); } .conn-state.is-ok i { background: var(--jade); }
+.conn-state.is-off { color: var(--saffron); } .conn-state.is-off i { background: var(--saffron); }
+.conn-muted { font-size: 12px; color: var(--ink-3); }
+.conn-actions, .conn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.conn-row input { flex: 1; min-width: 180px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--ground); color: var(--ink); padding: 6px 8px; font: 13px var(--mono); }
+.conn-flow { display: grid; gap: 8px; border-radius: 10px; background: var(--ground); padding: 10px 12px; font-size: 13px; }
+.conn-flow p { margin: 0; }
+.conn-flow a { color: var(--slate); overflow-wrap: anywhere; }
+.conn-code { display: flex; gap: 10px; align-items: center; font: 700 22px var(--mono); letter-spacing: .08em; color: var(--ink); }
+.conn-wait { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--slate); margin-right: 6px; animation: breathe 2.6s ease-in-out infinite; }
+.mcp-both { font: 700 10.5px var(--mono); color: var(--jade); background: var(--jade-bg); border-radius: 4px; padding: 0 5px; }
+@media (prefers-reduced-motion: reduce) { .conn-wait { animation: none; } }
+.conn-flow > .btn { justify-self: start; }
+.conn-flow select { flex: 1; min-width: 200px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); padding: 6px 8px; font: inherit; font-size: 13px; }
+.conn-ready { color: var(--jade); font-weight: 700; }

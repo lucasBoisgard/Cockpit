@@ -1,26 +1,62 @@
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-style: normal; font-display: swap; src: url(/web/fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-style: italic; font-display: swap; src: url(/web/fonts/atkinson-hyperlegible-latin-400-italic.woff2) format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 500 800; font-style: normal; font-display: swap; src: url(/web/fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: swap; src: url(/web/fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500 800; font-style: normal; font-display: swap; src: url(/web/fonts/jetbrains-mono-latin-600-normal.woff2) format("woff2"); }
+
+/* "Atelier" palette: warm ground, muted chrome, one hue per state the user acts on:
+   saffron = waits for you, jade = to review, slate = working, violet = orchestrator, rose = danger.
+   The older token names below are aliases kept so every feature stylesheet picks the palette up. */
 :root {
-  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e3e6eb;
-  --text: #1c2027; --muted: #6b7280; --faint: #9aa1ac;
-  --blue: #2f6fec; --blue-bg: #e8f0fe; --amber: #b76e00; --amber-bg: #fff3dc;
-  --green: #1f8a4c; --green-bg: #e4f5ea; --grey-bg: #eef0f3; --red: #c23b3b; --red-bg: #fdecec;
-  --violet: #7046c8; --violet-bg: #f1ebfd;
-  --add: #1f8a4c; --add-bg: #e6f6ec; --del: #c23b3b; --del-bg: #fdecec; --hunk: #6b5bd6;
-  --term-bg: #0f1115; --term-fg: #d6d9de;
-  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ground: #f3efe8; --paper: #fbf9f5; --well: #ebe6dd; --line: #ddd6ca; --line-strong: #c9c0b1;
+  --ink: #2a2622; --ink-2: #5d564d; --ink-3: #8c847a;
+  --saffron: #b5641a; --saffron-bg: #fbe9d4; --saffron-ring: #e9a862;
+  --jade: #1f7a5c; --jade-bg: #d9f0e6; --jade-ring: #6cc3a3;
+  --slate: #3a5b8c; --slate-bg: #dfe8f5; --slate-ring: #8fb0dc;
+  --violet: #6b4fb3; --violet-bg: #ebe4f8; --violet-ring: #b59ee0;
+  --rose: #a8403a; --rose-bg: #f6dcd9;
+  --on-accent: #ffffff; --term-bg: #15130f; --term-fg: #d9d2c5;
+  --shadow: 0 1px 2px rgba(42, 38, 34, .06), 0 2px 6px rgba(42, 38, 34, .06);
+  --shadow-float: 0 10px 30px rgba(42, 38, 34, .10);
+  --sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1115; --surface: #171a21; --surface-2: #1e222b; --border: #2a2f3a;
-    --text: #e6e8ec; --muted: #9aa1ac; --faint: #6b7280;
-    --blue: #79a6ff; --blue-bg: #1b2a4a; --amber: #f2b550; --amber-bg: #3a2b10;
-    --green: #5fd08f; --green-bg: #15301f; --grey-bg: #222731; --red: #ff8a8a; --red-bg: #351818;
-    --violet: #b9a2ff; --violet-bg: #2a2045;
-    --add: #5fd08f; --add-bg: #13281b; --del: #ff8a8a; --del-bg: #351818; --hunk: #a99cff;
-    --term-bg: #0a0c0f;
-    --shadow: none;
+  :root:not([data-theme="light"]) {
+    --ground: #1c1a18; --paper: #24211e; --well: #2d2925; --line: #3a352f; --line-strong: #4b453d;
+    --ink: #ebe4d9; --ink-2: #b3a99a; --ink-3: #7f7668;
+    --saffron: #f0b060; --saffron-bg: #3a2a14; --saffron-ring: #c58a3a;
+    --jade: #6fd1a6; --jade-bg: #16302a; --jade-ring: #3f9a76;
+    --slate: #9ab6e4; --slate-bg: #1d2838; --slate-ring: #4e6f9f;
+    --violet: #b9a2ff; --violet-bg: #2a2045; --violet-ring: #7a63c4;
+    --rose: #f09a92; --rose-bg: #3a1f1d;
+    --on-accent: #1c1a18; --term-bg: #110f0c; --term-fg: #d9d2c5;
+    --shadow: none; --shadow-float: 0 10px 30px rgba(0, 0, 0, .45);
+    color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+  --ground: #1c1a18; --paper: #24211e; --well: #2d2925; --line: #3a352f; --line-strong: #4b453d;
+  --ink: #ebe4d9; --ink-2: #b3a99a; --ink-3: #7f7668;
+  --saffron: #f0b060; --saffron-bg: #3a2a14; --saffron-ring: #c58a3a;
+  --jade: #6fd1a6; --jade-bg: #16302a; --jade-ring: #3f9a76;
+  --slate: #9ab6e4; --slate-bg: #1d2838; --slate-ring: #4e6f9f;
+  --violet: #b9a2ff; --violet-bg: #2a2045; --violet-ring: #7a63c4;
+  --rose: #f09a92; --rose-bg: #3a1f1d;
+  --on-accent: #1c1a18; --term-bg: #110f0c; --term-fg: #d9d2c5;
+  --shadow: none; --shadow-float: 0 10px 30px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+:root {
+  --bg: var(--ground); --surface: var(--paper); --surface-2: var(--well); --border: var(--line);
+  --text: var(--ink); --muted: var(--ink-2); --faint: var(--ink-3);
+  --blue: var(--slate); --blue-bg: var(--slate-bg); --amber: var(--saffron); --amber-bg: var(--saffron-bg);
+  --green: var(--jade); --green-bg: var(--jade-bg); --grey-bg: var(--well); --red: var(--rose); --red-bg: var(--rose-bg);
+  --add: var(--jade); --add-bg: var(--jade-bg); --del: var(--rose); --del-bg: var(--rose-bg); --hunk: var(--slate);
+}
+@keyframes breathe { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
-button { font: inherit; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); }
+button, input, select, textarea { font: inherit; }
+:focus-visible { outline: 2px solid var(--saffron); outline-offset: 2px; }

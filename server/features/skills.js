@@ -138,4 +138,4 @@ function assistSkill({ message, draft, sessionId }) {
   });
 }
 
-module.exports = { listSkills, readSkill, createSkill, assistSkill };
+module.exports = { skillEntries, listSkills, readSkill, createSkill, assistSkill };

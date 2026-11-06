@@ -14,6 +14,9 @@ const { readUsageSnapshots } = require('./usage');
 const { cachedPr } = require('./pr');
 const { eventsSeq } = require('./events');
 const { loadQueues } = require('./queue');
+const { pendingAsk } = require('./asks');
+const { pendingScreens } = require('./codex-screens');
+const { orchestrations, activeAgentsBySession } = require('./orchestration');
 
 const SIZE_TTL_MS = 10 * 60 * 1000;
 const sizeCache = new Map();
@@ -28,6 +31,8 @@ async function snapshot() {
   const usageBySession = new Map(snapshots.map((u) => [u.sessionId, u]));
   const queues = loadQueues();
   const links = loadStore('worktree-links.json', {});
+  const orch = await orchestrations(panes);
+  const orchAgents = activeAgentsBySession(orch);
   for (const session of readSessions().map((s) => effectiveStatus(s, panes, Date.now()))) {
     const owner = fs.existsSync(session.cwd) && ownerOf(session.cwd, worktrees);
     if (!owner) continue;
@@ -40,8 +45,25 @@ async function snapshot() {
       live,
       usage: usage ? { context: usage.context, costUsd: usage.costUsd, model: usage.model, modelId: usage.modelId, effort: usage.effort, at: usage.at } : null,
       queue: queues[session.sessionId] || [],
+      ask: live && session.status === 'needs_input' ? pendingAsk(session.sessionId) : null,
       externalRepos: await externalRepos(session, owner.path),
-      agentsRunning: agentsRunning({ ...session, live }),
+      agentsRunning: agentsRunning({ ...session, live }) + (orchAgents.get(session.sessionId) || 0),
+    });
+  }
+  // Codex sessions waiting on a prompt before their hooks run: shown as GPT sessions that need the user.
+  for (const p of await pendingScreens()) {
+    const owner = fs.existsSync(p.cwd) && ownerOf(p.cwd, worktrees);
+    if (!owner) continue;
+    const waiting = !!p.prompt;
+    const starting = !waiting && Date.now() - p.at < 15000;
+    const hooksOff = !waiting && !starting && p.answered;
+    byPath.get(owner.path).sessions.push({
+      sessionId: `codex-screen:${p.tmux}`, synthetic: true, provider: 'codex', cwd: p.cwd, live: true, tmuxPane: p.pane,
+      status: starting ? 'working' : waiting || hooksOff ? 'needs_input' : 'idle', permission: false, question: null, ask: null,
+      message: waiting ? `GPT : ${p.prompt.title || 'une décision t’attend'}` : starting ? 'GPT démarre' : hooksOff ? 'GPT : hooks du cockpit à valider (/hooks)' : 'GPT ouvert : en attente de ta demande',
+      codexScreen: { tmux: p.tmux, prompt: p.prompt, starting, hooksOff, setup: !!p.setup, agent: p.agent || null },
+      task: p.setup ? 'Autoriser GPT sur ce dépôt' : 'Session GPT', startedAt: p.at, updatedAt: p.at, statusSince: p.at,
+      actions: [], queue: [], usage: null, agentsRunning: 0, externalRepos: [],
     });
   }
   forgetOld(Date.now());
@@ -69,6 +91,7 @@ async function snapshot() {
     app,
     limits: latestLimits(snapshots),
     archives: loadStore('worktree-archive.json', []),
+    orchestrations: orch,
     lastEventId: eventsSeq(),
     pr: { enabled: ghAvailable, labels: CONFIG.pr?.labels || [], assignee: CONFIG.pr?.assignee || '' },
   };

@@ -1,4 +1,5 @@
 const path = require('node:path');
+const { questionsOf } = require('./ask');
 
 const MAX_ACTIONS = 15;
 const MAX_EDITED_DIRS = 20;
@@ -9,8 +10,14 @@ function shorten(text, max = 140) {
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine;
 }
 
+// Codex edits files with apply_patch: the paths are in the patch headers.
+function patchFiles(patch) {
+  return [...String(patch || '').matchAll(/^\*\*\* (?:Update|Add|Delete) File: (.+)$/gm)].map((m) => m[1].trim());
+}
+
 function editedDir(input, cwd) {
-  const file = EDIT_TOOLS.includes(input.tool_name) && (input.tool_input?.file_path || input.tool_input?.notebook_path);
+  const file = EDIT_TOOLS.includes(input.tool_name) ? input.tool_input?.file_path || input.tool_input?.notebook_path
+    : input.tool_name === 'apply_patch' ? patchFiles(input.tool_input?.command || input.tool_input?.input)[0] : null;
   return file ? path.dirname(path.resolve(cwd, String(file))) : null;
 }
 
@@ -21,10 +28,12 @@ function questionOf(input = {}) {
 }
 
 function describeTool(name, input = {}, cwd) {
-  const rel = (p) => (p ? path.relative(cwd, p) || p : '');
+  const rel = (p) => (p ? path.relative(cwd, path.resolve(cwd, p)) || p : '');
   switch (name) {
     case 'Bash':
       return shorten(input.description || input.command);
+    case 'apply_patch':
+      return patchFiles(input.command || input.input).map(rel).join(', ');
     case 'Read':
     case 'Write':
     case 'Edit':
@@ -47,9 +56,12 @@ function describeTool(name, input = {}, cwd) {
   }
 }
 
-function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
+function applyHookEvent(state, input, { now, pane, fallbackCwd, provider, launch }) {
   const cwd = input.cwd || state.cwd || fallbackCwd;
   state.sessionId = input.session_id;
+  if (provider && provider !== 'claude') state.provider = provider;
+  if (input.model) state.model = String(input.model);
+  if (launch && !state.launch) state.launch = launch;
   state.cwd = cwd;
   state.transcriptPath = input.transcript_path || state.transcriptPath;
   if (input.hook_event_name === 'SessionStart' || (pane && pane !== state.tmuxPane)) {
@@ -87,21 +99,40 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
       state.actions = [{ tool: input.tool_name, detail: describeTool(input.tool_name, input.tool_input, cwd), at: now }, ...(state.actions || [])].slice(0, MAX_ACTIONS);
       if (input.tool_name === 'AskUserQuestion') {
         state.question = questionOf(input.tool_input);
+        state.questions = questionsOf(input.tool_input);
         state.status = 'needs_input';
         state.message = state.question?.text || 'Claude pose une question';
       } else {
         state.status = 'working';
         state.message = null;
         state.question = null;
+        state.questions = null;
         state.permission = false;
       }
       break;
     }
     case 'Notification':
       if (input.notification_type === 'idle_prompt' || /waiting for your input/i.test(input.message || '')) return false;
+      // Claude Code also notifies "needs your permission to use AskUserQuestion": it is the question, not a permission.
+      if (state.question && state.status === 'needs_input' && /AskUserQuestion/.test(input.message || '')) return false;
       state.status = 'needs_input';
       state.message = shorten(input.message, 220);
       state.permission = /permission/i.test(input.message || '');
+      break;
+    // Codex: the approval prompt has its own event, and the tool result tells the approval was given.
+    case 'PermissionRequest': {
+      const what = describeTool(input.tool_name, input.tool_input, cwd) || input.tool_input?.description || '';
+      state.status = 'needs_input';
+      state.permission = true;
+      state.message = shorten(`Permission : ${input.tool_name}${what ? ` · ${what}` : ''}`, 220);
+      break;
+    }
+    case 'PostToolUse':
+      if (state.status !== 'needs_input' || !state.permission) return false;
+      Object.assign(state, { status: 'working', message: null, permission: false });
+      break;
+    case 'Interrupt':
+      Object.assign(state, { status: 'idle', message: null, question: null, permission: false });
       break;
     case 'Stop':
       if (input.stop_hook_active) return false;
@@ -126,4 +157,4 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd }) {
   return true;
 }
 
-module.exports = { shorten, applyHookEvent };
+module.exports = { shorten, patchFiles, applyHookEvent };

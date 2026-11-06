@@ -1,0 +1,15 @@
+/* Compact composer of the workstation layout. */
+.composer-pill { display: none; }
+body.ws .composer { padding: 8px 16px 10px; gap: 6px; }
+body.ws .composer-row { align-items: flex-end; gap: 8px; }
+body.ws .composer textarea { min-height: 40px; height: 40px; resize: none; padding: 9px 12px; border-radius: 12px; background: var(--ground); border-color: var(--line-strong); }
+body.ws .composer-buttons { flex-direction: row; gap: 6px; }
+body.ws .composer-buttons .btn { min-height: 40px; padding: 6px 12px; font-size: 13px; border-radius: 10px; }
+body.ws .composer-pill { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 40px; max-width: 260px; border: 1px solid var(--line); background: none; border-radius: 10px; padding: 0 12px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.ws .composer-pill[hidden] { display: none; }
+body.ws .composer-pill:hover, body.ws .composer-pill[aria-expanded="true"] { background: var(--well); color: var(--ink); }
+body.ws .composer-foot { display: none; }
+body.ws .composer.composer-settings-open .composer-foot { display: grid; gap: 8px; position: absolute; left: 16px; bottom: calc(100% - 4px); z-index: 20; min-width: 260px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow-float); padding: 10px 12px; }
+body.ws .composer-settings-open .mode { justify-content: space-between; font-size: 13px; color: var(--ink-2); margin: 0; }
+body.ws .composer-settings-open .mode select { min-width: 150px; padding: 4px 6px; }
+@media (max-width: 760px) { body.ws .composer-row { flex-wrap: wrap; } body.ws .composer textarea { flex-basis: 100%; order: -1; } }

@@ -19,6 +19,7 @@ async function refresh() {
     if (fresh || Date.now() - pendingParallel.at > 60000) pendingParallel = null;
   }
   if (selected && selected !== SHELL && selected !== USAGE && !currentWt()) selected = null;
+  ensureSelection();
   if (currentWt()) dropLostRepo();
   renderCounters(); renderGrid(); renderPanel();
   updateTitle();
@@ -53,7 +54,7 @@ $('tools-menu').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tool]');
   if (!b) return;
   $('tools-menu').open = false;
-  ({ history: openHistory, cleanup: openCleanup, automations: () => { fillAutomationForm(null); openAutomations(); }, select: startSelecting, palette: openPalette, help: () => $('help-dialog').showModal() })[b.dataset.tool]?.();
+  ({ history: openHistory, cleanup: openCleanup, automations: () => { fillAutomationForm(null); openAutomations(); }, select: startSelecting, palette: openPalette, layout: () => setLayout(isWorkstation() ? 'cards' : 'workstation'), skills: openSkills, mcp: openMcp, matrix: openMatrix, help: () => $('help-dialog').showModal() })[b.dataset.tool]?.();
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('#tools-menu')) $('tools-menu').open = false; });
 

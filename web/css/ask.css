@@ -1,0 +1,22 @@
+/* Question and permission card of the conversation (ask.js). */
+.ask-card { margin: 0 20px 10px; padding: 12px 14px; border: 1px solid var(--saffron-ring); background: var(--saffron-bg); border-radius: 14px; display: grid; gap: 10px; max-height: 55vh; overflow: auto; flex: none; }
+.ask-card[hidden] { display: none; }
+.ask-title { display: flex; gap: 8px; align-items: center; font-weight: 700; color: var(--saffron); font-size: 14px; }
+.ask-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--saffron); flex: none; }
+.ask-q { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ask-q legend { font-weight: 700; font-size: 14px; color: var(--ink); padding: 0; margin-bottom: 6px; line-height: 1.4; }
+.ask-q legend small { font-weight: 400; color: var(--ink-3); }
+.ask-header { font: 700 10.5px var(--mono); text-transform: uppercase; letter-spacing: .04em; background: var(--paper); color: var(--ink-2); border-radius: 5px; padding: 1px 6px; margin-right: 8px; vertical-align: 2px; }
+.ask-options { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.ask-option { display: flex; gap: 10px; align-items: flex-start; text-align: left; border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink); border-radius: 10px; padding: 8px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+.ask-option:hover { border-color: var(--saffron-ring); }
+.ask-option.is-on { border: 2px solid var(--saffron); padding: 7px 9px; }
+.ask-option small { display: block; color: var(--ink-2); font-size: 12px; margin-top: 2px; line-height: 1.4; }
+.ask-mark { font: 700 13px var(--mono); color: var(--saffron); flex: none; min-width: 14px; }
+.ask-other { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--paper); color: var(--ink); padding: 7px 10px; font: inherit; font-size: 13px; }
+.ask-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn.ask-send { background: var(--saffron); border-color: var(--saffron); color: var(--on-accent); font-weight: 700; }
+.btn.ask-send:disabled { opacity: .5; }
+.ask-note { margin: 0; font-size: 12px; color: var(--ink-2); }
+#chat-view:has(#ask-card:not([hidden])) .awaiting-note { display: none; }
+.ask-screen { margin: 0; font: 12px/1.5 var(--mono); white-space: pre-wrap; color: var(--ink-2); background: var(--paper); border-radius: 8px; padding: 8px 10px; max-height: 160px; overflow: auto; }

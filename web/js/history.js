@@ -39,7 +39,7 @@ function openHistory() {
   $('history-list').hidden = false;
   $('history-view').hidden = true;
   $('history-back').hidden = true;
-  if (!$('history-dialog').open) $('history-dialog').showModal();
+  openPage($('history-dialog'));
   $('history-q').focus();
   searchHistory();
 }

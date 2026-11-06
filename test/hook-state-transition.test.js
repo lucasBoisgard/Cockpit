@@ -158,3 +158,38 @@ test('a subagent edit after the main turn keeps the session updatedAt and needs 
   assert.strictEqual(state.updatedAt, 3000);
   assert.strictEqual(applyHookEvent({ actions: [] }, input, { now: 9000, pane: '%1', fallbackCwd: '/fallback' }), false);
 });
+
+const codexOpts = { now: 1000, pane: '%9', fallbackCwd: '/repo', provider: 'codex' };
+
+test('codex sessions are tagged and their apply_patch edits are tracked', () => {
+  const state = { actions: [] };
+  applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'SessionStart', source: 'startup' }, codexOpts);
+  assert.strictEqual(state.provider, 'codex');
+  applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'PreToolUse', tool_name: 'apply_patch', tool_input: { command: '*** Begin Patch\n*** Update File: web/a.js\n@@\n-x\n+y\n*** End Patch' } }, { ...codexOpts, now: 2000 });
+  assert.strictEqual(state.status, 'working');
+  assert.deepStrictEqual(state.actions[0], { tool: 'apply_patch', detail: 'web/a.js', at: 2000 });
+  assert.deepStrictEqual(state.editedDirs, ['/repo/web']);
+});
+
+test('a codex approval request waits for the user until the tool runs', () => {
+  const state = { actions: [], status: 'working', statusSince: 0, updatedAt: 0 };
+  applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'git push' } }, codexOpts);
+  assert.strictEqual(state.status, 'needs_input');
+  assert.strictEqual(state.permission, true);
+  assert.strictEqual(state.message, 'Permission : Bash · git push');
+  assert.strictEqual(applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'PostToolUse', tool_name: 'Bash' }, { ...codexOpts, now: 3000 }), true);
+  assert.strictEqual(state.status, 'working');
+  assert.strictEqual(applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'PostToolUse', tool_name: 'Bash' }, { ...codexOpts, now: 4000 }), false);
+  applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'Interrupt' }, { ...codexOpts, now: 5000 });
+  assert.strictEqual(state.status, 'idle');
+});
+
+test('the notification that follows a question does not turn it into a permission', () => {
+  const state = { actions: [] };
+  const opts = { now: 1, pane: '%1', fallbackCwd: '/r' };
+  applyHookEvent(state, { session_id: 'x', cwd: '/r', hook_event_name: 'PreToolUse', tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: 'Couleur ?', options: [{ label: 'Rouge' }, { label: 'Bleu' }] }] } }, opts);
+  assert.strictEqual(applyHookEvent(state, { session_id: 'x', cwd: '/r', hook_event_name: 'Notification', message: 'Claude needs your permission to use AskUserQuestion' }, opts), false);
+  assert.strictEqual(state.permission, undefined);
+  assert.strictEqual(state.message, 'Couleur ?');
+  assert.strictEqual(state.questions[0].options[1].label, 'Bleu');
+});

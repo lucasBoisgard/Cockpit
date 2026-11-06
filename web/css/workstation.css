@@ -1,0 +1,29 @@
+/* Workstation layout (body.ws): header on top, the attention queue on the left, the selected session
+   docked in the centre. The card grid stays in the page for the fallback layout only. */
+body.ws { height: 100vh; overflow: hidden; display: grid; grid-template-columns: var(--ws-queue-w, 300px) minmax(0, 1fr) var(--ws-rail-w, 280px); grid-template-rows: auto minmax(0, 1fr); }
+body.ws.ws-rail-min { --ws-rail-w: 52px; }
+body.ws.ws-no-rail { --ws-rail-w: 0px; }
+body.ws.ws-focus { --ws-queue-w: 0px; }
+body.ws.ws-focus #queue, body.ws.ws-no-rail #rail { display: none; }
+body.ws #rail { grid-column: 3; grid-row: 2; min-height: 0; }
+body:not(.ws) #rail { display: none; }
+body.ws.ws-queue-min { --ws-queue-w: 58px; }
+body.ws > header { grid-column: 1 / -1; position: static; padding: 8px 16px; gap: 8px 14px; }
+body.ws > header .updated, body.ws #filters, body.ws #order-seg { display: none; }
+body.ws #grid { display: none; }
+body.ws #queue { grid-column: 1; grid-row: 2; min-height: 0; }
+body.ws #panel { grid-column: 2; grid-row: 2; position: relative; inset: auto; width: auto; transform: none; transition: none; box-shadow: none; border-left: 0; min-height: 0; min-width: 0; z-index: auto; }
+body.ws #panel.wide { width: auto; }
+body:not(.ws) #queue { display: none; }
+body.ws .tabs { padding: 0 12px; }
+body.ws .chat { padding: 16px 22px; }
+@media (max-width: 1100px) { body.ws { --ws-rail-w: 0px; } body.ws #rail { display: none; } }
+@media (max-width: 760px) {
+  body.ws { height: auto; overflow: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(80vh, 1fr); }
+  body.ws #queue { grid-column: 1; grid-row: 2; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  body.ws #panel { grid-column: 1; grid-row: 3; }
+}
+body.ws .chat-bar .on-branch { display: none; }
+/* Tool pages docked over the centre (pages.js). */
+body.ws dialog.ws-page[open] { position: fixed; inset: var(--ws-head-h, 52px) 0 0 var(--ws-queue-w, 300px); margin: 0; width: auto; height: auto; max-width: none; max-height: none; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; z-index: 15; overflow: auto; background: var(--paper); }
+body.ws dialog.ws-page.skills-page[open] { overflow: hidden; }

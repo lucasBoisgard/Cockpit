@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const { REPO, SHELL_SESSION, APP_SESSION, TMUX_SIZE, TMUX_PATH } = require('../config');
 const { tmux, sleep } = require('../io/exec');
-const { readSession } = require('../io/store');
+const { readSession, loadStore } = require('../io/store');
 const { paneOf } = require('../core/sessions');
 const { livePanes } = require('./worktrees');
 
@@ -19,6 +19,12 @@ async function resolveTarget(target) {
     return `${SHELL_SESSION}:`;
   }
   if (target === 'app') return (await tmux(['has-session', '-t', APP_SESSION])).ok ? `${APP_SESSION}:` : null;
+  // A Codex session launched by the cockpit and not attached yet (see codex-screens.js).
+  if (String(target || '').startsWith('codex-screen:')) {
+    const name = String(target).slice('codex-screen:'.length);
+    const known = loadStore('worktree-codex-launches.json', []).some((l) => l.tmux === name);
+    return known && (await tmux(['has-session', '-t', name])).ok ? `${name}:` : null;
+  }
   return paneOf(readSession(String(target || '')), await livePanes());
 }
 

@@ -21,6 +21,9 @@ function trackBranches() {
 }
 
 function renderCounters() {
+  if (isWorkstation()) { renderTopbar(); $('worktree-names').innerHTML = state.worktrees.filter((w) => !w.mainCheckout).map((w) => `<option value="${esc(w.name)}">`).join(''); return; }
+  $('tools-menu').querySelector('summary').textContent = 'Outils ▾';
+  $('topbar-tools').innerHTML = '';
   $('repo-title').innerHTML = `Worktrees<span class="repo" title="${esc(state.repo)}">${esc(state.repoName)}</span>`;
   const count = (st) => state.worktrees.filter((w) => sessionStatus(w) === st).length;
   const dirty = state.worktrees.filter((w) => w.files.length).length;
@@ -70,7 +73,7 @@ function quickBlock(wt, s, st) {
   const keyBtn = (key, label, cls = '') => `<button class="btn ${cls}" data-quick-key="${key}" data-session="${esc(s.sessionId)}">${esc(label)}</button>`;
   if (st === 'needs_input' && s.live) {
     if (s.question?.options?.length) parts.push(`<div class="quick-keys">${s.question.options.map((o, i) => keyBtn(i + 1, `${i + 1}. ${o}`)).join('')}</div>`);
-    else if (s.permission) parts.push(`<div class="quick-keys">${keyBtn(1, 'Autoriser', 'allow')}${keyBtn(2, 'Toujours autoriser')}${keyBtn(3, 'Refuser', 'deny')}</div>`);
+    else if (s.permission && !isGpt(s)) parts.push(`<div class="quick-keys">${keyBtn(1, 'Autoriser', 'allow')}${keyBtn(2, 'Toujours autoriser')}${keyBtn(3, 'Refuser', 'deny')}</div>`);
   }
   if (s.lastAssistant && ['done', 'idle'].includes(s.status)) {
     parts.push(`<div class="peek ${openPeeks.has(wt.path) ? 'open' : ''}" data-peek="${esc(wt.path)}" title="Clique pour déplier"><b>Claude :</b> ${esc(s.lastAssistant)}<button class="read" data-read-session="${esc(s.sessionId)}" data-read-title="${esc(wt.name)}">Lire ⤢</button></div>`);
@@ -102,10 +105,7 @@ function parallelRow(wt) {
   return `<div class="parallel-row" title="Sessions Claude qui travaillent en parallèle dans ce worktree">${live.map((s) => `<button class="parallel-pill ${kind(s)}" data-open-session="${esc(s.sessionId)}" title="${esc(s.task || 'Session sans prompt')}"><span class="dot"></span><span class="parallel-task">${esc((s.lastPrompt || s.task || 'Session').slice(0, 34))}</span><span class="parallel-state">${label(s)}</span></button>`).join('')}</div>`;
 }
 
-function card(wt) {
-  const st = sessionStatus(wt);
-  const s = primarySession(wt);
-  const last = s?.actions?.[0];
+function cardMeta(wt, s, st) {
   const meta = reviewChips(wt);
   const ctx = s?.usage?.context?.usedPercentage;
   if (state.app?.serving?.name === wt.name) meta.push('<span class="chip served" title="L\'app tourne sur le dernier commit de ce worktree">▶ app servie</span>');
@@ -125,6 +125,14 @@ function card(wt) {
   if (wt.locked) meta.push('<span class="chip">🔒 verrouillé</span>');
   const worked = workedTime(s, st);
   if (worked >= 60000) meta.push(`<span class="chip" title="Temps de travail de Claude sur cette session, attentes exclues">⏱ ${span(worked)}</span>`);
+  return meta;
+}
+
+function card(wt) {
+  const st = sessionStatus(wt);
+  const s = primarySession(wt);
+  const last = s?.actions?.[0];
+  const meta = cardMeta(wt, s, st);
   const pinned = pins.has(wt.path);
   return `<div class="card ${st} ${selected === wt.path ? 'selected' : ''} ${freshDone.has(wt.path) && st === 'done' ? 'fresh' : ''}" data-path="${esc(wt.path)}">
     <div class="top">
@@ -200,6 +208,7 @@ function renderGrid() {
   document.querySelectorAll('#order-seg button').forEach((b) => b.classList.toggle('on', b.dataset.order === order));
   $('selection-bar').hidden = !selecting;
   $('selection-count').textContent = `${picked.size} sélectionnée${picked.size > 1 ? 's' : ''}`;
+  renderQueue();
 }
 
 $('grid').addEventListener('click', async (e) => {

@@ -12,13 +12,55 @@ function openClose(wtPath) {
 }
 
 const newKind = () => $('new-form').elements.kind.value;
+let providersCache = null;
+const MODE_LABEL = { default: 'Par défaut', acceptEdits: 'Accepter les modifs', auto: 'Auto', plan: 'Plan (lecture seule)' };
+const EFFORT_LABEL = { low: 'Bas', medium: 'Moyen', high: 'Élevé', xhigh: 'Très élevé', max: 'Max', ultra: 'Ultra' };
+
+async function loadProviders() {
+  const res = await api('/api/providers').catch(() => null);
+  if (res?.ok) providersCache = await res.json();
+  fillProviderFields();
+}
+
+function fillProviderFields() {
+  const p = providersCache;
+  const codex = p?.codex;
+  const option = $('new-provider').querySelector('option[value="codex"]');
+  option.disabled = !codex?.available;
+  option.textContent = codex?.available ? 'GPT (Codex)' : 'GPT (à connecter : ⋯ → Connexions)';
+  if (option.disabled && $('new-provider').value === 'codex') $('new-provider').value = 'claude';
+  const current = p?.[$('new-provider').value];
+  const opts = (list, label) => list.map((v) => `<option value="${esc(v.id || v)}">${esc(v.label || label?.[v] || v)}</option>`).join('');
+  $('new-model').innerHTML = `<option value="">Par défaut</option>${opts(current?.models || [])}`;
+  fillEfforts();
+  $('new-mode').innerHTML = opts(current?.modes || ['default', 'acceptEdits', 'auto', 'plan'], MODE_LABEL);
+  $('new-mode').value = $('new-provider').value === 'codex' ? 'acceptEdits' : 'default';
+}
+
+// Only the efforts the chosen model takes (Codex lists them per model).
+function fillEfforts() {
+  const current = providersCache?.[$('new-provider').value];
+  const model = current?.models?.find((m) => m.id === $('new-model').value);
+  const efforts = model?.efforts?.length ? model.efforts : current?.efforts || [];
+  const keep = $('new-effort').value;
+  $('new-effort').innerHTML = `<option value="">Par défaut</option>${efforts.map((e) => `<option value="${esc(e)}">${esc(EFFORT_LABEL[e] || e)}</option>`).join('')}`;
+  if (efforts.includes(keep)) $('new-effort').value = keep;
+}
+
+$('new-provider').addEventListener('change', fillProviderFields);
+$('new-model').addEventListener('change', fillEfforts);
 
 function syncNewKind() {
   const review = newKind() === 'review';
+  const master = newKind() === 'master';
+  $('orch-new').hidden = !master;
+  $('provider-new').hidden = newKind() !== 'session';
+  $('new-prompt').required = master;
+  $('new-prompt-label').textContent = master ? 'Objectif' : 'Premier message (optionnel)';
   $('new-pr-label').hidden = !review;
   $('new-pr').required = review;
-  $('new-variants-label').hidden = review || !!delegateParent;
-  $('new-prompt').placeholder = review ? 'Consignes en plus pour la review (optionnel)' : 'Ce que Claude doit faire';
+  $('new-variants-label').hidden = review || master || !!delegateParent;
+  $('new-prompt').placeholder = review ? 'Consignes en plus pour la review (optionnel)' : master ? 'L’objectif : le maître propose un plan, puis lance ses agents' : 'Ce que Claude doit faire';
 }
 
 $('new-kinds').addEventListener('change', () => { syncNewKind(); (newKind() === 'review' ? $('new-pr') : $('new-worktree')).focus(); });
@@ -36,9 +78,20 @@ $('new-form').addEventListener('submit', async (e) => {
   const names = variants > 1 ? Array.from({ length: variants }, (_, i) => `${worktree}-v${i + 1}`) : [worktree];
   const parent = delegateParent ? { sessionId: delegateParent.sessionId, notify: $('new-notify').checked } : null;
   $('new-submit').disabled = true;
+  if (newKind() === 'master') {
+    const result = await post('/api/orch/start', { worktree, prompt: $('new-prompt').value, model: $('orch-model').value, effort: $('orch-effort').value, autonomy: $('orch-autonomy').value, maxAgents: Number($('orch-max').value), agentMode: $('orch-mode').value });
+    $('new-submit').disabled = false;
+    if (!result.ok) { toast(`${worktree} : ${result.data.error || 'lancement impossible'}`, 'error'); return; }
+    $('new-dialog').close();
+    pendingSelect = worktree;
+    toast(`Maître lancé dans ${worktree}.`);
+    setTimeout(refresh, 2500);
+    return;
+  }
   const started = [];
   for (const name of names) {
-    const result = await post('/api/start', { worktree: name, prompt: $('new-prompt').value, kind: newKind(), pr: $('new-pr').value, parent });
+    const chosen = newKind() === 'session' ? { provider: $('new-provider').value, model: $('new-model').value || undefined, effort: $('new-effort').value || undefined, mode: $('new-mode').value || undefined } : {};
+    const result = await post('/api/start', { worktree: name, prompt: $('new-prompt').value, kind: newKind(), pr: $('new-pr').value, parent, ...chosen });
     if (!result.ok) { toast(`${name} : ${result.data.error || 'lancement impossible'}`, 'error'); break; }
     started.push(name);
   }
@@ -91,7 +144,7 @@ async function unarchive(archivedPath, resume) {
 
 async function openCleanup() {
   $('cleanup-table').innerHTML = '<div class="placeholder">Analyse des worktrees…</div>';
-  if (!$('cleanup-dialog').open) $('cleanup-dialog').showModal();
+  openPage($('cleanup-dialog'));
   const res = await api('/api/cleanup').catch(() => null);
   cleanupRows = res?.ok ? await res.json() : [];
   cleanupRows.sort((a, b) => a.lastActivity - b.lastActivity);
@@ -127,6 +180,8 @@ async function bulkCleanup(mode) {
 function openNewSession({ prompt = '', parent = null } = {}) {
   $('new-form').reset();
   syncNewKind();
+  fillProviderFields();
+  loadProviders();
   delegateParent = parent;
   $('new-prompt').value = prompt;
   $('new-parent').hidden = !parent;

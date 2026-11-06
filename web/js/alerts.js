@@ -32,7 +32,7 @@ function updateTitle() {
   const needs = state.worktrees.filter((w) => sessionStatus(w) === 'needs_input').length;
   const working = state.worktrees.filter((w) => sessionStatus(w) === 'working').length;
   document.title = `${needs ? `(${needs}) ` : ''}Worktrees`;
-  const color = needs ? '#e0a020' : working ? '#2f6fec' : '#8b929c';
+  const color = needs ? '#d4852f' : working ? '#5b7fb5' : '#8c847a';
   if (color === faviconColor) return;
   faviconColor = color;
   const canvas = document.createElement('canvas');

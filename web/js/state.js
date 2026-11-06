@@ -7,6 +7,12 @@ const STATUS = {
   none: { label: 'Pas de session', rank: 5 },
 };
 const SHELL = 'shell';
+// Keys that answer an approval prompt, per provider. The server's provider definitions are the source
+// (loaded at boot from /api/providers); this is the fallback until they arrive.
+const PROVIDER_KEYS = { claude: { allow: { literal: '1' }, always: { literal: '2' }, deny: { literal: '3' } }, codex: { allow: { literal: 'y' }, always: { literal: 'a' }, deny: { key: 'Escape' } } };
+api('/api/providers').then((r) => (r.ok ? r.json() : null)).then((p) => { for (const [id, v] of Object.entries(p || {})) if (v.keys) PROVIDER_KEYS[id] = v.keys; }).catch(() => {});
+const keysOf = (s) => PROVIDER_KEYS[s?.provider] || PROVIDER_KEYS.claude;
+const isGpt = (s) => s?.provider === 'codex';
 const USAGE = 'usage';
 const APP = 'app';
 
