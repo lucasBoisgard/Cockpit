@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { userText, summarizeToolInput, parseChat, parseHistoryMeta, searchSnippet } = require('../server/core/transcript');
-const { usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, aggregateUsage } = require('../server/core/usage');
+const { usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, newCodexEntry, addCodexLines, codexModelLabel, aggregateUsage } = require('../server/core/usage');
 const { parseFrontmatter, uniqueByName } = require('../server/core/commands');
 
 const jsonl = (rows) => `${rows.map((r) => (typeof r === 'string' ? r : JSON.stringify(r))).join('\n')}\n`;
@@ -115,18 +115,42 @@ test('addUsageLines sums tokens per local day, once per message id', () => {
   });
 });
 
-test('aggregateUsage totals days in range and ranks worktrees by weekly use', () => {
+test('aggregateUsage splits days and worktrees by provider and ranks worktrees by weekly use', () => {
   const totals = (n) => ({ input: n, cacheWrite: 0, cacheRead: 0, output: 0 });
+  const zero = totals(0);
   const entries = [
     { cwd: '/repo', days: new Map([['2026-11-01', totals(1)], ['2026-11-02', totals(2)], ['2026-10-01', totals(100)]]) },
     { cwd: '/repo/.claude/worktrees/x', days: new Map([['2026-11-01', totals(10)]]) },
+    { cwd: '/repo/.claude/worktrees/x', provider: 'codex', days: new Map([['2026-11-02', totals(4)]]) },
   ];
   const { days, worktrees } = aggregateUsage(entries, ['2026-11-01', '2026-11-02'], '/repo');
-  assert.deepStrictEqual(days, [{ date: '2026-11-01', ...totals(11) }, { date: '2026-11-02', ...totals(2) }]);
+  assert.deepStrictEqual(days, [{ date: '2026-11-01', claude: totals(11), codex: zero }, { date: '2026-11-02', claude: totals(2), codex: totals(4) }]);
   assert.deepStrictEqual(worktrees, [
-    { name: 'x', week: totals(10), today: totals(0) },
-    { name: 'main', week: totals(3), today: totals(2) },
+    { name: 'x', week: { claude: totals(10), codex: totals(4) }, today: { claude: zero, codex: totals(4) } },
+    { name: 'main', week: { claude: totals(3), codex: zero }, today: { claude: totals(2), codex: zero } },
   ]);
+});
+
+test('addCodexLines turns cumulative token counts into daily deltas, with model, context and limits', () => {
+  const count = (timestamp, input, cached, output, used) => ({ timestamp, type: 'event_msg', payload: { type: 'token_count',
+    info: { total_token_usage: { input_tokens: input, cached_input_tokens: cached, output_tokens: output }, last_token_usage: { input_tokens: used }, model_context_window: 1000 },
+    rate_limits: { primary: { used_percent: 12, window_minutes: 300, resets_at: 100 }, secondary: { used_percent: 3, window_minutes: 10080, resets_at: 200 } } } });
+  const entry = addCodexLines(newCodexEntry(0), jsonl([
+    { timestamp: '2026-11-01T10:00:00Z', type: 'session_meta', payload: { id: 's1', cwd: '/repo' } },
+    { timestamp: '2026-11-01T10:00:01Z', type: 'turn_context', payload: { model: 'gpt-6-astra' } },
+    count('2026-11-01T10:00:02Z', 100, 60, 10, 100),
+    count('2026-11-01T10:00:03Z', 100, 60, 10, 100),
+    count('2026-11-02T09:00:00Z', 300, 200, 15, 250),
+  ]).trimEnd());
+  assert.strictEqual(entry.sessionId, 's1');
+  assert.strictEqual(entry.cwd, '/repo');
+  assert.strictEqual(codexModelLabel(entry.model), 'GPT-6 Astra');
+  assert.deepStrictEqual(entry.context, { size: 1000, usedPercentage: 25 });
+  assert.deepStrictEqual(Object.fromEntries(entry.days), {
+    '2026-11-01': { input: 40, cacheWrite: 0, cacheRead: 60, output: 10 },
+    '2026-11-02': { input: 60, cacheWrite: 0, cacheRead: 140, output: 5 },
+  });
+  assert.deepStrictEqual(entry.rateLimits, { five_hour: { used_percentage: 12, resets_at: 100 }, seven_day: { used_percentage: 3, resets_at: 200 }, at: Date.parse('2026-11-02T09:00:00Z') });
 });
 
 test('parseFrontmatter reads plain, quoted and folded values', () => {
