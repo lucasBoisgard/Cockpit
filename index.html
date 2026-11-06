@@ -191,8 +191,8 @@
     <label for="new-prompt"><span id="new-prompt-label">Premier message (optionnel)</span>
       <textarea id="new-prompt" placeholder="Ce que Claude doit faire"></textarea>
     </label>
-    <label for="new-variants" id="new-variants-label">Variantes : N worktrees avec le même prompt, pour comparer les approches
-      <input type="number" id="new-variants" min="1" max="5" value="1">
+    <label for="new-variants" id="new-variants-label">Variantes<small class="hint">Lance N worktrees avec le même prompt pour comparer les approches.</small>
+      <input type="number" class="narrow" id="new-variants" min="1" max="5" value="1">
     </label>
     <p class="text" id="new-parent" hidden></p>
     <label class="check" for="new-notify" id="new-notify-label" hidden><input type="checkbox" id="new-notify" checked> Prévenir la session parente quand celle-ci termine un tour</label>

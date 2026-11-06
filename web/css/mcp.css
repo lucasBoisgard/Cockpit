@@ -34,5 +34,5 @@
 .mcp-form small { color: var(--ink-3); font-weight: 400; }
 .mcp-form textarea { font-family: var(--mono); font-size: 12px; resize: vertical; }
 .mcp-buttons { display: flex; gap: 8px; }
-@media (max-width: 760px) { .mcp-row { flex-wrap: wrap; } .mcp-search { margin-left: 0; } }
+@media (max-width: 760px) { .mcp-row { flex-wrap: wrap; row-gap: 6px; } .mcp-main { flex-basis: calc(100% - 30px); } .mcp-state, .mcp-actions { margin-left: 22px; } .mcp-search { margin-left: 0; } }
 @media (prefers-reduced-motion: reduce) { .mcp-h-checking { animation: none; } }

@@ -1,16 +1,17 @@
 dialog .kinds { display: flex; gap: 8px; }
 dialog .kinds label { flex: 1; flex-direction: row; align-items: flex-start; gap: 8px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; color: var(--text); font-weight: 600; font-size: 13px; }
 dialog .kinds label:has(input:checked) { border-color: var(--blue); background: var(--blue-bg); }
+dialog label small.hint { display: block; font-weight: 400; color: var(--faint); font-size: 12px; }
 dialog .kinds small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
 dialog label[hidden] { display: none; }
 
-dialog { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+dialog { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
 dialog::backdrop { background: rgba(10,12,16,.45); }
 dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 dialog h2 { margin: 0; font-size: 16px; }
 dialog label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 dialog input[type="text"], dialog textarea { font-family: inherit; font-size: 13.5px; line-height: 1.45; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-dialog textarea { min-height: 110px; resize: vertical; }
+dialog textarea { min-height: 96px; resize: vertical; }
 dialog .check { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; color: var(--text); font-size: 13px; }
 dialog .text { font-size: 13px; color: var(--muted); margin: 0; }
 dialog .warn { font-size: 13px; color: var(--red); background: var(--red-bg); border-radius: 8px; padding: 8px 10px; margin: 0; }
@@ -61,7 +62,19 @@ dialog select, dialog input[type="number"], dialog input[type="time"] { font-fam
 .auto-state.paused { background: var(--grey-bg); color: var(--faint); }
 .notice { border-radius: 10px; padding: 10px 14px; font-size: 13px; background: var(--amber-bg); color: var(--amber); }
 
-.orch-new { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-.orch-new label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
-.orch-new select, .orch-new input { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); padding: 6px 8px; }
+.orch-new { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.orch-new label { display: flex; min-width: 0; }
+.orch-new label:last-child:nth-child(odd) { grid-column: 1 / -1; }
+dialog .orch-new select, dialog .orch-new input { width: 100%; min-width: 0; }
+dialog input.narrow { width: 96px; }
+
+/* Small screens: dialogs take the width, choices stack, nothing overflows. */
+@media (max-width: 600px) {
+  dialog:not(.reader) { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  dialog form { padding: 16px; gap: 12px; }
+  dialog .kinds { flex-direction: column; }
+  dialog .kinds label { padding: 8px 10px; }
+  .orch-new { gap: 10px; }
+  dialog .buttons { position: sticky; bottom: 0; background: var(--surface); padding: 10px 0 4px; box-shadow: 0 -8px 12px -8px rgba(0,0,0,.35); }
+}
 .orch-new[hidden] { display: none; }
