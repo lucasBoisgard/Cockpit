@@ -53,20 +53,23 @@ function validatePhases(phases) {
 }
 
 // `models`: the provider's model catalog when it is not fixed (Codex); Claude's list is known.
-// `inheritMode`: an agent launched into the orchestration may only be stricter than its mode.
-function validateLaunch(input = {}, orch, models, { inheritMode = false } = {}) {
+// `inheritMode`: an agent launched into the orchestration may only be stricter than its mode, and than its parent's.
+// `parentMode`: the launching agent's effective mode (null when the master launches).
+function validateLaunch(input = {}, orch, models, { inheritMode = false, parentMode = null } = {}) {
   const name = String(input.name || '').trim();
   if (!name || name.length > 80) return { error: 'Donne un nom court à l\'agent (80 caractères au plus).' };
   const brief = String(input.brief || '').trim();
   if (!brief) return { error: 'Le brief de l\'agent est vide.' };
   if (brief.length > 40000) return { error: 'Brief trop long (40 000 caractères au plus) : mets les détails dans un fichier et donne son chemin.' };
   const provider = input.provider ? String(input.provider) : 'claude';
-  const settings = providers.validateSettings(provider, { model: input.model, effort: input.effort, mode: input.mode || orch.settings.agentMode }, provider === 'claude' ? MODELS : models);
+  const parentStricter = inheritMode && parentMode && permissionMode.isStricter(parentMode, orch.settings.agentMode);
+  const ceiling = parentStricter ? parentMode : orch.settings.agentMode;
+  const settings = providers.validateSettings(provider, { model: input.model, effort: input.effort, mode: input.mode || ceiling }, provider === 'claude' ? MODELS : models);
   if (settings.error) return settings;
   const { model, effort, mode } = settings;
   if (input.mode && inheritMode) {
-    const refused = permissionMode.overrideError(mode, orch.settings.agentMode);
-    if (refused) return { error: refused };
+    const refused = permissionMode.overrideError(mode, ceiling);
+    if (refused) return { error: parentStricter ? refused.replace("l'orchestration est en", "l'agent parent est en") : refused };
   }
   const skills = (Array.isArray(input.skills) ? input.skills : input.skill ? [input.skill] : []).map((s) => String(s).trim()).filter(Boolean);
   if (skills.some((s) => !/^[\w:.-]{1,80}$/.test(s))) return { error: 'Nom de skill invalide.' };

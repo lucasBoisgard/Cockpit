@@ -223,9 +223,9 @@ function launchAgent({ caller, ...input }) {
       const info = await codexInfo();
       if (!info.installed || !info.loggedIn) return { error: info.installed ? 'Codex n’est pas connecté : l’utilisateur doit lancer « codex login ». Lance cet agent avec Claude en attendant.' : 'Codex CLI n’est pas installé sur cette machine : lance cet agent avec Claude.' };
     }
-    const checked = core.validateLaunch(input, orch, input.provider === 'codex' ? await codexCatalog() : undefined, { inheritMode: true });
+    const checked = core.validateLaunch(input, orch, input.provider === 'codex' ? await codexCatalog() : undefined, { inheritMode: true, parentMode: found.agent?.mode || null });
     if (checked.error) return checked;
-    if (input.mode && checked.agent.mode !== orch.settings.agentMode) checked.agent.modeOverride = checked.agent.mode;
+    if (checked.agent.mode !== orch.settings.agentMode) checked.agent.modeOverride = checked.agent.mode;
     const kind = input.kind ? String(input.kind) : null;
     if (kind && !matrix.categoryIds().includes(kind)) return { error: `Catégorie inconnue : ${kind} (${matrix.categoryIds().join(', ')}).` };
     checked.agent.kind = kind;

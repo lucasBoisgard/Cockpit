@@ -153,6 +153,16 @@ test('validateLaunch refuses an explicit mode looser than the orchestration when
   assert.strictEqual(core.validateLaunch({ name: 'maître', brief: 'b', mode: 'auto' }, orch).agent.mode, 'auto');
 });
 
+test('validateLaunch never lets a child be looser than its parent agent', () => {
+  const orch = orchWith([], { settings: { ...core.DEFAULT_SETTINGS, agentMode: 'acceptEdits' } });
+  const from = (parentMode) => ({ inheritMode: true, parentMode });
+  assert.match(core.validateLaunch({ name: 'x', brief: 'b', mode: 'acceptEdits' }, orch, undefined, from('plan')).error, /agent parent est en plan/);
+  assert.strictEqual(core.validateLaunch({ name: 'x', brief: 'b' }, orch, undefined, from('plan')).agent.mode, 'plan');
+  assert.strictEqual(core.validateLaunch({ name: 'x', brief: 'b', mode: 'plan' }, orch, undefined, from('acceptEdits')).agent.mode, 'plan');
+  assert.strictEqual(core.validateLaunch({ name: 'x', brief: 'b' }, orch, undefined, from('auto')).agent.mode, 'acceptEdits');
+  assert.strictEqual(core.validateLaunch({ name: 'x', brief: 'b' }, orch, undefined, { inheritMode: true }).agent.mode, 'acceptEdits');
+});
+
 test('agentSystemPrompt names the real parent and carries the autonomy level', () => {
   const orch = orchWith([agent('w1', { name: 'Front' }), agent('w2', { parentId: 'w1' })], { settings: { ...core.DEFAULT_SETTINGS, autonomy: 'decisions' } });
   const child = core.agentSystemPrompt({ agent: orch.agents[1], orch, masterWorktree: 'wt', isolated: false, root: '/cockpit' });
