@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
+DIR="$(cd "$(dirname "$0")" && pwd -P)"
 PIDFILE="$DIR/server.pid"
 CONFIG="$DIR/cockpit.config.json"
 

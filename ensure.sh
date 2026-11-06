@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
+DIR="$(cd "$(dirname "$0")" && pwd -P)"
 
 if grep -q '"container"[[:space:]]*:[[:space:]]*"[^"]' "$DIR/cockpit.config.json" 2>/dev/null && [ ! -f /.dockerenv ]; then
   exit 0

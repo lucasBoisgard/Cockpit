@@ -6,7 +6,7 @@ description: Write the final report of a pull request review as a JSON file that
 # Review report
 
 Write the report once the review is finished and every finding has been checked against the code.
-The cockpit (`~/.claude/worktree-dashboard`) shows it in the "Rapport" tab of the worktree card.
+The cockpit (`~/.claude/cockpit`) shows it in the "Rapport" tab of the worktree card.
 
 ## Where
 

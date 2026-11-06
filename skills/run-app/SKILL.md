@@ -6,7 +6,7 @@ description: Start, restart, stop or check the project's local app from any Clau
 # Run the app
 
 The app runs **once**, at the root of the main checkout (the cockpit's `repo`), inside the tmux
-session `cw-app` owned by the Cockpit (`~/.claude/worktree-dashboard`), with the command
+session `cw-app` owned by the Cockpit (`~/.claude/cockpit`), with the command
 set in its `cockpit.config.json` (`app.command`). This is the sanctioned way to start it from a
 worktree session: never start the app from a worktree directory yourself.
 
@@ -22,16 +22,16 @@ token from its file in each command, never print it or paste it into a message.
 
 | Action | Command |
 |---|---|
-| State | `curl -s -H "X-Cockpit-Token: $(cat ~/.claude/worktree-dashboard/token)" http://127.0.0.1:8052/api/app` |
-| Start | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/worktree-dashboard/token)" http://127.0.0.1:8052/api/app/start` |
-| Restart | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/worktree-dashboard/token)" -d '{"restart":true}' http://127.0.0.1:8052/api/app/start` |
-| Stop | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/worktree-dashboard/token)" http://127.0.0.1:8052/api/app/stop` |
-| Build log | `curl -s -H "X-Cockpit-Token: $(cat ~/.claude/worktree-dashboard/token)" 'http://127.0.0.1:8052/api/screen?target=app'` |
+| State | `curl -s -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" http://127.0.0.1:8052/api/app` |
+| Start | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" http://127.0.0.1:8052/api/app/start` |
+| Restart | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" -d '{"restart":true}' http://127.0.0.1:8052/api/app/start` |
+| Stop | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" http://127.0.0.1:8052/api/app/stop` |
+| Build log | `curl -s -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" 'http://127.0.0.1:8052/api/screen?target=app'` |
 
 `/api/app` returns `null` when no app is configured: say so and stop.
 
-If the cockpit does not answer, run `~/.claude/worktree-dashboard/ensure.sh` and retry once; if it
-still does not answer, ask the user to run `~/.claude/worktree-dashboard/start.sh`.
+If the cockpit does not answer, run `~/.claude/cockpit/ensure.sh` and retry once; if it
+still does not answer, ask the user to run `~/.claude/cockpit/start.sh`.
 
 ## States
 

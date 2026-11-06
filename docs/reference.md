@@ -81,9 +81,9 @@ No npm dependency and no build step: Node, git and tmux only (`gh` for the PR fe
 
 ## Install
 
-1. Clone into `~/.claude/worktree-dashboard`.
+1. Clone into `~/.claude/cockpit`.
 2. Copy `cockpit.config.example.json` to `cockpit.config.json` and fill it in (optional, see below).
-3. Run `~/.claude/worktree-dashboard/start.sh`. Through `install.js` it merges the missing `settings.snippet.json` entries into `~/.claude/settings.json` (backup `settings.json.bak-cockpit-<timestamp>`, existing hooks and an existing `statusLine` are kept), links `skills/*` into `~/.claude/skills/` and generates the access token. It is idempotent and runs on every start; later starts are automatic through the `SessionStart` hook.
+3. Run `~/.claude/cockpit/start.sh`. Through `install.js` it merges the missing `settings.snippet.json` entries into `~/.claude/settings.json` (backup `settings.json.bak-cockpit-<timestamp>`, existing hooks and an existing `statusLine` are kept), links `skills/*` into `~/.claude/skills/` and generates the access token. It is idempotent and runs on every start; later starts are automatic through the `SessionStart` hook.
 4. Claude Code loads hooks when a session starts, so sessions already open do not report to the cockpit: quit each one (`/exit`) and reopen it with `claude --resume`. New sessions need nothing.
 5. Open the URL printed by `start.sh` (`http://<host>:8052/?token=…`).
 
@@ -148,7 +148,7 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 
 ## Security
 
-- Access token: `install.js` generates a 256-bit random token in `token` (mode 600, git-ignored). The page stores it in its own `localStorage` (not a cookie, which other apps on the same host would receive), removes it from the URL and sends it as `X-Cockpit-Token` on every API call. It is compared in constant time. Rotate it with `rm ~/.claude/worktree-dashboard/token && ~/.claude/worktree-dashboard/start.sh`.
+- Access token: `install.js` generates a 256-bit random token in `token` (mode 600, git-ignored). The page stores it in its own `localStorage` (not a cookie, which other apps on the same host would receive), removes it from the URL and sends it as `X-Cockpit-Token` on every API call. It is compared in constant time. Rotate it with `rm ~/.claude/cockpit/token && ~/.claude/cockpit/start.sh`.
 - Host allowlist: every request, the page included, is refused with a 421 unless its `Host` is `localhost`, `127.0.0.1`, `$MACHINE_HOSTNAME` or listed in `hosts` / `COCKPIT_HOSTS`. This blocks DNS rebinding.
 - Write routes also require a `POST` with the `X-Cockpit: 1` header and a same-origin `Origin`.
 - Outside a container the server listens on `127.0.0.1` only.
@@ -166,5 +166,5 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 
 1. Remove the cockpit entries from `~/.claude/settings.json` (the `statusLine` and the hooks pointing to this directory), or restore the `settings.json.bak-cockpit-*` backup written by the install.
 2. Remove the skill links: `rm ~/.claude/skills/run-app ~/.claude/skills/review-report`.
-3. Stop the server (`kill "$(cat ~/.claude/worktree-dashboard/server.pid)"`) and delete `~/.claude/worktree-dashboard`. `~/.claude/worktree-state/`, `~/.claude/worktree-reviews/`, `~/.claude/worktree-usage/` and the `~/.claude/worktree-*.json` data files can be deleted too.
+3. Stop the server (`kill "$(cat ~/.claude/cockpit/server.pid)"`) and delete `~/.claude/cockpit`. `~/.claude/worktree-state/`, `~/.claude/worktree-reviews/`, `~/.claude/worktree-usage/` and the `~/.claude/worktree-*.json` data files can be deleted too.
 - Claude Code auto mode refuses edits to `~/.claude/settings.json` and to the tmux driving code: switch to the default permission mode first.

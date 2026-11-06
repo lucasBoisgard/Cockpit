@@ -8,12 +8,37 @@ const DIR = __dirname;
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const SETTINGS = path.join(CLAUDE_DIR, 'settings.json');
 const SKILLS_DIR = path.join(CLAUDE_DIR, 'skills');
-const CANONICAL_DIR = path.join(CLAUDE_DIR, 'worktree-dashboard');
+const CANONICAL_DIR = path.join(CLAUDE_DIR, 'cockpit');
+// Where the cockpit was installed before it was renamed: its hooks, status line and skill links move here.
+const LEGACY_DIR = path.join(CLAUDE_DIR, 'worktree-dashboard');
 const IS_CANONICAL = path.resolve(DIR) === CANONICAL_DIR;
 
 function snippet() {
   const raw = fs.readFileSync(path.join(DIR, 'settings.snippet.json'), 'utf8');
-  return JSON.parse(raw.split('/root/.claude/worktree-dashboard').join(DIR));
+  return JSON.parse(raw.split('/root/.claude/cockpit').join(DIR));
+}
+
+const relocated = (command) => (typeof command === 'string' && command.includes(`${LEGACY_DIR}/`) ? command.split(`${LEGACY_DIR}/`).join(`${DIR}/`) : command);
+
+// Points the hooks and the status line of the old install at this one, without duplicating a hook.
+function migrateLegacy(settings, changes) {
+  if (settings.statusLine?.command && relocated(settings.statusLine.command) !== settings.statusLine.command) {
+    settings.statusLine.command = relocated(settings.statusLine.command);
+    changes.push('statusLine moved');
+  }
+  for (const [event, groups] of Object.entries(settings.hooks || {})) {
+    const seen = new Set();
+    let moved = false;
+    settings.hooks[event] = groups
+      .map((g) => ({ ...g, hooks: (g.hooks || []).map((h) => {
+        const command = relocated(h.command);
+        if (command !== h.command) moved = true;
+        return { ...h, command };
+      }) }))
+      .map((g) => ({ ...g, hooks: g.hooks.filter((h) => (seen.has(`${g.matcher || ''}|${h.command}`) ? false : seen.add(`${g.matcher || ''}|${h.command}`))) }))
+      .filter((g) => g.hooks.length);
+    if (moved) changes.push(`${event} hooks moved`);
+  }
 }
 
 function readSettings() {
@@ -32,7 +57,7 @@ function scriptOf(command) {
 
 function isStaleCockpitHook(command) {
   const script = scriptOf(command);
-  return !!script && script.includes('/worktree-dashboard') && !fs.existsSync(script);
+  return !!script && (script.includes('/worktree-dashboard') || script.startsWith(`${CANONICAL_DIR}/`)) && !fs.existsSync(script);
 }
 
 function dropStaleHooks(settings, changes) {
@@ -51,6 +76,7 @@ function mergeSettings() {
   const changes = [];
 
   dropStaleHooks(settings, changes);
+  if (IS_CANONICAL) migrateLegacy(settings, changes);
   if (!IS_CANONICAL) {
     console.log(`install.js runs from ${DIR}, not ${CANONICAL_DIR}: hooks, status line and skills are only installed from the shared checkout`);
     if (changes.length) writeSettings(settings, changes);
@@ -92,7 +118,9 @@ function linkSkills() {
   fs.mkdirSync(SKILLS_DIR, { recursive: true });
   for (const name of fs.readdirSync(source)) {
     const target = path.join(SKILLS_DIR, name);
-    if (fs.lstatSync(target, { throwIfNoEntry: false })) continue;
+    const current = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (current?.isSymbolicLink() && fs.readlinkSync(target).startsWith(`${LEGACY_DIR}/`)) fs.rmSync(target);
+    else if (current) continue;
     fs.symlinkSync(path.join(source, name), target);
     console.log(`skill ${name} linked`);
   }

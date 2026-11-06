@@ -48,7 +48,7 @@ async function call(route, body) {
       ? await fetch(url, { method: 'POST', headers: { ...headers, 'X-Cockpit': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ caller: CALLER, ...body }) })
       : await fetch(url, { headers });
   } catch {
-    fail(`Le cockpit ne répond pas sur le port ${PORT}. Lance ~/.claude/worktree-dashboard/ensure.sh puis réessaie.`);
+    fail(`Le cockpit ne répond pas sur le port ${PORT}. Lance ~/.claude/cockpit/ensure.sh puis réessaie.`);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) fail(data.error || `Erreur ${res.status}`);

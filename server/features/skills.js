@@ -80,7 +80,7 @@ function pluginSkills() {
 
 async function skillEntries() {
   const synced = path.join(USER_DIR, 'skills', 'synced');
-  const cockpitDirs = [path.join(ROOT, 'skills'), path.join(USER_DIR, 'worktree-dashboard', 'skills')];
+  const cockpitDirs = [path.join(ROOT, 'skills'), path.join(USER_DIR, 'cockpit', 'skills')];
   return [
     ...skillsIn(path.join(USER_DIR, 'skills'), { source: (real) => (cockpitDirs.some((dir) => real.startsWith(`${dir}/`)) ? 'cockpit' : 'local'), root: path.join(USER_DIR, 'skills') }),
     ...commandsIn(path.join(USER_DIR, 'commands'), { source: 'local' }),

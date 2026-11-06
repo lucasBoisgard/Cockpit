@@ -20,8 +20,8 @@ New to it? Take the **[guided tour](docs/visite-guidee.md)** (10 minutes, in Fre
 You need **Node 20+**, **tmux** and **Claude Code** (signed in).
 
 ```bash
-git clone https://github.com/lucasBoisgard/Cockpit ~/.claude/worktree-dashboard
-~/.claude/worktree-dashboard/start.sh
+git clone https://github.com/lucasBoisgard/Cockpit ~/.claude/cockpit
+~/.claude/cockpit/start.sh
 ```
 
 Open the URL that `start.sh` prints (`http://localhost:8052/?token=…`).
@@ -30,7 +30,7 @@ Open the URL that `start.sh` prints (`http://localhost:8052/?token=…`).
 
 ## Minimal configuration
 
-Nothing is required. To point the cockpit at a repository other than the current one, create `~/.claude/worktree-dashboard/cockpit.config.json`:
+Nothing is required. To point the cockpit at a repository other than the current one, create `~/.claude/cockpit/cockpit.config.json`:
 
 ```json
 { "repo": "/path/to/your/repo" }
@@ -39,7 +39,7 @@ Nothing is required. To point the cockpit at a repository other than the current
 Optional:
 
 - **GPT**: install the Codex CLI (`npm install -g @openai/codex`), then sign in from **⋯ → Connexions**.
-- **Access from another machine**: start with `HOST=0.0.0.0 ~/.claude/worktree-dashboard/start.sh` and add your hostname to `"hosts"` in the config.
+- **Access from another machine**: start with `HOST=0.0.0.0 ~/.claude/cockpit/start.sh` and add your hostname to `"hosts"` in the config.
 
 > **Security.** The access token gives a shell on the machine. Never share the printed URL, and keep the port on a network you trust.
 

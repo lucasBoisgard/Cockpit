@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "node /root/.claude/worktree-dashboard/statusline.js"
+    "command": "node /root/.claude/cockpit/statusline.js"
   },
   "hooks": {
     "UserPromptSubmit": [
@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       }
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       },
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/root/.claude/worktree-dashboard/ensure.sh"
+            "command": "/root/.claude/cockpit/ensure.sh"
           }
         ]
       }
@@ -57,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       }
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       }
@@ -77,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+            "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
           }
         ]
       }
