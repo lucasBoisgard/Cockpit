@@ -16,7 +16,7 @@ const { eventsSeq } = require('./events');
 const { loadQueues } = require('./queue');
 const { pendingAsk } = require('./asks');
 const { pendingScreens } = require('./codex-screens');
-const { orchestrations, endedOrchestrations, activeAgentsBySession } = require('./orchestration');
+const { orchestrationViews, activeAgentsBySession } = require('./orchestration');
 
 const SIZE_TTL_MS = 10 * 60 * 1000;
 const sizeCache = new Map();
@@ -31,8 +31,7 @@ async function snapshot() {
   const usageBySession = new Map(snapshots.map((u) => [u.sessionId, u]));
   const queues = loadQueues();
   const links = loadStore('worktree-links.json', {});
-  const orch = await orchestrations(panes);
-  const endedOrch = await endedOrchestrations(panes);
+  const { active: orch, ended: endedOrch } = await orchestrationViews(panes);
   const orchAgents = activeAgentsBySession(orch);
   for (const session of readSessions().map((s) => effectiveStatus(s, panes, Date.now()))) {
     const owner = fs.existsSync(session.cwd) && ownerOf(session.cwd, worktrees);

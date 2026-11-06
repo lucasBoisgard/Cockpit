@@ -120,13 +120,24 @@ test('wakeTarget sends a sub-agent report to its parent even while the master is
 });
 
 test('agentRefs keeps only what the board needs to hide finished agents', () => {
-  const orch = orchWith([agent('w1', { sessionId: 's1', worktree: 'wt', brief: 'long brief' }), agent('w2', { parentId: 'w1', worktree: 'wt--w2', isolated: true })], { masterSessionId: 'm', worktree: 'wt', endedAt: 5 });
+  const orch = orchWith([agent('w1', { sessionId: 's1', worktree: 'wt', brief: 'long brief' }), agent('w2', { parentId: 'w1', worktree: 'wt--w2', isolated: true, lostAt: 9 })], { masterSessionId: 'm', worktree: 'wt', endedAt: 5 });
   assert.deepStrictEqual(core.agentRefs(orch, { w1: 'stopped', w2: 'working' }), {
     masterSessionId: 'm',
     worktree: 'wt',
     agents: [
-      { id: 'w1', status: 'stopped', parentId: null, sessionId: 's1', worktree: 'wt' },
-      { id: 'w2', status: 'working', parentId: 'w1', sessionId: null, worktree: 'wt--w2' },
+      { id: 'w1', status: 'stopped', parentId: null, sessionId: 's1', worktree: 'wt', stoppedAt: null, lost: false },
+      { id: 'w2', status: 'working', parentId: 'w1', sessionId: null, worktree: 'wt--w2', stoppedAt: null, lost: true },
     ],
   });
+});
+
+test('agentRefs carries stoppedAt and lost so a crashed agent is told from a stopped one', () => {
+  const orch = orchWith([agent('w1', { stoppedAt: 7 }), agent('w2', { lostAt: 9 })], { masterSessionId: 'm', worktree: 'wt' });
+  const refs = core.agentRefs(orch, { w1: 'stopped', w2: 'stopped' }).agents;
+  assert.deepStrictEqual(refs.map((a) => [a.stoppedAt, a.lost]), [[7, false], [null, true]]);
+});
+
+test('settledStatuses skips the live lookup only when every agent was stopped on purpose', () => {
+  assert.deepStrictEqual(core.settledStatuses(orchWith([agent('w1', { stoppedAt: 1 }), agent('w2', { stoppedAt: 2 })])), { w1: 'stopped', w2: 'stopped' });
+  assert.strictEqual(core.settledStatuses(orchWith([agent('w1', { stoppedAt: 1 }), agent('w2')])), null);
 });

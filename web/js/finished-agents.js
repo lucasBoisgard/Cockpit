@@ -1,7 +1,10 @@
 // Agents the master has stopped have finished their work: the board and the orchestration tree hide them
-// unless the user asks to see them. A stopped parent stays visible while one of its sub-agents is not hidden.
+// unless the user asks to see them. An agent that died on its own (lost) has not finished and stays visible,
+// and so does a stopped parent while one of its sub-agents is not hidden.
 // Decisions without DOM, also required by the tests.
 const finishedUi = { show: typeof localGet === 'function' && localGet('showFinished') === '1' };
+
+const isFinishedAgent = (a) => a.status === 'stopped' && !!a.stoppedAt && !a.lost;
 
 function hiddenAgentIds(agents) {
   const kids = new Map();
@@ -10,7 +13,7 @@ function hiddenAgentIds(agents) {
   const hidden = (a) => {
     if (!memo.has(a.id)) {
       memo.set(a.id, false);
-      memo.set(a.id, a.status === 'stopped' && (kids.get(a.id) || []).every(hidden));
+      memo.set(a.id, isFinishedAgent(a) && (kids.get(a.id) || []).every(hidden));
     }
     return memo.get(a.id);
   };
@@ -36,9 +39,23 @@ function finishedScope(orchestrations, ended) {
   return { sessions, worktrees, count };
 }
 
-function agentsInSubtree(agents, id) {
-  const kids = agents.filter((a) => a.parentId === id);
-  return kids.reduce((n, a) => n + agentsInSubtree(agents, a.id), kids.length);
+// Hidden agents per top-level agent (the one shown under a phase), sub-agents included.
+function hiddenCountByRoot(agents, hidden) {
+  const byId = new Map(agents.map((a) => [a.id, a]));
+  const counts = new Map();
+  for (const a of agents) {
+    if (!hidden.has(a.id)) continue;
+    let root = a;
+    while (root.parentId && byId.has(root.parentId)) root = byId.get(root.parentId);
+    counts.set(root.id, (counts.get(root.id) || 0) + 1);
+  }
+  return counts;
+}
+
+// A worktree with no session, uncommitted files or unpushed commits still holds work: never hidden.
+function isFinishedWorktree(wt, scope, selectedPath) {
+  return wt.path !== selectedPath && scope.worktrees.has(wt.name) && wt.sessions.length > 0 && !wt.files.length && !(wt.ahead > 0)
+    && wt.sessions.every((s) => scope.sessions.has(s.sessionId));
 }
 
 let finishedCache = { source: null, ended: null, scope: null };
@@ -52,22 +69,11 @@ function finishedNow() {
 
 const shownSessions = (wt) => (finishedUi.show ? wt.sessions : wt.sessions.filter((s) => !finishedNow().sessions.has(s.sessionId)));
 
-function isFinishedWorktree(wt) {
-  const scope = finishedNow();
-  return !finishedUi.show && wt.path !== selected && scope.worktrees.has(wt.name) && wt.sessions.every((s) => scope.sessions.has(s.sessionId));
-}
+const shownWorktrees = () => (finishedUi.show ? state.worktrees : state.worktrees.filter((w) => !isFinishedWorktree(w, finishedNow(), selected)));
 
-const shownWorktrees = () => state.worktrees.filter((w) => !isFinishedWorktree(w));
+const finishedBoardCount = () => state.worktrees.filter((w) => isFinishedWorktree(w, finishedNow(), selected)).length;
 
-function finishedBoardCount() {
-  const scope = finishedNow();
-  let n = 0;
-  for (const w of state.worktrees) {
-    const hidden = w.sessions.filter((s) => scope.sessions.has(s.sessionId)).length;
-    n += scope.worktrees.has(w.name) && hidden === w.sessions.length ? Math.max(hidden, 1) : hidden;
-  }
-  return n;
-}
+const finishedSessionCount = (wt) => wt.sessions.filter((s) => finishedNow().sessions.has(s.sessionId)).length;
 
 const finishedLabel = (n) => (finishedUi.show ? 'Masquer les terminés' : `Afficher ${n} agent${n > 1 ? 's' : ''} terminé${n > 1 ? 's' : ''}`);
 
@@ -85,4 +91,4 @@ if (typeof document !== 'undefined') {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { hiddenAgentIds, finishedScope, agentsInSubtree };
+if (typeof module !== 'undefined') module.exports = { isFinishedAgent, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree };

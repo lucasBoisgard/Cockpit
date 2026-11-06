@@ -23,16 +23,16 @@ function orchTree(orch) {
   const agentNode = (a) => ({ id: a.id, kind: 'agent', status: a.status, agent: a, children: childrenOf(a.id).map(agentNode) });
   const allTop = orch.agents.filter((a) => !a.parentId || !orch.agents.some((p) => p.id === a.parentId));
   const top = allTop.filter((a) => !hidden.has(a.id));
+  const hiddenByRoot = hiddenCountByRoot(orch.agents, hidden);
   const masterStatus = orch.state === 'paused' ? 'stopped' : orch.state === 'needs' ? 'needs' : orch.state === 'working' ? 'working' : 'done';
   const children = orchUi.byPhase && orch.phases.length
     ? orch.phases.map((name, i) => {
       const agents = top.filter((a) => a.phase === i);
-      const hiddenTop = allTop.filter((a) => a.phase === i && hidden.has(a.id));
-      const hiddenCount = hiddenTop.reduce((n, a) => n + 1 + agentsInSubtree(orch.agents, a.id), 0);
+      const hiddenCount = allTop.filter((a) => a.phase === i).reduce((n, a) => n + (hiddenByRoot.get(a.id) || 0), 0);
       return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(allTop.filter((a) => a.phase === i)), hiddenCount, children: agents.map(agentNode) };
     })
     : top.map(agentNode);
-  return { id: 'm', kind: 'master', status: masterStatus, children };
+  return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : hidden.size, children };
 }
 
 // Tidy horizontal tree: depth goes right, siblings stack downward, a parent sits at the middle of its children.
@@ -78,7 +78,7 @@ function orchNodeHtml(box, orch, pick) {
   if (node.kind === 'master') {
     const n = orch.counts.working + orch.counts.starting;
     return `<div class="${cls}" style="${style}" data-orch-node="m"><div class="orch-line">${orchGear(node.status)}<b>◆ Maître</b>${toggle}</div>
-      <div class="orch-sub">${orch.paused ? 'En pause' : `${n} actif${n > 1 ? 's' : ''} / ${orch.settings.maxAgents} max`}</div>
+      <div class="orch-sub">${orch.paused ? 'En pause' : `${n} actif${n > 1 ? 's' : ''} / ${orch.settings.maxAgents} max`}${node.hiddenCount ? ` · ${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : ''}</div>
       <div class="orch-act">${esc(orch.phases.length ? `Phase ${orch.phase + 1}/${orch.phases.length} · ${orch.phases[orch.phase] || ''}` : 'Pas encore de plan')}</div></div>`;
   }
   if (node.kind === 'phase') {

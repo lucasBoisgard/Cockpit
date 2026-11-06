@@ -388,20 +388,20 @@ async function status({ caller }) {
   return found.error ? found : view(found.orch, await livePanes());
 }
 
-async function orchestrations(givenPanes) {
+// Active orchestrations as full views, and ended ones (kept for a while) as slim refs, from one read of the store.
+async function orchestrationViews(givenPanes) {
   const panes = givenPanes || (await livePanes());
   attachPending();
-  const out = {};
-  for (const orch of Object.values(load())) if (!orch.endedAt) out[orch.masterSessionId] = view(orch, panes);
-  return out;
+  const active = {};
+  const ended = {};
+  for (const orch of Object.values(load())) {
+    if (!orch.endedAt) active[orch.masterSessionId] = view(orch, panes);
+    else ended[orch.masterSessionId] = core.agentRefs(orch, core.settledStatuses(orch) || liveStatuses(orch, panes).statuses);
+  }
+  return { active, ended };
 }
 
-async function endedOrchestrations(givenPanes) {
-  const panes = givenPanes || (await livePanes());
-  const out = {};
-  for (const orch of Object.values(load())) if (orch.endedAt) out[orch.masterSessionId] = core.agentRefs(orch, liveStatuses(orch, panes).statuses);
-  return out;
-}
+const orchestrations = async (givenPanes) => (await orchestrationViews(givenPanes)).active;
 
 async function setPaused({ master, paused }) {
   const pending = mutate(String(master || ''), (orch) => {
@@ -526,7 +526,7 @@ function activeAgentsBySession(views) {
 }
 
 module.exports = {
-  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, endedOrchestrations,
+  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
   setPaused, updateSettings, endOrchestration, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree,
 };

@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { hiddenAgentIds, finishedScope, agentsInSubtree } = require('../web/js/finished-agents');
+const { isFinishedAgent, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree } = require('../web/js/finished-agents');
 
-const agent = (id, status, extra = {}) => ({ id, status, parentId: null, sessionId: `s-${id}`, worktree: 'main-wt', phase: 0, ...extra });
+const agent = (id, status, extra = {}) => ({ id, status, parentId: null, sessionId: `s-${id}`, worktree: 'main-wt', phase: 0, stoppedAt: status === 'stopped' ? 1 : null, lost: false, ...extra });
 
 test('only stopped agents are hidden: done agents may still wait for an answer', () => {
   const hidden = hiddenAgentIds([agent('w1', 'stopped'), agent('w2', 'done'), agent('w3', 'working'), agent('w4', 'needs'), agent('w5', 'starting')]);
@@ -27,10 +27,29 @@ test('an agent whose parent is unknown is judged on its own status', () => {
   assert.deepStrictEqual([...hiddenAgentIds([agent('w2', 'stopped', { parentId: 'gone' })])], ['w2']);
 });
 
-test('agentsInSubtree counts every descendant', () => {
-  const agents = [agent('w1', 'stopped'), agent('w2', 'stopped', { parentId: 'w1' }), agent('w3', 'stopped', { parentId: 'w2' }), agent('w4', 'stopped')];
-  assert.strictEqual(agentsInSubtree(agents, 'w1'), 2);
-  assert.strictEqual(agentsInSubtree(agents, 'w4'), 0);
+test('an agent that died on its own is not finished: only a stop by the master or the user hides it', () => {
+  assert.strictEqual(isFinishedAgent(agent('w1', 'stopped')), true);
+  assert.strictEqual(isFinishedAgent(agent('w1', 'stopped', { lost: true })), false);
+  assert.strictEqual(isFinishedAgent(agent('w1', 'stopped', { stoppedAt: null })), false);
+  assert.strictEqual(hiddenAgentIds([agent('w1', 'stopped', { lost: true })]).size, 0);
+});
+
+test('hiddenCountByRoot counts hidden agents under their top-level agent, even below a visible parent', () => {
+  const agents = [agent('w1', 'working'), agent('w2', 'stopped', { parentId: 'w1' }), agent('w3', 'stopped', { parentId: 'w2' }), agent('w4', 'stopped'), agent('w5', 'stopped', { parentId: 'w4' })];
+  const counts = hiddenCountByRoot(agents, hiddenAgentIds(agents));
+  assert.deepStrictEqual([...counts], [['w1', 2], ['w4', 2]]);
+});
+
+test('isFinishedWorktree hides only an idle worktree whose sessions are all hidden agents', () => {
+  const scope = { sessions: new Set(['a', 'b']), worktrees: new Set(['wt-x']) };
+  const wt = (extra = {}) => ({ path: '/p/wt-x', name: 'wt-x', sessions: [{ sessionId: 'a' }, { sessionId: 'b' }], files: [], ahead: 0, ...extra });
+  assert.strictEqual(isFinishedWorktree(wt(), scope, null), true);
+  assert.strictEqual(isFinishedWorktree(wt({ files: ['x'] }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt({ ahead: 2 }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt({ sessions: [] }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt({ sessions: [{ sessionId: 'a' }, { sessionId: 'mine' }] }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt(), scope, '/p/wt-x'), false);
+  assert.strictEqual(isFinishedWorktree(wt({ name: 'other' }), scope, null), false);
 });
 
 test('finishedScope hides the sessions of stopped agents and their own worktrees, never the master worktree', () => {
