@@ -20,6 +20,7 @@ function userText(raw) {
 }
 
 function summarizeToolInput(input = {}) {
+  if (Array.isArray(input.questions)) return input.questions.map((q) => q?.question).filter(Boolean).join(' · ') || 'Question';
   return input.description || input.command || input.file_path || input.pattern || input.prompt || input.skill || input.url || input.query || JSON.stringify(input).slice(0, 200);
 }
 

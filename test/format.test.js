@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd } = require('../web/js/format.js');
+const { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd, plainLine } = require('../web/js/format.js');
 
 const NOW = 1_800_000_000_000;
 
@@ -86,4 +86,11 @@ test('pickPrimary follows the card status rules, background agents counting as w
   assert.strictEqual(pickPrimary([s('w', 'working', 9), s('n', 'needs_input', 1)]).sessionId, 'n');
   assert.strictEqual(pickPrimary([s('old', 'needs_input', 9, { live: false }), s('d', 'done', 1)]).sessionId, 'd');
   assert.strictEqual(pickPrimary([s('x', 'needs_input', 1, { live: false }), s('y', 'done', 5, { live: false })]).sessionId, 'y');
+});
+
+test('plainLine turns a Markdown message into one plain line', () => {
+  assert.strictEqual(plainLine('Prêt.\n\n- **`applyFilters`** combine les filtres\n- voir [la doc](https://x.y)'), 'Prêt. · applyFilters combine les filtres · voir la doc');
+  assert.strictEqual(plainLine('## Résumé\n1. un point'), 'Résumé · un point');
+  assert.strictEqual(plainLine('- premier point'), 'premier point');
+  assert.strictEqual(plainLine(null), '');
 });

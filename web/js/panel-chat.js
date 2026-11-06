@@ -133,7 +133,7 @@ async function loadChat(force) {
   } catch { return; }
   const last = chat.items[chat.items.length - 1];
   const session = currentSession();
-  const awaiting = session?.status === 'needs_input' ? session.message || 'Claude attend ta réponse' : null;
+  const awaiting = session?.status === 'needs_input' && !(typeof promptAnswered === 'function' && promptAnswered(session)) ? session.message || 'Claude attend ta réponse' : null;
   const signature = `${chat.sessionId}|${chat.total}|${last ? (last.result || last.text || '').length : 0}|${awaiting}`;
   if (!force && signature === chatSignature) return;
   chatSignature = signature;

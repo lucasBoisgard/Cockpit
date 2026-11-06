@@ -193,3 +193,16 @@ test('the notification that follows a question does not turn it into a permissio
   assert.strictEqual(state.message, 'Couleur ?');
   assert.strictEqual(state.questions[0].options[1].label, 'Bleu');
 });
+
+test('a tool that ran after a question or a permission puts the session back to work', () => {
+  const opts = { now: 1, pane: '%1', fallbackCwd: '/r' };
+  const asked = { actions: [] };
+  applyHookEvent(asked, { session_id: 'x', cwd: '/r', hook_event_name: 'PreToolUse', tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: 'Café ?', options: [{ label: 'Oui' }] }] } }, opts);
+  assert.strictEqual(applyHookEvent(asked, { session_id: 'x', cwd: '/r', hook_event_name: 'PostToolUse', tool_name: 'AskUserQuestion' }, { ...opts, now: 2 }), true);
+  assert.deepStrictEqual([asked.status, asked.question, asked.message], ['working', null, null]);
+  const allowed = { actions: [], status: 'needs_input', permission: true, message: 'Claude needs your permission to use Bash' };
+  applyHookEvent(allowed, { session_id: 'y', cwd: '/r', hook_event_name: 'PostToolUse', tool_name: 'Bash' }, opts);
+  assert.deepStrictEqual([allowed.status, allowed.permission], ['working', false]);
+  const idle = { actions: [], status: 'working' };
+  assert.strictEqual(applyHookEvent(idle, { session_id: 'z', cwd: '/r', hook_event_name: 'PostToolUse', tool_name: 'Read' }, opts), false);
+});

@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DATA_DIR } = require('../config');
 const { questionsOf, checkAnswers } = require('../../hooks/ask');
+const { writeSessionOverride } = require('../io/store');
 
 // Questions held by the ask-relay hook (hooks/ask-relay.js) until the user answers in the conversation.
 const ASK_DIR = path.join(DATA_DIR, 'worktree-asks');
@@ -40,6 +41,11 @@ function answerAsk({ session, toolUseId, answers, defer }) {
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(defer ? { toolUseId: pending.toolUseId, defer: true } : { toolUseId: pending.toolUseId, answers: checked.answers }));
   fs.renameSync(tmp, file);
+  // Answered: Claude goes on (the terminal takes over when deferred), so the session no longer waits on the user.
+  if (!defer) {
+    const now = Date.now();
+    writeSessionOverride(pending.sessionId, { status: 'working', message: null, question: null, questions: null, permission: false, updatedAt: now, statusSince: now });
+  }
   return { ok: true };
 }
 

@@ -71,6 +71,16 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /root/.claude/worktree-dashboard/hooks/worktree-state.js"
+          }
+        ]
+      }
     ]
   }
 }

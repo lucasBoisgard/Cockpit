@@ -48,6 +48,18 @@ function fmtTokens(n) {
   return String(n);
 }
 
+// A Markdown message as one plain line, for the queue and the session header: no emphasis, code ticks,
+// headings, list markers or link targets.
+function plainLine(text) {
+  return String(text || '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|`)/g, '')
+    .replace(/(^|\s)#{1,6}\s+/g, '$1')
+    .replace(/(^|\s)(?:[-*•]|\d+\.)\s+(?=\S)/g, (m, sp, offset) => (offset === 0 ? '' : `${sp}· `))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const fmtUsd = (n) => (n == null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`);
 
-if (typeof module !== 'undefined') module.exports = { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd, backgroundOnly, statusLabel, pickPrimary };
+if (typeof module !== 'undefined') module.exports = { ago, span, statusAge, workedTime, duration, fmtTokens, fmtUsd, backgroundOnly, statusLabel, pickPrimary, plainLine };

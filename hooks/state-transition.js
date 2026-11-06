@@ -127,9 +127,10 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd, provider, launch
       state.message = shorten(`Permission : ${input.tool_name}${what ? ` · ${what}` : ''}`, 220);
       break;
     }
+    // The tool ran: its question was answered or its permission granted, the turn goes on.
     case 'PostToolUse':
-      if (state.status !== 'needs_input' || !state.permission) return false;
-      Object.assign(state, { status: 'working', message: null, permission: false });
+      if (state.status !== 'needs_input' || !(state.permission || state.question)) return false;
+      Object.assign(state, { status: 'working', message: null, permission: false, question: null, questions: null });
       break;
     case 'Interrupt':
       Object.assign(state, { status: 'idle', message: null, question: null, permission: false });

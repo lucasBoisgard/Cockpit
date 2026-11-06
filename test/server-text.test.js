@@ -138,3 +138,7 @@ test('parseFrontmatter reads plain, quoted and folded values', () => {
 test('uniqueByName keeps the first entry of each name', () => {
   assert.deepStrictEqual(uniqueByName([{ name: 'a', s: 1 }, { name: 'b' }, { name: 'a', s: 2 }]), [{ name: 'a', s: 1 }, { name: 'b' }]);
 });
+
+test('summarizeToolInput shows the questions of AskUserQuestion, not its JSON', () => {
+  assert.strictEqual(summarizeToolInput({ questions: [{ question: 'Quel moyen par défaut ?', options: [] }, { question: 'Quels environnements ?' }] }), 'Quel moyen par défaut ? · Quels environnements ?');
+});

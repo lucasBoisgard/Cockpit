@@ -20,7 +20,7 @@ function queueReason(wt, s, st) {
     const last = s.actions?.[0];
     return last ? `${last.tool} · ${last.detail || ''}` : 'Claude travaille';
   }
-  if (st === 'done') return s.lastAssistant || 'Tour terminé';
+  if (st === 'done') return plainLine(s.lastAssistant) || 'Tour terminé';
   return s.task || wt.lastCommit?.subject || 'Session ouverte';
 }
 

@@ -81,11 +81,19 @@ function openCodexTerminal(tmuxName) {
   toast('Revue des hooks de Codex : flèches et Entrée pour faire confiance, Échap pour sortir.');
 }
 
+// Whether the prompt a session shows has just been answered from the card (used by the conversation too).
+function promptAnswered(s) {
+  if (!s || s.status !== 'needs_input') return false;
+  return [...askAnswered].some((k) => k.startsWith(`${s.sessionId}|`) && k.includes(`|${s.message || ''}|`));
+}
+
 // The prompt the card currently shows: once answered, the card hides until another prompt comes.
 let askShown = '';
 function markAnswered() {
   if (askShown) askAnswered.add(askShown);
   redrawAsk();
+  chatSignature = null;
+  if (typeof loadChat === 'function') loadChat(false);
 }
 function unmarkAnswered(key) {
   askAnswered.delete(key);
