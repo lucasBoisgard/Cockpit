@@ -21,17 +21,21 @@ function orchPhaseStatus(agents) {
 }
 
 function orchTree(orch) {
-  const childrenOf = (parentId) => orch.agents.filter((a) => a.parentId === parentId);
+  const hidden = finishedUi.show ? new Set() : hiddenAgentIds(orch.agents);
+  const childrenOf = (parentId) => orch.agents.filter((a) => a.parentId === parentId && !hidden.has(a.id));
   const agentNode = (a) => ({ id: a.id, kind: 'agent', status: a.status, agent: a, children: childrenOf(a.id).map(agentNode) });
-  const top = orch.agents.filter((a) => !a.parentId || !orch.agents.some((p) => p.id === a.parentId));
+  const allTop = orch.agents.filter((a) => !a.parentId || !orch.agents.some((p) => p.id === a.parentId));
+  const top = allTop.filter((a) => !hidden.has(a.id));
+  const hiddenByRoot = hiddenCountByRoot(orch.agents, hidden);
   const masterStatus = orch.state === 'paused' ? 'stopped' : orch.state === 'needs' ? 'needs' : orch.state === 'working' ? 'working' : 'done';
   const children = orchUi.byPhase && orch.phases.length
     ? orch.phases.map((name, i) => {
       const agents = top.filter((a) => a.phase === i);
-      return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(agents), children: agents.map(agentNode) };
+      const hiddenCount = allTop.filter((a) => a.phase === i).reduce((n, a) => n + (hiddenByRoot.get(a.id) || 0), 0);
+      return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(allTop.filter((a) => a.phase === i)), hiddenCount, children: agents.map(agentNode) };
     })
     : top.map(agentNode);
-  return { id: 'm', kind: 'master', status: masterStatus, children };
+  return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : hidden.size, children };
 }
 
 // Tidy horizontal tree: depth goes right, siblings stack downward, a parent sits at the middle of its children.
@@ -63,6 +67,12 @@ function orchLayout(root) {
 
 const orchGear = (status, big = false) => `<span class="orch-gear ${status === 'working' || status === 'starting' ? 'is-spin' : status === 'done' ? 'is-done' : status === 'needs' ? 'is-needs' : ''} ${big ? 'is-big' : ''}"></span>`;
 
+function orchPhaseSub(node) {
+  const finished = node.hiddenCount ? `${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : '';
+  if (!node.children.length) return finished || 'à venir';
+  return `${node.children.length} agent${node.children.length > 1 ? 's' : ''} · ${ORCH_WORD[node.status].toLowerCase()}${finished ? ` · +${finished}` : ''}`;
+}
+
 function orchNodeHtml(box, orch, pick) {
   const { node } = box;
   const toggle = node.children.length ? `<button class="orch-toggle" data-orch-toggle="${node.id}" title="${orchUi.collapsed.has(node.id) ? 'Déplier' : 'Replier'}">${orchUi.collapsed.has(node.id) ? `+${node.children.length}` : '−'}</button>` : '';
@@ -71,12 +81,12 @@ function orchNodeHtml(box, orch, pick) {
   if (node.kind === 'master') {
     const n = orch.counts.working + orch.counts.starting;
     return `<div class="${cls}" style="${style}" data-orch-node="m"><div class="orch-line">${orchGear(node.status)}<b>◆ Maître</b>${toggle}</div>
-      <div class="orch-sub">${orch.paused ? 'En pause' : `${n} actif${n > 1 ? 's' : ''} / ${orch.settings.maxAgents} max`}</div>
+      <div class="orch-sub">${orch.paused ? 'En pause' : `${n} actif${n > 1 ? 's' : ''} / ${orch.settings.maxAgents} max`}${node.hiddenCount ? ` · ${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : ''}</div>
       <div class="orch-act">${esc(orch.phases.length ? `Phase ${orch.phase + 1}/${orch.phases.length} · ${orch.phases[orch.phase] || ''}` : 'Pas encore de plan')}</div></div>`;
   }
   if (node.kind === 'phase') {
     return `<div class="${cls}" style="${style}" data-orch-node="${node.id}"><div class="orch-line"><b>${node.index + 1}. ${esc(node.name)}</b>${toggle}</div>
-      <div class="orch-sub">${node.children.length ? `${node.children.length} agent${node.children.length > 1 ? 's' : ''} · ${ORCH_WORD[node.status].toLowerCase()}` : 'à venir'}</div></div>`;
+      <div class="orch-sub">${orchPhaseSub(node)}</div></div>`;
   }
   const a = node.agent;
   const setting = [a.provider === 'codex' ? 'GPT' : null, a.model || 'défaut', a.effort, a.mode ? `${a.modePending ? '⏳ ' : ''}${ORCH_MODE_SHORT[a.mode] || a.mode}` : null, ...(a.skills || [])].filter(Boolean).join(' · ');
@@ -146,6 +156,11 @@ function orchSettings(orch) {
     <div class="orch-row"><button class="btn primary">Appliquer</button><button type="button" class="btn orch-danger" data-orch-end>Terminer l’orchestration</button></div></form>`;
 }
 
+function orchFinishedButton(orch) {
+  const n = hiddenAgentIds(orch.agents).size;
+  return n || (finishedUi.show && orch.counts.stopped) ? `<button class="orch-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedLabel(n)}</button>` : '';
+}
+
 function renderOrchestration(force = false) {
   const view = $('orch-view');
   const orch = currentOrch();
@@ -153,7 +168,7 @@ function renderOrchestration(force = false) {
   const master = orch.masterSessionId;
   const pick = orchUi.pick[master] || null;
   const inspector = orchUi.inspector[master] && pick;
-  const signature = JSON.stringify([orch, orchUi.byPhase, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings]);
+  const signature = JSON.stringify([orch, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings]);
   if (!force && signature === orchUi.signature) return;
   orchUi.signature = signature;
   const layout = orchLayout(orchTree(orch));
@@ -171,6 +186,7 @@ function renderOrchestration(force = false) {
     <div class="orch-tools">
       <div class="orch-seg" role="group" aria-label="Regroupement"><button data-orch-group="1" aria-pressed="${orchUi.byPhase}">Par phase</button><button data-orch-group="0" aria-pressed="${!orchUi.byPhase}">Par agent</button></div>
       ${orchUi.collapsed.size ? '<button class="orch-btn" data-orch-expand>Tout déplier</button>' : ''}
+      ${orchFinishedButton(orch)}
       <span class="orch-grow"></span>
       <button class="orch-btn ${orch.paused ? 'is-on' : ''}" data-orch-pause="${orch.paused ? '0' : '1'}">${orch.paused ? 'Reprendre' : 'Pause'}</button>
       <span class="orch-pop"><button class="orch-btn" data-orch-settings-open aria-expanded="${orchUi.settings}">Réglages</button>${orchUi.settings ? orchSettings(orch) : ''}</span>

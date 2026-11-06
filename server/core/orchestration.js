@@ -136,6 +136,15 @@ function counts(orch, statuses) {
   return out;
 }
 
+// What the board needs to hide the finished agents of an orchestration: no brief, events or reports.
+function agentRefs(orch, statuses) {
+  return {
+    masterSessionId: orch.masterSessionId,
+    worktree: orch.worktree,
+    agents: orch.agents.map((a) => ({ id: a.id, status: statuses[a.id], parentId: a.parentId || null, sessionId: a.sessionId || null, worktree: a.worktree, stoppedAt: a.stoppedAt || null, lostAt: a.lostAt || null })),
+  };
+}
+
 function pushEvent(orch, event, now) {
   orch.events = [...(orch.events || []), { at: now, ...event }].slice(-EVENTS_MAX);
 }
@@ -241,6 +250,6 @@ module.exports = {
   agentDepth, canLaunchSubAgents, autonomyNotice, noticeRoute,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, agentStatus, canLaunch,
-  currentPhase, masterState, counts, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
+  currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
   masterSystemPrompt, agentSystemPrompt, findBySession,
 };

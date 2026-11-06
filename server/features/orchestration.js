@@ -369,7 +369,7 @@ function agentView(agent, status, session) {
   return {
     id: agent.id, name: agent.name, status, provider: agent.provider || 'claude', kind: agent.kind || null, rating: agent.rating || null, model: agent.model, effort: agent.effort, mode: agent.mode, modePending: !!agent.modePending, skills: agent.skills, phase: agent.phase,
     parentId: agent.parentId, sessionId: agent.sessionId, worktree: agent.worktree, isolated: agent.isolated, branch: agent.branch || null,
-    createdAt: agent.createdAt, stoppedAt: agent.stoppedAt || null, lost: !!agent.lostAt, brief: core.excerpt(agent.brief, 4000),
+    createdAt: agent.createdAt, stoppedAt: agent.stoppedAt || null, lost: !!agent.lostAt, lostAt: agent.lostAt || null, brief: core.excerpt(agent.brief, 4000),
     unattached: agent.provider === 'codex' && !agent.sessionId && status === 'starting' && Date.now() - agent.createdAt > 20000,
     action: session?.actions?.[0] ? `${session.actions[0].tool} · ${session.actions[0].detail || ''}` : null,
     lastAssistant: session?.lastAssistant || null, message: session?.status === 'needs_input' ? session.message || null : null,
@@ -407,13 +407,20 @@ async function status({ caller }) {
   return found.error ? found : view(found.orch, await livePanes());
 }
 
-async function orchestrations(givenPanes) {
+// Active orchestrations as full views, and ended ones (kept for a while) as slim refs, from one read of the store.
+async function orchestrationViews(givenPanes) {
   const panes = givenPanes || (await livePanes());
   attachPending();
-  const out = {};
-  for (const orch of Object.values(load())) if (!orch.endedAt) out[orch.masterSessionId] = view(orch, panes);
-  return out;
+  const active = {};
+  const ended = {};
+  for (const orch of Object.values(load())) {
+    if (!orch.endedAt) active[orch.masterSessionId] = view(orch, panes);
+    else ended[orch.masterSessionId] = core.agentRefs(orch, liveStatuses(orch, panes).statuses);
+  }
+  return { active, ended };
 }
+
+const orchestrations = async (givenPanes) => (await orchestrationViews(givenPanes)).active;
 
 async function setPaused({ master, paused }) {
   const pending = mutate(String(master || ''), (orch) => {
@@ -723,7 +730,7 @@ function activeAgentsBySession(views) {
 
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
-  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations,
+  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
   setPaused, updateSettings, endOrchestration, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree,
 };
