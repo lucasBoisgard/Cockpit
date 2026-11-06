@@ -57,3 +57,49 @@ test('an agent without usage data stays listed and is counted apart', () => {
   assert.strictEqual(g.rows[1].totals, null);
   assert.strictEqual(g.costUsd, null);
 });
+
+const { transcriptSessionId, sessionUsageMap, withoutOrchestrated } = require('../server/core/usage-orchestration');
+const entry = (sessionId, day) => ({ sessionId, days: new Map([['2026-11-06', day]]) });
+const day = (input, output = 0) => ({ input, cacheWrite: 0, cacheRead: 0, output });
+
+test('F1: a Task sub-agent transcript belongs to its parent session', () => {
+  assert.strictEqual(transcriptSessionId('/p/proj/abc-123.jsonl'), 'abc-123');
+  assert.strictEqual(transcriptSessionId('/p/proj/abc-123/subagents/agent-9f.jsonl'), 'abc-123');
+});
+
+test('F1: sub-agent tokens are summed into their session total', () => {
+  const map = sessionUsageMap([entry('s1', day(10, 1)), entry('s1', day(5, 2)), entry('s2', day(3))], [{ sessionId: 's1', costUsd: 2 }]);
+  assert.strictEqual(map.get('s1').totals.input, 15);
+  assert.strictEqual(map.get('s1').totals.output, 3);
+  assert.strictEqual(map.get('s1').costUsd, 2);
+  assert.strictEqual(map.get('s2').costUsd, null);
+});
+
+test('F2: the cost is marked partial when some sessions have none', () => {
+  const store = { m1: { masterSessionId: 'm1', job: 1, createdAt: 0, agents: [{ id: 'w1', name: 'a', sessionId: 's1' }, { id: 'w2', name: 'b', sessionId: 's2' }] } };
+  const usage = new Map([['m1', { ...t(1), costUsd: 1 }], ['s1', { ...t(1), costUsd: 2 }], ['s2', t(1)]]);
+  const [g] = groupOrchestrations(store, usage, NOW);
+  assert.strictEqual(g.costUsd, 3);
+  assert.strictEqual(g.costMissing, 1);
+});
+
+test('F3: orchestrated sessions leave the plain list before the cap', () => {
+  const sessions = ['a', 'b', 'c', 'd'].map((sessionId) => ({ sessionId }));
+  assert.deepStrictEqual(withoutOrchestrated(sessions, new Set(['a', 'b']), 2).map((s) => s.sessionId), ['c', 'd']);
+});
+
+test('F4: a session shared by two rows is counted once', () => {
+  const store = { m1: { masterSessionId: 'm1', job: 1, createdAt: 0, agents: [{ id: 'w1', name: 'a', sessionId: 'm1' }, { id: 'w2', name: 'b', sessionId: 's2' }, { id: 'w3', name: 'c', sessionId: 's2' }] } };
+  const [g] = groupOrchestrations(store, new Map([['m1', t(10)], ['s2', t(5)]]), NOW);
+  assert.strictEqual(g.tokens, 15);
+  assert.strictEqual(g.withoutUsage, 0);
+});
+
+test('F5: a group is partial when a row lacks data and empty when none has any', () => {
+  const store = { m1: { masterSessionId: 'm1', job: 1, createdAt: 0, agents: [{ id: 'w1', name: 'a', sessionId: 'old' }] } };
+  const [partial] = groupOrchestrations(store, new Map([['m1', t(4)]]), NOW);
+  assert.strictEqual(partial.partial, true);
+  assert.strictEqual(partial.hasUsage, true);
+  const [empty] = groupOrchestrations(store, new Map(), NOW);
+  assert.strictEqual(empty.hasUsage, false);
+});

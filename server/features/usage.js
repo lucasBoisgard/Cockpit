@@ -4,8 +4,7 @@ const { REPO, PROJECTS_DIR, USAGE_DIR } = require('../config');
 const { readJson } = require('../io/store');
 const { jsonlFiles, readTail } = require('../io/files');
 const { usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, newCodexEntry, addCodexLines, codexModelLabel, aggregateUsage } = require('../core/usage');
-const { groupOrchestrations } = require('../core/usage-orchestration');
-const { emptyTotals, addTotals } = require('../core/usage');
+const { groupOrchestrations, transcriptSessionId, sessionUsageMap, withoutOrchestrated } = require('../core/usage-orchestration');
 const { CODEX_SESSIONS_DIR } = require('./providers');
 const { readStore } = require('./orchestration');
 
@@ -30,7 +29,7 @@ function scanTranscript(file, size, tzOffsetMs, codex = false) {
   let entry = transcriptUsage.get(key);
   if (!entry || size < entry.offset) {
     entry = codex ? newCodexEntry(tzOffsetMs) : newUsageEntry(tzOffsetMs);
-    if (!codex) entry.sessionId = path.basename(file, '.jsonl');
+    if (!codex) entry.sessionId = transcriptSessionId(file);
   }
   if (size > entry.offset) {
     const buffer = readTail(file, entry.offset, size);
@@ -47,26 +46,13 @@ function scanTranscript(file, size, tzOffsetMs, codex = false) {
 const codexEntries = (tzOffsetMs) => jsonlFiles(CODEX_SESSIONS_DIR, Date.now() - (USAGE_DAYS + 1) * 86400000).map(({ file, size }) => scanTranscript(file, size, tzOffsetMs, true));
 
 // GPT has no statusline: its limits, context and model come from the Codex rollouts.
-function codexUsage() {
-  const entries = codexEntries(0).filter((e) => e.sessionId && e.at);
+function codexUsage(all = codexEntries(0)) {
+  const entries = all.filter((e) => e.sessionId && e.at);
   const latest = entries.filter((e) => e.rateLimits).sort((a, b) => b.rateLimits.at - a.rateLimits.at)[0];
   return {
     limits: latest ? latest.rateLimits : null,
     sessions: entries.map((e) => ({ sessionId: e.sessionId, provider: 'codex', cwd: e.cwd, model: codexModelLabel(e.model), modelId: e.model, context: e.context, costUsd: null, at: e.at })),
   };
-}
-
-// Whole-transcript totals per session, with the statusline's cost when a snapshot has one.
-function sessionUsageMap(entries, snapshots) {
-  const costs = new Map(snapshots.map((u) => [u.sessionId, u.costUsd]));
-  const map = new Map();
-  for (const e of entries) {
-    if (!e.sessionId) continue;
-    const totals = emptyTotals();
-    for (const day of e.days.values()) addTotals(totals, day);
-    map.set(e.sessionId, { totals, costUsd: costs.get(e.sessionId) ?? null });
-  }
-  return map;
 }
 
 function usageHistory(tzOffsetMin) {
@@ -77,18 +63,18 @@ function usageHistory(tzOffsetMin) {
   const codexAll = codexEntries(tzOffsetMs);
   const { days, worktrees } = aggregateUsage([...claude, ...codexAll], keys, REPO);
   const snapshots = readUsageSnapshots();
-  const codex = codexUsage();
+  const codex = codexUsage(codexAll);
   const since = Date.now() - USAGE_DAYS * 86400000;
+  const orchestrations = groupOrchestrations(readStore(), sessionUsageMap([...claude, ...codexAll], snapshots), Date.now());
+  const orchestratedIds = new Set(orchestrations.flatMap((g) => g.rows.map((r) => r.sessionId).filter(Boolean)));
+  const sessions = withoutOrchestrated([...snapshots.map((u) => ({ ...u, provider: 'claude' })), ...codex.sessions.filter((s) => s.at >= since)].sort((a, b) => b.at - a.at), orchestratedIds, USAGE_SESSIONS_MAX);
   const data = {
     generatedAt: Date.now(),
     limits: { claude: latestLimits(snapshots), codex: codex.limits },
     days,
     worktrees,
-    orchestrations: groupOrchestrations(readStore(), sessionUsageMap([...claude, ...codexAll], snapshots), Date.now()),
-    sessions: [...snapshots.map((u) => ({ ...u, provider: 'claude' })), ...codex.sessions.filter((s) => s.at >= since)]
-      .sort((a, b) => b.at - a.at)
-      .slice(0, USAGE_SESSIONS_MAX)
-      .map((u) => ({ sessionId: u.sessionId, provider: u.provider, worktree: usageWorktree(u.cwd, REPO), model: u.model, context: u.context, costUsd: u.costUsd, at: u.at })),
+    orchestrations,
+    sessions: sessions.map((u) => ({ sessionId: u.sessionId, provider: u.provider, worktree: usageWorktree(u.cwd, REPO), model: u.model, context: u.context, costUsd: u.costUsd, at: u.at })),
   };
   historyCache = { at: Date.now(), tzOffsetMs, data };
   return data;

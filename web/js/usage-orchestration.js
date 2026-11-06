@@ -27,9 +27,9 @@ function uoHeader(g) {
     <span class="uo-main">
       <span class="uo-line"><b class="uo-title">${esc(title)}</b>${g.active ? '<span class="chip">en cours</span>' : ''}<span class="uo-goal">${esc(g.goal)}</span></span>
       <span class="uo-line uo-stats">
-        <span class="uo-big">${fmtTokens(g.tokens)} <small>tokens</small></span>
-        <span>Entrée <b>${fmtTokens(g.totals.input)}</b></span><span>Sortie <b>${fmtTokens(g.totals.output)}</b></span><span>Cache <b>${fmtTokens(cache)}</b></span>
-        ${g.costUsd == null ? '' : `<span>Coût estimé <b>${fmtUsd(g.costUsd)}</b></span>`}
+        <span class="uo-big" title="${esc(g.partial && g.hasUsage ? 'Total partiel : certaines sessions n’ont pas de relevé' : '')}">${g.hasUsage ? `${g.partial ? '≥ ' : ''}${fmtTokens(g.tokens)}` : '—'} <small>tokens</small></span>
+        ${g.hasUsage ? `<span>Entrée <b>${fmtTokens(g.totals.input)}</b></span><span>Sortie <b>${fmtTokens(g.totals.output)}</b></span><span>Cache <b>${fmtTokens(cache)}</b></span>` : '<span>Aucun relevé de tokens</span>'}
+        ${g.costUsd == null ? '' : `<span>Coût estimé <b>${g.costMissing ? `≥ ${fmtUsd(g.costUsd)}` : fmtUsd(g.costUsd)}</b>${g.costMissing ? ` <small>(${g.costMissing} session${g.costMissing > 1 ? 's' : ''} sans coût)</small>` : ''}</span>`}
         ${split}
         <span><b>${g.agentCount}</b> agent${g.agentCount > 1 ? 's' : ''}${g.jobs.length > 1 ? ` · ${g.jobs.length} jobs` : ''}</span>
         <span>${uoDuration(g.wallMs)}</span>
@@ -73,8 +73,6 @@ function usageOrchestrationsHtml(groups) {
   const blocks = groups.map((g) => `<div class="uo-group ${uoOpen.has(g.masterSessionId) ? 'open' : ''}">${uoHeader(g)}${uoOpen.has(g.masterSessionId) ? `<div class="uo-body">${uoRowsHtml(g)}</div>` : ''}</div>`).join('');
   return `<section><h3>Sessions orchestrées</h3>${blocks}</section>`;
 }
-
-const usageOrchestratedIds = () => new Set((usageData?.orchestrations || []).flatMap((g) => g.rows.map((r) => r.sessionId).filter(Boolean)));
 
 $('usage').addEventListener('click', (e) => {
   const head = e.target.closest('[data-uo]');

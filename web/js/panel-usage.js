@@ -116,7 +116,6 @@ const usageSplit = (byProvider) => USAGE_PROVIDERS.filter(([id]) => usageTotal(b
 function renderUsage() {
   if (selected !== USAGE) return;
   if (!usageData) { $('usage').innerHTML = '<div class="placeholder">Calcul de l’usage…</div>'; return; }
-  const orchestrated = usageOrchestratedIds();
   const providers = providerLimits(usageData.limits);
   const hasGpt = usageData.days.some((d) => usageTotal(d.codex)) || providers.some((p) => p.id === 'codex');
   const legend = hasGpt ? `<span class="us-legend">${USAGE_PROVIDERS.map(([id, name]) => `<span>${usageDot(id)}${name}</span>`).join('')}</span>` : '';
@@ -148,7 +147,7 @@ function renderUsage() {
   $('usage').innerHTML = `
     <section><h3>Limites des comptes</h3>${usageLimitsHtml(providers)}</section>
     ${usageOrchestrationsHtml(usageData.orchestrations)}
-    <section><h3>Sessions</h3>${usageSessionsHtml(usageData.sessions.filter((s) => !orchestrated.has(s.sessionId)))}</section>
+    <section><h3>Sessions</h3>${usageSessionsHtml(usageData.sessions)}</section>
     <section><div class="us-head"><h3>Tokens par jour</h3>${legend}</div>
       <div class="days">${days}</div>
       <p class="caption">Entrée, cache et sortie, sous-agents compris. Survole une barre pour le détail.</p>
