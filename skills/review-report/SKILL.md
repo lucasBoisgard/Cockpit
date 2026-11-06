@@ -1,6 +1,6 @@
 ---
 name: review-report
-description: Write the final report of a pull request review as a JSON file that the worktree cockpit renders as colored blocks (blocking, to fix, suggestion, question, praise, context). Use at the end of every review, or when asked for a review report.
+description: Write the final report of a pull request review as a JSON file that the Cockpit renders as colored blocks (blocking, to fix, suggestion, question, praise, context). Use at the end of every review, or when asked for a review report.
 ---
 
 # Review report

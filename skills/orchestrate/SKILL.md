@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Run as a master orchestrator in the worktree cockpit - plan a task in phases, launch agents (separate Claude sessions with their own model, effort and skills), follow them, answer their blockers, check and integrate their work, and report to the user. Use when the session was started or promoted as a master by the cockpit, or when a brief explicitly allows launching sub-agents.
+description: Run as a master orchestrator in the Cockpit - plan a task in phases, launch agents (separate Claude sessions with their own model, effort and skills), follow them, answer their blockers, check and integrate their work, and report to the user. Use when the session was started or promoted as a master by the cockpit, or when a brief explicitly allows launching sub-agents.
 ---
 
 # Orchestrate a team of agents

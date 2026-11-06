@@ -1,4 +1,4 @@
-# worktree-cockpit
+# Cockpit
 
 A web cockpit to run many Claude Code sessions in parallel, one per git worktree, and always know which one needs you.
 
@@ -20,7 +20,7 @@ New to it? Take the **[guided tour](docs/visite-guidee.md)** (10 minutes, in Fre
 You need **Node 20+**, **tmux** and **Claude Code** (signed in).
 
 ```bash
-git clone https://github.com/lucasBoisgard/worktree-cockpit ~/.claude/worktree-dashboard
+git clone https://github.com/lucasBoisgard/Cockpit ~/.claude/worktree-dashboard
 ~/.claude/worktree-dashboard/start.sh
 ```
 

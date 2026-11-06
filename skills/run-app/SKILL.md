@@ -1,12 +1,12 @@
 ---
 name: run-app
-description: Start, restart, stop or check the project's local app from any Claude session, worktrees included. The app runs once at the root of the main checkout, driven by the worktree cockpit. Use when asked to run, launch, restart or stop the app, or whether it is up.
+description: Start, restart, stop or check the project's local app from any Claude session, worktrees included. The app runs once at the root of the main checkout, driven by the Cockpit. Use when asked to run, launch, restart or stop the app, or whether it is up.
 ---
 
 # Run the app
 
 The app runs **once**, at the root of the main checkout (the cockpit's `repo`), inside the tmux
-session `cw-app` owned by the worktree cockpit (`~/.claude/worktree-dashboard`), with the command
+session `cw-app` owned by the Cockpit (`~/.claude/worktree-dashboard`), with the command
 set in its `cockpit.config.json` (`app.command`). This is the sanctioned way to start it from a
 worktree session: never start the app from a worktree directory yourself.
 

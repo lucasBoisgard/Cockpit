@@ -12,7 +12,7 @@ const USER_DIR = path.join(os.homedir(), '.claude');
 const ASSIST_TIMEOUT_MS = 5 * 60 * 1000;
 const TARGETS = { local: path.join(USER_DIR, 'skills'), repo: path.join(REPO, '.claude', 'skills') };
 const ASSIST_PROMPT = [
-  'You help the user write a Claude Code skill (a SKILL.md file) from a web page of the worktree cockpit.',
+  'You help the user write a Claude Code skill (a SKILL.md file) from a web page of the Cockpit.',
   'If the anthropic-skills:skill-creator skill is available, load it first and follow its guidance on structure, description and progressive disclosure.',
   'Read existing skills for conventions when useful: user skills are in the current directory, project skills under the added directories.',
   'Answer in the language the user writes in. Keep skills concise, imperative and written in English unless the user asks otherwise.',

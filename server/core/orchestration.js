@@ -166,7 +166,7 @@ function cliCommand(root) {
 
 function masterSystemPrompt({ settings, root }) {
   return [
-    'This session is a master orchestrator started from the worktree cockpit. You do not do the work yourself: you plan it, launch agents (separate Claude sessions) to do it, follow them, check and integrate their results, and report to the user.',
+    'This session is a master orchestrator started from the Cockpit. You do not do the work yourself: you plan it, launch agents (separate Claude sessions) to do it, follow them, check and integrate their results, and report to the user.',
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more.`,
@@ -178,7 +178,7 @@ function masterSystemPrompt({ settings, root }) {
 
 function agentSystemPrompt({ agent, masterWorktree, isolated, branch, root }) {
   return [
-    `You are agent ${agent.id} ("${agent.name}") of a team orchestrated by a master session in the worktree cockpit (worktree ${masterWorktree}). The first message is your brief from the master.`,
+    `You are agent ${agent.id} ("${agent.name}") of a team orchestrated by a master session in the Cockpit (worktree ${masterWorktree}). The first message is your brief from the master.`,
     'Work autonomously on that brief only. Never ask the user questions and never use AskUserQuestion: when you are blocked or need a decision, end your turn with a message that starts with "BLOQUÉ :" and states the question, the options you see and the one you recommend. The master answers you.',
     'Your last message of each turn is read by the master: make it a short report (what you did, the files you changed, what is left or uncertain), in French.',
     ...(agent.skills.length ? [`Load these skills with the Skill tool before you start: ${agent.skills.join(', ')}.`] : []),

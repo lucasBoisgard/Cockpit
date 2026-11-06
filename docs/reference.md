@@ -1,4 +1,4 @@
-# worktree-cockpit — reference
+# Cockpit — reference
 
 The complete reference: every feature, the configuration keys, the layout of the code and the security model. For a quick start, see the [README](../README.md).
 

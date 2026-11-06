@@ -84,7 +84,7 @@ const tmuxSessionName = (name, now) => `cw-${name.replace(/[.:]/g, '_')}-${now.t
 
 function reviewSystemPrompt(skills, reportFile) {
   return [
-    'This session is a pull request review started from the worktree cockpit.',
+    'This session is a pull request review started from the Cockpit.',
     `Review skills available in this session: ${skills.join(', ')}.`,
     'Start with the review-context skill: read the ticket linked in the pull request, its comments and the Slack threads they point to, before judging any code.',
     'Before reading the pull request, load with the Skill tool the review skills that fit it: always code-review, plus the specialised ones whose description matches what the pull request touches. Run them, then check every finding against the code before keeping it.',
