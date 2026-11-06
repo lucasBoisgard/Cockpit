@@ -27,7 +27,6 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'j' || e.key === 'k') && panelOpen && tab === 'changes') { e.preventDefault(); stepFile(e.key === 'j' ? 1 : -1); return; }
   if ((e.key === 'j' || e.key === 'k') && isWorkstation()) { e.preventDefault(); stepQueue(e.key === 'j' ? 1 : -1); return; }
   if (e.key === '[' && isWorkstation()) { e.preventDefault(); toggleQueue(); return; }
-  if (e.key === ']' && isWorkstation()) { e.preventDefault(); toggleRail(); return; }
   if (e.key === 'f' && isWorkstation()) { e.preventDefault(); toggleFocus(); return; }
   if (e.key === 'e' && tab === 'orch' && currentOrch()) { e.preventDefault(); orchUi.compose = true; orchUi.focusCompose = true; renderOrchestration(true); return; }
   if (e.key === 'd' && isWorkstation() && currentWt()) { e.preventDefault(); headOpen = !headOpen; localSet('headOpen', headOpen ? '1' : '0'); renderPanel(); return; }

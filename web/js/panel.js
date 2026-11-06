@@ -1,7 +1,9 @@
 const headEnd = (extra = '') => `<div class="head-end">${extra}${appButton()}<button class="close" id="close" title="Fermer">×</button></div>`;
 
 function renderTabs() {
-  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', 'Changements'], ['agents', 'Agents']];
+  const diffWt = currentWt();
+  const changes = diffWt && (diffWt.added || diffWt.deleted) ? `Changements<span class="tab-diff" title="Lignes ajoutées et retirées, non commitées"><span class="plus">+${diffWt.added}</span><span class="minus">−${diffWt.deleted}</span></span>` : 'Changements';
+  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', changes], ['agents', 'Agents']];
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
   const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
   if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${orch.counts.total}</span>`]);
@@ -19,14 +21,12 @@ function renderTabs() {
   $('usage-view').hidden = tab !== 'usage';
   $('app-view').hidden = tab !== 'app';
   $('checks-view').hidden = tab !== 'checks';
-  if (typeof renderRail === 'function') renderRail();
 }
 
 function renderPanel() {
   renderPanelBody();
   if (typeof renderOrchestration === 'function') renderOrchestration();
   if (typeof renderAskCard === 'function') renderAskCard();
-  if (typeof renderRail === 'function') renderRail();
   if (typeof updateComposerPill === 'function') { updateComposerPill(); setTimeout(updateComposerPill, 300); }
 }
 

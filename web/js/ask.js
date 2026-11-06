@@ -2,6 +2,7 @@
 // by the ask-relay hook is answered through /api/ask/answer; a session the relay does not cover (started
 // outside the cockpit) and permission prompts are answered with the provider's keys.
 const askDrafts = new Map();
+const askAnswered = new Set();
 let askSignature = '';
 let askSending = false;
 
@@ -80,14 +81,28 @@ function openCodexTerminal(tmuxName) {
   toast('Revue des hooks de Codex : flèches et Entrée pour faire confiance, Échap pour sortir.');
 }
 
+// The prompt the card currently shows: once answered, the card hides until another prompt comes.
+let askShown = '';
+function markAnswered() {
+  if (askShown) askAnswered.add(askShown);
+  redrawAsk();
+}
+function unmarkAnswered(key) {
+  askAnswered.delete(key);
+  redrawAsk();
+}
+
 function renderAskCard() {
   const card = $('ask-card');
   const s = currentSession();
-  const mode = !s?.live || s.status !== 'needs_input' ? null : s.codexScreen ? 'screen' : s.ask ? 'ask' : s.question?.options?.length ? 'keys' : s.permission ? 'perm' : null;
-  const signature = mode ? `${s.sessionId}|${mode}|${s.ask?.toolUseId || ''}|${s.message || ''}|${JSON.stringify(s.codexScreen?.prompt || null)}|${askSending}` : '';
+  let mode = !s?.live || s.status !== 'needs_input' ? null : s.codexScreen ? 'screen' : s.ask ? 'ask' : s.question?.options?.length ? 'keys' : s.permission ? 'perm' : null;
+  const prompt = mode ? `${s.sessionId}|${mode}|${s.ask?.toolUseId || ''}|${s.message || ''}|${JSON.stringify(s.codexScreen?.prompt || null)}` : '';
+  if (prompt && askAnswered.has(prompt)) mode = null;
+  const signature = mode ? `${prompt}|${askSending}` : '';
   if (signature === askSignature && !askRedraw) return;
   askSignature = signature;
   askRedraw = false;
+  askShown = mode ? prompt : '';
   card.hidden = !mode;
   if (!mode) { card.innerHTML = ''; return; }
   const focused = document.activeElement?.dataset?.askOther;
@@ -98,11 +113,10 @@ let askRedraw = false;
 const redrawAsk = () => { askRedraw = true; renderAskCard(); };
 
 async function sendAsk(body, done) {
-  askSending = true;
-  redrawAsk();
+  const key = askShown;
+  markAnswered();
   const result = await post('/api/ask/answer', body);
-  askSending = false;
-  if (!result.ok) { redrawAsk(); toast(result.data.error || 'Réponse impossible.', 'error'); return; }
+  if (!result.ok) { unmarkAnswered(key); toast(result.data.error || 'Réponse impossible.', 'error'); return; }
   toast(done);
   setTimeout(() => { loadChat(true); refresh(); }, 900);
 }
@@ -112,7 +126,9 @@ $('ask-card').addEventListener('click', (e) => {
   if (!s) return;
   const screenOption = e.target.closest('[data-screen-option]');
   if (screenOption) {
-    post('/api/codex/screen', { tmux: screenOption.dataset.tmux, option: Number(screenOption.dataset.screenOption) }).then((r) => { toast(r.ok ? 'Choix envoyé à Codex.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 600); });
+    const answered = askShown;
+    markAnswered();
+    post('/api/codex/screen', { tmux: screenOption.dataset.tmux, option: Number(screenOption.dataset.screenOption) }).then((r) => { if (!r.ok) unmarkAnswered(answered); toast(r.ok ? 'Choix envoyé à Codex.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 600); });
     return;
   }
   const hooks = e.target.closest('[data-screen-hooks]');
@@ -125,7 +141,9 @@ $('ask-card').addEventListener('click', (e) => {
   }
   const key = e.target.closest('[data-ask-key]');
   if (key) {
-    post('/api/keys', { target: s.sessionId, ops: [JSON.parse(key.dataset.askKey)] }).then((r) => { toast(r.ok ? 'Réponse envoyée.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 800); });
+    const answered = askShown;
+    markAnswered();
+    post('/api/keys', { target: s.sessionId, ops: [JSON.parse(key.dataset.askKey)] }).then((r) => { if (!r.ok) unmarkAnswered(answered); toast(r.ok ? 'Réponse envoyée.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 800); });
     return;
   }
   const ask = s.ask;

@@ -9,4 +9,5 @@ Several Claude sessions may change the cockpit at the same time. `~/.claude/work
 - `web/js/` scripts are classic scripts loaded in order from `index.html` and share one global scope: declare what a file uses at load time in an earlier file, and keep a feature's listeners in its own file.
 - Commit, push and merge into `main` only when the user asks. Merge from the shared checkout when its working tree is clean, then the user reloads with the "Recharger le cockpit" button.
 - Remove the worktree once the branch is merged: `git -C ~/.claude/worktree-dashboard worktree remove ~/.claude/worktree-dashboard-worktrees/<slug>`.
+- Never remove the worktree your own session runs in: the cockpit shows a session's card from its worktree, and removing it hides the session. To keep working after a merge, create the next branch inside that same worktree (`git checkout -b feat/<next> main`).
 - Delete a branch as soon as it is merged, locally and on GitHub: `git -C ~/.claude/worktree-dashboard branch -d feat/<slug>` and `git -C ~/.claude/worktree-dashboard push origin --delete feat/<slug>` when it was pushed.
