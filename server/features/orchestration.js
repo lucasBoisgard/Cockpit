@@ -440,8 +440,6 @@ function verifyRelaunchedMode(masterId, agentId, tmuxName, target) {
   const check = modeShownBy(tmuxName).then((shown) => {
     if (!shown || shown === target) return;
     mutate(masterId, (o) => {
-      const agent = o.agents.find((a) => a.id === agentId);
-      if (agent) agent.modePending = true;
       core.pushEvent(o, { type: 'settings', agent: agentId, text: `${agentId} relancé, mais son écran affiche ${modeName(shown)} au lieu de ${modeName(target)} : Maj+Tab dans son terminal` }, Date.now());
     });
   }).catch((error) => console.error('mode check failed', error)).finally(() => modeChecks.delete(check));

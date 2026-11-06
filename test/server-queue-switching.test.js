@@ -24,6 +24,7 @@ require('../server/io/exec').tmux = async (args) => {
 require('../server/features/worktrees').livePanes = async () => new Map([['%900009', { session: 'x', created: 0 }]]);
 const { deliver, flushQueues, loadQueues } = require('../server/features/queue');
 const { cycleSessionMode } = require('../server/features/agent-mode');
+const { sendMessage } = require('../server/features/routing');
 
 test.after(() => fs.rmSync(home, { recursive: true, force: true }));
 
@@ -45,4 +46,22 @@ test('no message reaches a session while it is walked through the mode cycle', a
   await flushQueues({ worktrees: [{ sessions: [{ sessionId: 's1', live: true, stale: false, status: 'done' }] }] }, () => {});
   assert.ok(state.calls.some((c) => c[0] === 'paste-buffer'));
   assert.strictEqual(loadQueues().s1, undefined);
+});
+
+test('the composer queues its message while the session is being walked through the cycle', async () => {
+  fs.rmSync(path.join(home, '.claude', 'worktree-queue.json'), { force: true });
+  state.calls.length = 0;
+  state.index = 0;
+  writeState('done');
+  let routed;
+  let first = true;
+  state.onPress = async () => {
+    if (!first) return;
+    first = false;
+    routed = await sendMessage({ target: 's1', text: 'from the composer' });
+  };
+  assert.strictEqual(await cycleSessionMode('s1', 'plan'), 'applied');
+  assert.deepStrictEqual(routed, { route: 'queued' });
+  assert.deepStrictEqual(state.calls.filter((c) => c[0] === 'paste-buffer' || c[0] === 'load-buffer'), []);
+  assert.strictEqual(loadQueues().s1[0].text, 'from the composer');
 });

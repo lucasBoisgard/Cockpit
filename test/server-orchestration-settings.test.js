@@ -196,7 +196,7 @@ test('a switch cut short by a new turn is reported and kept pending', async () =
   assert.ok(saved().events.some((e) => /w2 : bascule interrompue, mode intermédiaire/.test(e.text)));
 });
 
-test('after a relaunch the screen is read back and a different mode is reported', async () => {
+test('after a relaunch the screen is read back, a different mode is reported and not retried', async () => {
   writeState('s-w1', 'needs_input', '%900001', { permission: true });
   seed([agent('w1')]);
   sim.cycle = ['acceptEdits'];
@@ -205,7 +205,7 @@ test('after a relaunch the screen is read back and a different mode is reported'
   await modeChecks();
   assert.match(sim.calls.filter((c) => c[0] === 'capture-pane').at(-1).join(' '), /cw-wt-w1-.*:/);
   assert.ok(saved().events.some((e) => /w1 relancé, mais son écran affiche accepter les modifs au lieu de auto/.test(e.text)));
-  assert.strictEqual(saved().agents[0].modePending, true);
+  assert.strictEqual(saved().agents[0].modePending, undefined);
 });
 
 test('after a relaunch that shows the expected mode nothing is reported', async () => {
