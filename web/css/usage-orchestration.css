@@ -1,0 +1,19 @@
+.uo-group { border: 1px solid var(--border); border-radius: 10px; min-width: 0; }
+.uo-group + .uo-group { margin-top: 8px; }
+.uo-head { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: 12px 14px; cursor: pointer; border-radius: 10px; }
+.uo-head:hover { background: var(--grey-bg); }
+.uo-chev { color: var(--faint); width: 12px; flex: none; line-height: 1.5; }
+.uo-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.uo-line { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; min-width: 0; }
+.uo-title { font-size: 13px; }
+.uo-goal { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; }
+.uo-stats { font-size: 12.5px; color: var(--muted); }
+.uo-stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+.uo-big { font-size: 20px; line-height: 1.2; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.uo-big small { font-size: 11px; font-weight: 400; color: var(--faint); }
+.uo-bar { display: flex; width: 220px; max-width: 100%; height: 6px; border-radius: 3px; background: var(--grey-bg); overflow: hidden; gap: 1px; }
+.uo-seg { display: block; height: 100%; flex: none; }
+.uo-top { font-size: 11.5px; color: var(--faint); }
+.uo-body { padding: 0 14px 12px 36px; display: flex; flex-direction: column; gap: 8px; }
+.usage tr.uo-master td { font-weight: 600; }
+.usage tr.uo-job td { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .05em; padding-top: 12px; }

@@ -775,5 +775,5 @@ module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
   setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
-  lastReport, isolatedWorktree,
+  lastReport, isolatedWorktree, readStore: load,
 };

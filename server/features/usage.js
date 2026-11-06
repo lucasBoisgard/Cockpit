@@ -4,7 +4,10 @@ const { REPO, PROJECTS_DIR, USAGE_DIR } = require('../config');
 const { readJson } = require('../io/store');
 const { jsonlFiles, readTail } = require('../io/files');
 const { usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, newCodexEntry, addCodexLines, codexModelLabel, aggregateUsage } = require('../core/usage');
+const { groupOrchestrations } = require('../core/usage-orchestration');
+const { emptyTotals, addTotals } = require('../core/usage');
 const { CODEX_SESSIONS_DIR } = require('./providers');
+const { readStore } = require('./orchestration');
 
 const USAGE_DAYS = 7;
 const USAGE_SESSIONS_MAX = 30;
@@ -25,7 +28,10 @@ function readUsageSnapshots() {
 function scanTranscript(file, size, tzOffsetMs, codex = false) {
   const key = `${tzOffsetMs}:${file}`;
   let entry = transcriptUsage.get(key);
-  if (!entry || size < entry.offset) entry = codex ? newCodexEntry(tzOffsetMs) : newUsageEntry(tzOffsetMs);
+  if (!entry || size < entry.offset) {
+    entry = codex ? newCodexEntry(tzOffsetMs) : newUsageEntry(tzOffsetMs);
+    if (!codex) entry.sessionId = path.basename(file, '.jsonl');
+  }
   if (size > entry.offset) {
     const buffer = readTail(file, entry.offset, size);
     const end = buffer.lastIndexOf(10);
@@ -50,12 +56,26 @@ function codexUsage() {
   };
 }
 
+// Whole-transcript totals per session, with the statusline's cost when a snapshot has one.
+function sessionUsageMap(entries, snapshots) {
+  const costs = new Map(snapshots.map((u) => [u.sessionId, u.costUsd]));
+  const map = new Map();
+  for (const e of entries) {
+    if (!e.sessionId) continue;
+    const totals = emptyTotals();
+    for (const day of e.days.values()) addTotals(totals, day);
+    map.set(e.sessionId, { totals, costUsd: costs.get(e.sessionId) ?? null });
+  }
+  return map;
+}
+
 function usageHistory(tzOffsetMin) {
   const tzOffsetMs = tzOffsetMsOf(tzOffsetMin);
   if (historyCache && historyCache.tzOffsetMs === tzOffsetMs && Date.now() - historyCache.at < HISTORY_CACHE_TTL_MS) return historyCache.data;
   const keys = dayKeys(Date.now(), tzOffsetMs, USAGE_DAYS);
   const claude = jsonlFiles(PROJECTS_DIR, Date.now() - (USAGE_DAYS + 1) * 86400000).map(({ file, size }) => scanTranscript(file, size, tzOffsetMs));
-  const { days, worktrees } = aggregateUsage([...claude, ...codexEntries(tzOffsetMs)], keys, REPO);
+  const codexAll = codexEntries(tzOffsetMs);
+  const { days, worktrees } = aggregateUsage([...claude, ...codexAll], keys, REPO);
   const snapshots = readUsageSnapshots();
   const codex = codexUsage();
   const since = Date.now() - USAGE_DAYS * 86400000;
@@ -64,6 +84,7 @@ function usageHistory(tzOffsetMin) {
     limits: { claude: latestLimits(snapshots), codex: codex.limits },
     days,
     worktrees,
+    orchestrations: groupOrchestrations(readStore(), sessionUsageMap([...claude, ...codexAll], snapshots), Date.now()),
     sessions: [...snapshots.map((u) => ({ ...u, provider: 'claude' })), ...codex.sessions.filter((s) => s.at >= since)]
       .sort((a, b) => b.at - a.at)
       .slice(0, USAGE_SESSIONS_MAX)
