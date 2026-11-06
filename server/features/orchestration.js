@@ -14,8 +14,10 @@ const { skillEntries } = require('./skills');
 const { launchClaude, launchProcess } = require('./sessions');
 const matrix = require('./matrix');
 const { registerCodexLaunch } = require('./codex-screens');
+const { cycleSessionMode } = require('./agent-mode');
 const matrixCore = require('../core/matrix');
 const providerCore = require('../core/providers');
+const modeCore = require('../core/permission-mode');
 const { binOf, codexHookCommand, codexInfo, codexCatalog } = require('./providers');
 
 const STORE = 'worktree-orchestration.json';
@@ -258,7 +260,7 @@ async function killAgent(orch, agent, byText) {
   mutate(orch.masterSessionId, (o) => {
     const target = o.agents.find((a) => a.id === agent.id);
     target.stoppedAt = Date.now();
-    core.pushEvent(o, { type: 'stopped', agent: agent.id, text: `${byText} ${agent.id}` }, Date.now());
+    if (byText) core.pushEvent(o, { type: 'stopped', agent: agent.id, text: `${byText} ${agent.id}` }, Date.now());
   });
 }
 
@@ -299,27 +301,35 @@ function resumeAgent({ caller, id, text, by }) {
       if (!session) return { error: `${agent.id} tourne encore mais le cockpit ne voit pas sa session : valide le hook avec /hooks dans son terminal.` };
       return message ? deliverToAgent(found, message, by) : { ok: true, running: true };
     }
-    if (!fs.existsSync(agent.cwd)) return { error: 'Le worktree de cet agent n\'existe plus.' };
-    const { statuses } = liveStatuses(orch, panes);
-    const refused = core.canLaunch(orch, { ...statuses, [agent.id]: 'stopped' }, agent.parentId);
-    if (refused) return { error: refused, refused: true };
-    const tmuxName = tmuxSessionName(`${orch.worktree}-${agent.id}`, Date.now());
-    // Without a transcript the agent never really started: start it again from its brief.
-    const prompt = session ? message : [agent.brief, message].filter(Boolean).join('\n\n');
-    const result = await launchFor(agent, tmuxName, agent.cwd, agentArgs(orch, agent, { resume: !!session, prompt }));
-    const pane = agent.provider === 'codex' && result.ok ? await paneOfTmux(tmuxName) : null;
-    if (!result.ok) return { error: result.stderr.trim() };
-    mutate(orch.masterSessionId, (o) => {
-      const target = o.agents.find((a) => a.id === agent.id);
-      target.tmux = tmuxName;
-      if (pane) target.pane = pane;
-      target.resumedAt = Date.now();
-      delete target.stoppedAt;
-      delete target.lostAt;
-      core.pushEvent(o, { type: 'launch', agent: agent.id, text: `${by === 'user' ? 'Tu relances' : `${found.by} relance`} ${agent.id}` }, Date.now());
-    });
-    return { ok: true };
+    return restartAgent(orch, agent, message, `${by === 'user' ? 'Tu relances' : `${found.by} relance`} ${agent.id}`);
   });
+}
+
+// Starts a stopped agent again in its own conversation, with the settings stored on it.
+async function restartAgent(orch, agent, message, eventText) {
+  if (!fs.existsSync(agent.cwd)) return { error: 'Le worktree de cet agent n\'existe plus.' };
+  const panes = await livePanes();
+  const session = readSession(agent.sessionId);
+  const { statuses } = liveStatuses(orch, panes);
+  const refused = core.canLaunch(orch, { ...statuses, [agent.id]: 'stopped' }, agent.parentId);
+  if (refused) return { error: refused, refused: true };
+  const tmuxName = tmuxSessionName(`${orch.worktree}-${agent.id}`, Date.now());
+  // Without a transcript the agent never really started: start it again from its brief.
+  const prompt = session ? message : [agent.brief, message].filter(Boolean).join('\n\n');
+  const result = await launchFor(agent, tmuxName, agent.cwd, agentArgs(orch, agent, { resume: !!session, prompt }));
+  const pane = agent.provider === 'codex' && result.ok ? await paneOfTmux(tmuxName) : null;
+  if (!result.ok) return { error: result.stderr.trim() };
+  mutate(orch.masterSessionId, (o) => {
+    const target = o.agents.find((a) => a.id === agent.id);
+    target.tmux = tmuxName;
+    if (pane) target.pane = pane;
+    target.resumedAt = Date.now();
+    delete target.stoppedAt;
+    delete target.lostAt;
+    delete target.modePending;
+    core.pushEvent(o, { type: 'launch', agent: agent.id, text: eventText }, Date.now());
+  });
+  return { ok: true };
 }
 
 function lastReport(sessionId) {
@@ -349,7 +359,7 @@ async function readAgent({ caller, id }) {
 
 function agentView(agent, status, session) {
   return {
-    id: agent.id, name: agent.name, status, provider: agent.provider || 'claude', kind: agent.kind || null, rating: agent.rating || null, model: agent.model, effort: agent.effort, mode: agent.mode, skills: agent.skills, phase: agent.phase,
+    id: agent.id, name: agent.name, status, provider: agent.provider || 'claude', kind: agent.kind || null, rating: agent.rating || null, model: agent.model, effort: agent.effort, mode: agent.mode, modePending: !!agent.modePending, skills: agent.skills, phase: agent.phase,
     parentId: agent.parentId, sessionId: agent.sessionId, worktree: agent.worktree, isolated: agent.isolated, branch: agent.branch || null,
     createdAt: agent.createdAt, stoppedAt: agent.stoppedAt || null, lost: !!agent.lostAt, brief: core.excerpt(agent.brief, 4000),
     unattached: agent.provider === 'codex' && !agent.sessionId && status === 'starting' && Date.now() - agent.createdAt > 20000,
@@ -369,6 +379,7 @@ function view(orch, panes) {
     worktree: orch.worktree,
     goal: orch.goal,
     settings: orch.settings,
+    masterModePending: orch.masterModePending || null,
     paused: !!orch.paused,
     phases: orch.phases,
     phase: core.currentPhase(orch, statuses),
@@ -409,6 +420,106 @@ async function setPaused({ master, paused }) {
   return { ok: true };
 }
 
+const modeMessage = (mode) => `[cockpit] Le mode de permission est passé à ${mode}, reprends là où tu en étais.`;
+
+// Restarts a blocked or idle agent in its own conversation (--resume) with the mode stored on it.
+async function relaunchAgent(masterId, agentId, message) {
+  const orch = load()[masterId];
+  const agent = orch?.agents.find((a) => a.id === agentId);
+  if (!agent || !fs.existsSync(agent.cwd)) return 'failed';
+  await killAgent(orch, agent, null);
+  const fresh = load()[masterId];
+  const result = await restartAgent(fresh, fresh.agents.find((a) => a.id === agentId), message, `Mode ${modeCore.MODE_LABELS[agent.mode] || agent.mode} : relance de ${agentId}`);
+  return result.ok ? 'relaunched' : 'failed';
+}
+
+async function cycleOutcome(sessionId, mode) {
+  const outcome = await cycleSessionMode(sessionId, mode);
+  if (outcome === 'applied' || outcome === 'unchanged') return outcome;
+  return outcome === 'offline' ? 'recorded' : outcome === 'unreadable' ? 'deferred' : 'failed';
+}
+
+async function runModeAction(masterId, agent, action, mode) {
+  if (action === 'record') return 'recorded';
+  if (action === 'defer') return 'deferred';
+  if (action === 'relaunch') return relaunchAgent(masterId, agent.id, modeMessage(mode));
+  return cycleOutcome(agent.sessionId, mode);
+}
+
+// The new permission mode reaches the whole team, whatever the depth: every agent stores it (a resume
+// uses it), and the running ones switch now when that is safe, otherwise when their turn ends.
+function propagateMode(masterId, mode) {
+  return locked(async () => {
+    attachPending();
+    const orch = load()[masterId];
+    if (!orch) return null;
+    const panes = await livePanes();
+    const { statuses, sessions } = liveStatuses(orch, panes);
+    const rawMaster = readSession(masterId);
+    const master = rawMaster ? effectiveStatus(rawMaster, panes, Date.now()) : null;
+    const masterStatus = master && paneOf(master, panes) ? turnStatus(master) : 'ended';
+    const plan = orch.agents.map((agent) => {
+      const action = modeCore.agentModeAction({ provider: agent.provider || 'claude', status: statuses[agent.id], permission: !!sessions[agent.id]?.permission });
+      const inSync = agent.mode === mode && !agent.modePending;
+      return { agent, action: inSync && action !== 'cycle' ? 'skip' : action };
+    });
+    mutate(masterId, (o) => {
+      for (const a of o.agents) a.mode = mode;
+    });
+    const outcomes = new Map();
+    const alone = plan.filter((p) => p.action !== 'relaunch');
+    await Promise.all([
+      ...alone.map(async (p) => outcomes.set(p.agent.id, p.action === 'skip' ? 'unchanged' : await runModeAction(masterId, p.agent, p.action, mode))),
+      (async () => {
+        const action = modeCore.masterModeAction(masterStatus);
+        outcomes.set('master', action === 'record' ? 'recorded' : action === 'cycle' ? await cycleOutcome(masterId, mode) : 'deferred');
+      })(),
+    ]);
+    for (const p of plan.filter((x) => x.action === 'relaunch')) outcomes.set(p.agent.id, await runModeAction(masterId, p.agent, 'relaunch', mode));
+    const masterOutcome = ['applied', 'unchanged', 'recorded'].includes(outcomes.get('master')) ? null : mode;
+    mutate(masterId, (o) => {
+      for (const a of o.agents) {
+        if (['deferred', 'failed'].includes(outcomes.get(a.id))) a.modePending = true;
+        else if (outcomes.has(a.id)) delete a.modePending;
+      }
+      if (masterOutcome) o.masterModePending = masterOutcome;
+      else delete o.masterModePending;
+    });
+    return modeCore.modeSummary(mode, orch.agents.map((a) => outcomes.get(a.id)), outcomes.get('master'));
+  });
+}
+
+// A deferred switch comes due when the agent's turn ends (idle prompt) or when it hits a permission prompt.
+function applyPendingMode(masterId, agentId, eventType) {
+  return locked(async () => {
+    const orch = load()[masterId];
+    const agent = orch?.agents.find((a) => a.id === agentId);
+    if (!agent?.modePending) return;
+    const provider = agent.provider || 'claude';
+    const action = modeCore.pendingModeAction({ provider, eventType });
+    const outcome = action === 'relaunch' ? await relaunchAgent(masterId, agentId, eventType === 'done' ? '' : modeMessage(agent.mode)) : await cycleOutcome(agent.sessionId, agent.mode);
+    const done = ['applied', 'unchanged', 'relaunched', 'recorded'].includes(outcome);
+    mutate(masterId, (o) => {
+      const target = o.agents.find((a) => a.id === agentId);
+      if (done) delete target.modePending;
+      core.pushEvent(o, { type: 'settings', agent: agentId, text: done ? `${agentId} passe en ${modeCore.MODE_LABELS[agent.mode] || agent.mode}` : `${agentId} n'a pas pu passer en ${modeCore.MODE_LABELS[agent.mode] || agent.mode} : Maj+Tab dans son terminal` }, Date.now());
+    });
+  });
+}
+
+function applyPendingMasterMode(masterId) {
+  return locked(async () => {
+    const mode = load()[masterId]?.masterModePending;
+    if (!mode) return;
+    const outcome = await cycleOutcome(masterId, mode);
+    const done = ['applied', 'unchanged', 'recorded'].includes(outcome);
+    mutate(masterId, (o) => {
+      if (done) delete o.masterModePending;
+      core.pushEvent(o, { type: 'settings', text: done ? `Le maître passe en ${modeCore.MODE_LABELS[mode] || mode}` : `Le maître n'a pas pu passer en ${modeCore.MODE_LABELS[mode] || mode} : Maj+Tab dans son terminal` }, Date.now());
+    });
+  });
+}
+
 async function updateSettings({ master, ...input }) {
   const orch = load()[String(master || '')];
   if (!orch) return { error: 'Maître inconnu.' };
@@ -416,10 +527,14 @@ async function updateSettings({ master, ...input }) {
   if (normalized.error) return normalized;
   mutate(orch.masterSessionId, (o) => {
     o.settings = normalized.settings;
-    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, autonomie ${normalized.settings.autonomy}` }, Date.now());
   });
-  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}`, true);
-  return { ok: true };
+  const modeText = input.agentMode !== undefined ? await propagateMode(orch.masterSessionId, normalized.settings.agentMode) : null;
+  mutate(orch.masterSessionId, (o) => {
+    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, autonomie ${normalized.settings.autonomy}, permissions ${modeText || modeCore.MODE_LABELS[normalized.settings.agentMode]}` }, Date.now());
+  });
+  const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
+  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}`, true);
+  return { ok: true, modes: modeText };
 }
 
 function endOrchestration({ master, stopAgents }) {
@@ -474,7 +589,9 @@ function wake(orch, agent, text) {
 function onSessionEvent(sessionId, event, session) {
   if (!['done', 'question', 'permission', 'needs_input'].includes(event.type)) return;
   const found = core.findBySession(load(), sessionId);
+  if (found && !found.agent && event.type === 'done' && found.orch.masterModePending) applyPendingMasterMode(found.orch.masterSessionId).catch((error) => console.error('master mode failed', error));
   if (!found?.agent) return;
+  if (found.agent.modePending && ['done', 'permission'].includes(event.type)) applyPendingMode(found.orch.masterSessionId, found.agent.id, event.type).catch((error) => console.error('agent mode failed', error));
   const now = Date.now();
   const report = event.type === 'done' ? lastReport(sessionId) || session?.lastAssistant : null;
   const target = mutate(found.orch.masterSessionId, (orch) => {
