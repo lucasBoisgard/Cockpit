@@ -49,6 +49,7 @@ async function cycleToMode(io, target, maxSteps = 8) {
 }
 
 const isStricter = (a, b) => MODE_RANK.indexOf(a) < MODE_RANK.indexOf(b);
+const strictest = (a, b) => (!a ? b : !b ? a : isStricter(b, a) ? b : a);
 
 // An explicit mode at launch is accepted only when it is not more permissive than the orchestration's.
 function overrideError(requested, inherited) {
@@ -102,4 +103,4 @@ function modeSummary(mode, agentOutcomes, masterOutcome) {
   return parts.length ? `${label} (${parts.join(', ')})` : `${label} (aucun agent à mettre à jour)`;
 }
 
-module.exports = { MODE_RANK, isStricter, overrideError, effectiveMode, MODE_LABELS, modeFromScreen, cycleToMode, agentModeAction, masterModeAction, pendingModeAction, modeSummary };
+module.exports = { MODE_RANK, isStricter, strictest, overrideError, effectiveMode, MODE_LABELS, modeFromScreen, cycleToMode, agentModeAction, masterModeAction, pendingModeAction, modeSummary };

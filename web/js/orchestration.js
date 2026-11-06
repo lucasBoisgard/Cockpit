@@ -265,7 +265,7 @@ $('orch-view').addEventListener('submit', async (e) => {
   const form = e.target;
   if (form.matches('[data-orch-settings]')) {
     const data = Object.fromEntries(new FormData(form));
-    if (await orchPost('/api/orch/settings', { master: orch.masterSessionId, autonomy: data.autonomy, maxAgents: Number(data.maxAgents), agentMode: data.agentMode, maxDepth: Number(data.maxDepth) }, (r) => (r.modes ? `Permissions : ${r.modes}` : 'Réglages appliqués, le maître est prévenu.'))) { orchUi.settings = false; renderOrchestration(true); }
+    if (await orchPost('/api/orch/settings', { master: orch.masterSessionId, autonomy: data.autonomy, maxAgents: Number(data.maxAgents), agentMode: data.agentMode, maxDepth: data.maxDepth === '' ? undefined : Number(data.maxDepth) }, (r) => (r.modes ? `Permissions : ${r.modes}` : 'Réglages appliqués, le maître est prévenu.'))) { orchUi.settings = false; renderOrchestration(true); }
     return;
   }
   if (form.matches('[data-orch-send]')) {

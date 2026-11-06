@@ -125,8 +125,7 @@ test('maxDepth defaults to 2 and is clamped to 1..4', () => {
   assert.strictEqual(core.normalizeSettings({ maxDepth: '3' }).settings.maxDepth, 3);
   assert.strictEqual(core.normalizeSettings({ maxDepth: 9 }).settings.maxDepth, 4);
   assert.strictEqual(core.normalizeSettings({ maxDepth: 0 }).settings.maxDepth, 1);
-  assert.strictEqual(core.normalizeSettings({ maxDepth: 'abc' }).settings.maxDepth, 2);
-  assert.strictEqual(core.normalizeSettings({ maxDepth: 'abc' }, { ...core.DEFAULT_SETTINGS, maxDepth: 3 }).settings.maxDepth, 3);
+  assert.match(core.normalizeSettings({ maxDepth: 'abc' }).error, /Profondeur/);
 });
 
 test('canLaunch refuses a launch at the configured depth and accepts below it', () => {
@@ -223,4 +222,27 @@ test('agentRefs carries stoppedAt and lostAt so a crashed agent is told from a s
   const orch = orchWith([agent('w1', { stoppedAt: 7 }), agent('w2', { lostAt: 9 })], { masterSessionId: 'm', worktree: 'wt' });
   const refs = core.agentRefs(orch, { w1: 'stopped', w2: 'stopped' }).agents;
   assert.deepStrictEqual(refs.map((a) => [a.stoppedAt, a.lostAt]), [[7, null], [null, 9]]);
+});
+
+test('maxDepth: absent, null and empty keep the default, invalid is refused, stored settings read 2', () => {
+  for (const v of [undefined, null, '']) assert.strictEqual(core.normalizeSettings({ maxDepth: v }).settings.maxDepth, 2);
+  assert.strictEqual(core.normalizeSettings({ maxDepth: '' }, { ...core.DEFAULT_SETTINGS, maxDepth: 3 }).settings.maxDepth, 3);
+  assert.match(core.normalizeSettings({ maxDepth: 'abc' }).error, /Profondeur/);
+  assert.strictEqual(core.maxDepth({ autonomy: 'blocking' }), 2);
+});
+
+test('launchQuotaRefusal ignores depth so a deeper agent can still resume', () => {
+  const chain = [agent('w1'), agent('w2', { parentId: 'w1' }), agent('w3', { parentId: 'w2' })];
+  const orch = orchWith(chain, { settings: { ...core.DEFAULT_SETTINGS, maxDepth: 1 } });
+  const statuses = { w1: 'done', w2: 'done', w3: 'stopped' };
+  assert.match(core.canLaunch(orch, statuses, 'w2'), /Profondeur/);
+  assert.strictEqual(core.launchQuotaRefusal(orch, statuses), null);
+  assert.match(core.launchQuotaRefusal({ ...orch, settings: { ...orch.settings, maxAgents: 1 } }, { w1: 'working' }), /1 agents actifs/);
+});
+
+test('strictest picks the stricter permission mode', () => {
+  const pm = require('../server/core/permission-mode');
+  assert.strictEqual(pm.strictest('auto', 'plan'), 'plan');
+  assert.strictEqual(pm.strictest('plan', 'default'), 'plan');
+  assert.strictEqual(pm.strictest('default', undefined), 'default');
 });

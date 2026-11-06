@@ -27,7 +27,7 @@ const delivered = [];
 const queue = require('../server/features/queue');
 queue.sendToSession = async (sessionId, text) => { sent.push({ sessionId, text }); return true; };
 queue.deliver = async (sessionId, text) => { delivered.push({ sessionId, text }); return 'sent'; };
-const { updateSettings, sendToAgent, modeChecks } = require('../server/features/orchestration');
+const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks } = require('../server/features/orchestration');
 require('../server/features/agent-mode').timing.attempts = 2;
 require('../server/features/agent-mode').timing.gapMs = 1;
 const core = require('../server/core/orchestration');
@@ -217,4 +217,21 @@ test('after a relaunch that shows the expected mode nothing is reported', async 
   await modeChecks();
   assert.ok(!saved().events.some((e) => /au lieu de/.test(e.text)));
   assert.strictEqual(saved().agents[0].modePending, undefined);
+});
+
+test('a Codex agent cannot launch sub-agents', async () => {
+  seed([agent('w1', { provider: 'codex', sessionId: 's-w1' })]);
+  const result = await launchAgent({ caller: 's-w1', name: 'x', brief: 'b' });
+  assert.match(result.error, /GPT \(Codex\)/);
+  assert.strictEqual(launches().length, 0);
+});
+
+test('a resumed child is never looser than its parent, and resume ignores the depth limit', async () => {
+  writeState('s-w1', 'done', '%900001');
+  seed([agent('w1', { mode: 'plan' }), agent('w2', { parentId: 'w1', mode: 'auto', stoppedAt: 5 })], { settings: { ...core.DEFAULT_SETTINGS, agentMode: 'auto', maxDepth: 1 } });
+  await resumeAgent({ caller: 'm1', id: 'w2', text: 'go', by: 'user' });
+  assert.strictEqual(saved().agents[1].mode, 'plan');
+  const [launch] = launches();
+  const mode = launch.indexOf('--permission-mode');
+  assert.deepStrictEqual(launch.slice(mode, mode + 2), ['--permission-mode', 'plan']);
 });

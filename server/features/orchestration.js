@@ -219,13 +219,15 @@ function launchAgent({ caller, ...input }) {
     if (found.error) return found;
     const { orch } = found;
     const parentId = found.agent?.id || null;
+    if (found.agent?.provider === 'codex') return { error: 'Un agent GPT (Codex) ne peut pas lancer de sous-agents : demande au maître de le faire.', refused: true };
     if (input.provider === 'codex') {
       const info = await codexInfo();
       if (!info.installed || !info.loggedIn) return { error: info.installed ? 'Codex n’est pas connecté : l’utilisateur doit lancer « codex login ». Lance cet agent avec Claude en attendant.' : 'Codex CLI n’est pas installé sur cette machine : lance cet agent avec Claude.' };
     }
     const checked = core.validateLaunch(input, orch, input.provider === 'codex' ? await codexCatalog() : undefined, { inheritMode: true, parentMode: found.agent?.mode || null });
     if (checked.error) return checked;
-    if (checked.agent.mode !== orch.settings.agentMode) checked.agent.modeOverride = checked.agent.mode;
+    const inheritedOverride = modeCore.strictest(checked.agent.mode, found.agent?.modeOverride);
+    if (found.agent?.modeOverride || checked.agent.mode !== orch.settings.agentMode) checked.agent.modeOverride = inheritedOverride;
     const kind = input.kind ? String(input.kind) : null;
     if (kind && !matrix.categoryIds().includes(kind)) return { error: `Catégorie inconnue : ${kind} (${matrix.categoryIds().join(', ')}).` };
     checked.agent.kind = kind;
@@ -312,13 +314,19 @@ function resumeAgent({ caller, id, text, by }) {
 async function restartRefusal(orch, agent) {
   if (!fs.existsSync(agent.cwd)) return { error: 'Le worktree de cet agent n\'existe plus.' };
   const { statuses } = liveStatuses(orch, await livePanes());
-  const refused = core.canLaunch(orch, { ...statuses, [agent.id]: 'stopped' }, agent.parentId);
+  const refused = core.launchQuotaRefusal(orch, { ...statuses, [agent.id]: 'stopped' });
   return refused ? { error: refused, refused: true } : null;
 }
 
 async function restartAgent(orch, agent, message, eventText) {
   const refusal = await restartRefusal(orch, agent);
   if (refusal) return refusal;
+  const parent = agent.parentId ? orch.agents.find((a) => a.id === agent.parentId) : null;
+  const allowed = modeCore.strictest(orch.settings.agentMode, parent?.mode);
+  if (modeCore.isStricter(allowed, agent.mode)) {
+    agent.mode = allowed;
+    mutate(orch.masterSessionId, (o) => { const target = o.agents.find((a) => a.id === agent.id); if (target) target.mode = allowed; });
+  }
   const session = readSession(agent.sessionId);
   const tmuxName = tmuxSessionName(`${orch.worktree}-${agent.id}`, Date.now());
   // Without a transcript the agent never really started: start it again from its brief.
@@ -386,7 +394,7 @@ function view(orch, panes) {
     masterSessionId: orch.masterSessionId,
     worktree: orch.worktree,
     goal: orch.goal,
-    settings: orch.settings,
+    settings: { ...orch.settings, maxDepth: core.maxDepth(orch.settings) },
     masterModePending: orch.masterModePending || null,
     paused: !!orch.paused,
     phases: orch.phases,

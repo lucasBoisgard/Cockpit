@@ -38,9 +38,10 @@ function normalizeSettings(input = {}, base = DEFAULT_SETTINGS) {
     if (!AGENT_MODES.includes(input.agentMode)) return { error: `Mode de permission refusé pour un agent : ${input.agentMode}.` };
     out.agentMode = input.agentMode;
   }
-  if (input.maxDepth !== undefined) {
-    const n = Math.round(Number(input.maxDepth));
-    if (Number.isFinite(n)) out.maxDepth = Math.min(MAX_DEPTH_LIMIT, Math.max(1, n));
+  if (input.maxDepth !== undefined && input.maxDepth !== null && input.maxDepth !== '') {
+    const n = Number(input.maxDepth);
+    if (!Number.isFinite(n)) return { error: `Profondeur entre 1 et ${MAX_DEPTH_LIMIT}.` };
+    out.maxDepth = Math.min(MAX_DEPTH_LIMIT, Math.max(1, Math.round(n)));
   }
   return { settings: out };
 }
@@ -111,13 +112,19 @@ function agentStatus(agent, session, { live, now }) {
   return 'done';
 }
 
-const maxDepth = (settings) => settings?.maxDepth ?? DEFAULT_SETTINGS.maxDepth;
+const maxDepth = (settings) => settings?.maxDepth || DEFAULT_SETTINGS.maxDepth;
 
-function canLaunch(orch, statuses, parentId) {
+function launchQuotaRefusal(orch, statuses) {
   if (orch.paused) return 'Le maître est en pause : aucun nouvel agent tant que l\'utilisateur ne le relance pas.';
   if (orch.endedAt) return 'Cette orchestration est terminée.';
   const active = orch.agents.filter((a) => isActive(statuses[a.id])).length;
   if (active >= orch.settings.maxAgents) return `Déjà ${active} agents actifs sur ${orch.settings.maxAgents} autorisés : attends qu'un agent finisse ou arrête-en un.`;
+  return null;
+}
+
+function canLaunch(orch, statuses, parentId) {
+  const refused = launchQuotaRefusal(orch, statuses);
+  if (refused) return refused;
   if (parentId && depthOf(orch, parentId) >= maxDepth(orch.settings)) return `Profondeur maximale atteinte (${maxDepth(orch.settings)} niveaux d'agents).`;
   return null;
 }
@@ -259,7 +266,7 @@ function findBySession(store, sessionId) {
 module.exports = {
   agentDepth, canLaunchSubAgents, autonomyNotice, noticeRoute,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
-  isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch,
+  isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
   currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
   masterSystemPrompt, agentSystemPrompt, findBySession,
 };
