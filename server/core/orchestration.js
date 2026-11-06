@@ -212,11 +212,11 @@ function agentSystemPrompt({ agent, orch = { settings: DEFAULT_SETTINGS, agents:
   ].join('\n');
 }
 
-// How an agent hears about a new autonomy level: now when it works (a message to a working session is
-// taken into account during its turn), with its next message otherwise, never for a stopped agent.
+// How an agent hears about a new autonomy level: with the next message it receives, or in its rules on
+// resume when it is stopped. Nothing is pasted into a running session: it could land in a permission
+// dialog, and a message to a finished agent would start a turn.
 function noticeRoute(status) {
-  if (status === 'stopped') return 'none';
-  return status === 'working' ? 'send' : 'pending';
+  return status === 'stopped' ? 'resume' : 'next-message';
 }
 
 // What the cockpit tells a running agent when the autonomy level changes.

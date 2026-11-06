@@ -9,22 +9,27 @@ process.env.HOME = home;
 fs.mkdirSync(path.join(home, '.claude', 'worktree-state'), { recursive: true });
 
 // tmux is simulated: a prompt whose Shift+Tab walks `cycle`, and a record of every call.
-const sim = { calls: [], cycle: ['default', 'acceptEdits', 'plan'], index: 1 };
+const sim = { calls: [], cycle: ['default', 'acceptEdits', 'plan'], index: 1, onPress: null };
 const FOOTERS = { default: '? for shortcuts', acceptEdits: '⏵⏵ accept edits on (shift+tab to cycle)', plan: '⏸ plan mode on (shift+tab to cycle)', auto: '⏵⏵ auto mode on (shift+tab to cycle)' };
 require('../server/io/exec').tmux = async (args) => {
   sim.calls.push(args);
   if (args[0] === 'capture-pane') return { ok: true, stdout: `❯ \n──────\n  ${FOOTERS[sim.cycle[sim.index]]}`, stderr: '' };
-  if (args[0] === 'send-keys' && args.includes('BTab')) sim.index = (sim.index + 1) % sim.cycle.length;
+  if (args[0] === 'send-keys' && args.includes('BTab')) {
+    sim.index = (sim.index + 1) % sim.cycle.length;
+    if (sim.onPress) sim.onPress();
+  }
   return { ok: true, stdout: '', stderr: '' };
 };
+const PANES = new Map(['%900001', '%900002', '%900003'].map((id) => [id, { session: 'x', created: 0 }]));
+require('../server/features/worktrees').livePanes = async () => PANES;
 const sent = [];
 const delivered = [];
 const queue = require('../server/features/queue');
 queue.sendToSession = async (sessionId, text) => { sent.push({ sessionId, text }); return true; };
 queue.deliver = async (sessionId, text) => { delivered.push({ sessionId, text }); return 'sent'; };
-const PANES = new Map(['%900001', '%900002', '%900003'].map((id) => [id, { session: 'x', created: 0 }]));
-require('../server/features/worktrees').livePanes = async () => PANES;
-const { updateSettings, sendToAgent } = require('../server/features/orchestration');
+const { updateSettings, sendToAgent, modeChecks } = require('../server/features/orchestration');
+require('../server/features/agent-mode').timing.attempts = 2;
+require('../server/features/agent-mode').timing.gapMs = 1;
 const core = require('../server/core/orchestration');
 
 const { after } = require('node:test');
@@ -39,6 +44,9 @@ const agent = (id, extra = {}) => ({ id, name: id, phase: 0, parentId: null, ski
 const seed = (agents, extra = {}) => {
   sim.calls.length = 0;
   sim.index = 1;
+  sim.onPress = null;
+  sim.cycle = ['default', 'acceptEdits', 'plan'];
+  fs.rmSync(path.join(home, '.claude', 'worktree-queue.json'), { force: true });
   sent.length = 0;
   delivered.length = 0;
   fs.writeFileSync(path.join(dir, 'worktree-orchestration.json'), JSON.stringify({ m1: { masterSessionId: 'm1', worktree: 'wt', phases: [], paused: false, createdAt: 1, events: [], settings: { ...core.DEFAULT_SETTINGS }, agents, ...extra } }));
@@ -48,18 +56,18 @@ const kills = () => sim.calls.filter((c) => c[0] === 'kill-pane');
 const launches = () => sim.calls.filter((c) => c[0] === 'new-session');
 const presses = () => sim.calls.filter((c) => c[0] === 'send-keys' && c.includes('BTab')).length;
 
-test('a new autonomy level goes now to a working agent and with the next message to the others', async () => {
+test('a new autonomy level is pasted into no session: every live agent gets it with its next message', async () => {
   writeState('s-w1', 'working', '%900001');
   writeState('s-w2', 'done', '%900002');
   writeState('s-w4', 'needs_input', '%900003', { permission: true });
   seed([agent('w1'), agent('w2', { parentId: 'w1' }), agent('w3', { stoppedAt: 5 }), agent('w4')]);
   const result = await updateSettings({ master: 'm1', autonomy: 'decisions' });
-  assert.deepStrictEqual(sent.map((m) => m.sessionId), ['s-w1']);
-  assert.match(sent[0].text, new RegExp(core.AUTONOMY.decisions.slice(0, 30)));
+  assert.deepStrictEqual(sent, []);
   assert.deepStrictEqual(delivered.filter((d) => d.sessionId.startsWith('s-')), []);
-  assert.deepStrictEqual(saved().agents.map((a) => !!a.noticePending), [false, true, false, true]);
-  assert.strictEqual(result.notified, 3);
-  assert.match(saved().events.at(-1).text, /autonomie decisions \(3 agents prévenus\)/);
+  assert.deepStrictEqual(sim.calls.filter((c) => c[0] === 'send-keys' || c[0] === 'paste-buffer'), []);
+  assert.deepStrictEqual(saved().agents.map((a) => !!a.noticePending), [true, true, false, true]);
+  assert.deepStrictEqual([result.notified, result.onResume], [3, 1]);
+  assert.match(saved().events.at(-1).text, /autonomie decisions \(3 agents le recevront avec leur prochain message, 1 arrêté le liront à la reprise\)/);
   await sendToAgent({ caller: 'm1', id: 'w2', text: 'continue', by: 'user' });
   const toW2 = delivered.find((d) => d.sessionId === 's-w2');
   assert.match(toW2.text, new RegExp(`${core.AUTONOMY.decisions.slice(0, 30)}[\\s\\S]*continue`));
@@ -154,11 +162,59 @@ test('a blocked agent is not killed when the active-agent limit is already excee
 test('a blocked agent is relaunched in its conversation with the new mode and told about it', async () => {
   writeState('s-w1', 'needs_input', '%900001', { permission: true });
   seed([agent('w1')]);
+  sim.cycle = ['auto'];
+  sim.index = 0;
   await updateSettings({ master: 'm1', agentMode: 'auto' });
   assert.strictEqual(kills().length, 1);
   const [launch] = launches();
   assert.ok(launch.includes('--resume') && launch.includes('s-w1'));
   assert.deepStrictEqual(launch.slice(launch.indexOf('--permission-mode'), launch.indexOf('--permission-mode') + 2), ['--permission-mode', 'auto']);
   assert.match(launch.at(-1), /^\[cockpit\] Le mode de permission est passé à auto/);
+  assert.strictEqual(saved().agents[0].modePending, undefined);
+});
+
+test('an idle agent with a message waiting in its queue is left for the end of its next turn', async () => {
+  writeState('s-w2', 'done', '%900002');
+  seed([agent('w2')]);
+  fs.writeFileSync(path.join(dir, 'worktree-queue.json'), JSON.stringify({ 's-w2': [{ id: 'q1', text: 'hello', at: 1 }] }));
+  sim.cycle = ['default', 'acceptEdits', 'plan', 'auto'];
+  const result = await updateSettings({ master: 'm1', agentMode: 'auto' });
+  assert.strictEqual(presses(), 0);
+  assert.strictEqual(saved().agents[0].modePending, true);
+  assert.match(result.modes, /1 à la fin de leur tour/);
+});
+
+test('a switch cut short by a new turn is reported and kept pending', async () => {
+  writeState('s-w2', 'done', '%900002');
+  seed([agent('w2')]);
+  sim.cycle = ['default', 'acceptEdits', 'plan', 'auto'];
+  sim.onPress = () => writeState('s-w2', 'working', '%900002');
+  const result = await updateSettings({ master: 'm1', agentMode: 'auto' });
+  assert.strictEqual(presses(), 1);
+  assert.strictEqual(saved().agents[0].modePending, true);
+  assert.match(result.modes, /1 à la fin de leur tour/);
+  assert.ok(saved().events.some((e) => /w2 : bascule interrompue, mode intermédiaire/.test(e.text)));
+});
+
+test('after a relaunch the screen is read back and a different mode is reported', async () => {
+  writeState('s-w1', 'needs_input', '%900001', { permission: true });
+  seed([agent('w1')]);
+  sim.cycle = ['acceptEdits'];
+  sim.index = 0;
+  await updateSettings({ master: 'm1', agentMode: 'auto' });
+  await modeChecks();
+  assert.match(sim.calls.filter((c) => c[0] === 'capture-pane').at(-1).join(' '), /cw-wt-w1-.*:/);
+  assert.ok(saved().events.some((e) => /w1 relancé, mais son écran affiche accepter les modifs au lieu de auto/.test(e.text)));
+  assert.strictEqual(saved().agents[0].modePending, true);
+});
+
+test('after a relaunch that shows the expected mode nothing is reported', async () => {
+  writeState('s-w1', 'needs_input', '%900001', { permission: true });
+  seed([agent('w1')]);
+  sim.cycle = ['auto'];
+  sim.index = 0;
+  await updateSettings({ master: 'm1', agentMode: 'auto' });
+  await modeChecks();
+  assert.ok(!saved().events.some((e) => /au lieu de/.test(e.text)));
   assert.strictEqual(saved().agents[0].modePending, undefined);
 });

@@ -121,12 +121,15 @@ test('cycleToMode never rests on bypass', async () => {
   assert.notStrictEqual(await stuck.io.read(), 'bypass');
 });
 
-test('cycleToMode stops as soon as the prompt is no longer idle or shows no mode', async () => {
+test('cycleToMode stops as soon as the prompt is no longer idle or shows no mode, and says when it left a mode half way', async () => {
+  const busyFirst = prompt(CYCLE, 'default', { idleAfter: 0 });
+  assert.strictEqual(await core.cycleToMode(busyFirst.io, 'auto'), 'busy');
+  assert.strictEqual(busyFirst.state.presses, 0);
   const busy = prompt(CYCLE, 'default', { idleAfter: 1 });
-  assert.strictEqual(await core.cycleToMode(busy.io, 'auto'), 'busy');
+  assert.strictEqual(await core.cycleToMode(busy.io, 'auto'), 'interrupted');
   assert.strictEqual(busy.state.presses, 1);
   const dialog = prompt(CYCLE, 'default', { hideAfter: 1 });
-  assert.strictEqual(await core.cycleToMode(dialog.io, 'auto'), 'unreadable');
+  assert.strictEqual(await core.cycleToMode(dialog.io, 'auto'), 'interrupted');
   assert.strictEqual(dialog.state.presses, 1);
   const unreadable = prompt(CYCLE, 'default', { hideAfter: 0 });
   assert.strictEqual(await core.cycleToMode(unreadable.io, 'auto'), 'unreadable');

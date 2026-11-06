@@ -29,17 +29,19 @@ function modeFromScreen(text) {
 // The cycle differs between sessions (auto may be missing, bypass may be present), so it stops at the target,
 // or as soon as a mode comes back (the target is not in this cycle) and then never rests on bypass.
 // `io`: read() the current mode, press(), idle() whether the session is still at an idle prompt.
+// 'busy' and 'unreadable' mean nothing was pressed; 'interrupted' means the walk stopped half way, which
+// leaves the session in an intermediate mode.
 async function cycleToMode(io, target, maxSteps = 8) {
   const seen = new Set();
   let current = await io.read();
   for (let step = 0; step < maxSteps; step++) {
-    if (!current) return 'unreadable';
+    if (!current) return step ? 'interrupted' : 'unreadable';
     if (current === target) return step ? 'applied' : 'unchanged';
     if (current !== 'bypass') {
       if (seen.has(current)) return 'unreachable';
       seen.add(current);
     }
-    if (!(await io.idle())) return 'busy';
+    if (!(await io.idle())) return step ? 'interrupted' : 'busy';
     await io.press();
     current = await io.read();
   }
