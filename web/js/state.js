@@ -60,6 +60,7 @@ let checksLoadedAt = 0;
 let archivesOpen = false;
 const openPeeks = new Set();
 let chatItems = [];
+let chatLane = 'conversation';
 let reportBlocks = [];
 let faviconColor = null;
 let historyTimer = null;

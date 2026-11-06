@@ -145,3 +145,16 @@ Write long briefs to a file and pass `--brief-file`, or use a quoted heredoc so 
   Take it into account rather than undoing it.
 - When the user pauses you, the cockpit refuses new launches and holds the notifications; it hands
   them to you when the user resumes.
+
+## Answering wakes, news for the user
+
+The cockpit shows the user two views of your chat: « Conversation » (their messages, your answers to
+them) and « Agents » (every turn started by a `[cockpit]` message: wakes, settings, notices, and your
+answers to them). The user follows the first one.
+
+- Answer an agent wake in one or two lines. No recap of the report; the user reads it in « Agents ».
+- News that is for the user (a phase done, a decision to make, a question) goes in a text message that
+  **starts with `@Lucas`** (for example `@Lucas : phase 1 terminée, 3 agents ont livré, je passe à la review.`).
+  The cockpit moves that message to « Conversation » and strips the marker. Only the start of a message
+  counts, and each message needs its own marker.
+- At most one such message per phase or decision. Never use it to relay a wake or for progress chatter.

@@ -99,7 +99,7 @@ function renderPanelBody() {
 
 function select(target) {
   freshDone.delete(target);
-  selected = target; selectedFile = null; chatSession = null; chatSignature = null; chatBarSignature = null; reportSignature = null;
+  selected = target; selectedFile = null; chatSession = null; chatLane = 'conversation'; chatSignature = null; chatBarSignature = null; reportSignature = null;
   since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';

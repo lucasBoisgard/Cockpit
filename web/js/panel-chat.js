@@ -94,6 +94,36 @@ async function setSetting(key, value) {
   toast(queue ? `Changement de ${setting.name} mis en file : il part à la fin du tour.` : setting.done);
 }
 
+function agentTurns(items) {
+  return items.filter((item) => item.kind === 'user' && item.lane === 'agents').length;
+}
+
+function seenAgentTurns(sessionId) {
+  try { return Number(localStorage.getItem(`chat-agents-seen:${sessionId}`)) || 0; } catch { return 0; }
+}
+
+function markAgentTurnsSeen(sessionId, count) {
+  try { localStorage.setItem(`chat-agents-seen:${sessionId}`, String(count)); } catch {}
+}
+
+function renderChatLanes(items) {
+  const bar = $('chat-lanes');
+  const hasAgents = items.some((item) => item.lane === 'agents');
+  bar.hidden = !hasAgents;
+  if (!hasAgents) return;
+  const turns = agentTurns(items);
+  if (chatLane === 'agents') markAgentTurnsSeen(chatSession, turns);
+  const unread = chatLane === 'agents' ? 0 : Math.max(0, turns - seenAgentTurns(chatSession));
+  bar.innerHTML = `<button class="btn ${chatLane === 'conversation' ? 'on' : ''}" data-lane="conversation">Conversation</button><button class="btn ${chatLane === 'agents' ? 'on' : ''}" data-lane="agents">Agents${unread ? ` <span class="lane-badge">${unread > 99 ? '99+' : unread}</span>` : ''}</button>`;
+}
+
+document.addEventListener('click', (e) => {
+  const button = e.target.closest('[data-lane]');
+  if (!button || chatLane === button.dataset.lane) return;
+  chatLane = button.dataset.lane;
+  loadChat(true);
+});
+
 async function loadChat(force) {
   const box = $('chat');
   if (String(chatSession || '').startsWith('codex-screen:')) {
@@ -110,7 +140,8 @@ async function loadChat(force) {
   const last = chat.items[chat.items.length - 1];
   const session = currentSession();
   const awaiting = session?.status === 'needs_input' && !(typeof promptAnswered === 'function' && promptAnswered(session)) ? session.message || 'Claude attend ta réponse' : null;
-  const signature = `${chat.sessionId}|${chat.total}|${last ? (last.result || last.text || '').length : 0}|${awaiting}`;
+  const lane = chat.items.some((item) => item.lane === 'agents') ? chatLane : 'conversation';
+  const signature = `${chat.sessionId}|${lane}|${agentTurns(chat.items)}|${seenAgentTurns(chatSession)}|${chat.total}|${last ? (last.result || last.text || '').length : 0}|${awaiting}`;
   if (!force && signature === chatSignature) return;
   chatSignature = signature;
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
@@ -118,12 +149,14 @@ async function loadChat(force) {
   const time = (at) => (at ? new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
   const lastIndex = chat.items.length - 1;
   chatItems = chat.items;
+  renderChatLanes(chat.items);
   box.innerHTML = (chat.total > chat.items.length ? `<div class="placeholder">${chat.total - chat.items.length} éléments plus anciens masqués</div>` : '') + chat.items.map((item, i) => {
+    if (item.lane && item.lane !== lane) return '';
     const mark = awaiting && i === lastIndex ? 'awaiting' : '';
     if (item.kind === 'user') {
-      return `<div class="msg user ${mark}">${escLink(item.text)}<span class="when">${time(item.at)}</span></div>`;
+      return `<div class="msg user ${item.lane === 'agents' ? 'cockpit' : ''} ${mark}">${escLink(item.text)}<span class="when">${time(item.at)}</span></div>`;
     }
-    if (item.kind === 'assistant') return `<div class="msg assistant ${mark}">${item.text.length > 900 ? `<button class="read-top" data-read="${i}" title="Ouvrir dans le lecteur (l)">Lire ⤢</button>` : ''}${md(item.text)}<span class="when">${time(item.at)}<button class="read" data-read="${i}">Lecteur</button><button class="delegate" data-delegate="${i}" title="Lancer une session liée pour cette sous-tâche">Déléguer</button></span></div>`;
+    if (item.kind === 'assistant') return `<div class="msg assistant ${item.milestone ? 'milestone' : ''} ${mark}">${item.milestone ? '<span class="milestone-tag">Jalon</span>' : ''}${item.text.length > 900 ? `<button class="read-top" data-read="${i}" title="Ouvrir dans le lecteur (l)">Lire ⤢</button>` : ''}${md(item.text)}<span class="when">${time(item.at)}<button class="read" data-read="${i}">Lecteur</button><button class="delegate" data-delegate="${i}" title="Lancer une session liée pour cette sous-tâche">Déléguer</button></span></div>`;
     return `<details class="tool ${item.error ? 'error' : ''} ${mark}" data-index="${i}" ${opened.has(String(i)) ? 'open' : ''}><summary><b>${esc(item.tool)}</b><span>${escLink(item.detail)}</span></summary>${item.result ? `<pre>${escLink(item.result)}</pre>` : ''}</details>`;
   }).join('') + (awaiting ? `<div class="awaiting-note">${esc(awaiting)}${session.live ? ' · <button data-goto="term">Répondre dans le terminal</button>' : ''}</div>` : '');
   if (nearBottom || force) box.scrollTop = box.scrollHeight;

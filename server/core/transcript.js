@@ -1,3 +1,4 @@
+const { assignLanes } = require('./chat-lanes');
 const CHAT_MAX_ITEMS = 400;
 const TOOL_RESULT_MAX_CHARS = 3000;
 const EDIT_TOOLS = ['Edit', 'Write', 'NotebookEdit'];
@@ -68,7 +69,7 @@ function parseChat(text, sessionId) {
       }
     }
   }
-  return { sessionId, total: items.length, items: items.slice(-CHAT_MAX_ITEMS) };
+  return { sessionId, total: items.length, items: assignLanes(items).slice(-CHAT_MAX_ITEMS) };
 }
 
 function parseHistoryMeta(text, { sessionId, file, mtimeMs }) {
