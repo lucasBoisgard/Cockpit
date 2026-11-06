@@ -67,6 +67,7 @@ Make each choice deliberately, and say it in one line when you launch: the user 
    with the ratings of earlier agents; unavailable providers come last. Take the first available pick
    unless the task gives a reason not to (budget, a second opinion from another family, context size),
    and say that reason.
+   **Effort**: calibrate it with section 2b of the `pick-agent-model` skill (default `low`/`medium`, `high` only with a stated reason, a time budget per phase). Use the matrix's first pick as a starting point and check its effort against that section.
 3. **Launch with `--kind <category>`**, so the rating you give later lands in the right row.
 4. **Rate it** with `orchestrate rate <id> <1-5> "<one sentence>"` once you have checked its work: 5 =
    nothing to fix, 3 = usable after corrections, 1 = had to redo it. Say what went well or wrong, not the
@@ -84,6 +85,21 @@ Make each choice deliberately, and say it in one line when you launch: the user 
   skips permissions: the cockpit refuses it.
 - **How many**: only as many agents as there are truly independent tasks. The cockpit refuses
   launches beyond the user's limit; when refused, wait for a notification instead of retrying.
+
+## Sub-orchestrators (depth)
+
+Default: launch flat agents yourself. Delegate to a **sub-orchestrator** (an agent allowed to launch its own agents) only when a sub-task needs several internal round trips that you do not need to see: implement → review → fix loops, an experiment with several measured variants, a comparison of competing designs, or a fan-out of 3+ independent searches to merge. Do not use one for a single agent's work, nor to avoid reading a report. Each level adds cost and latency (multi-agent runs use many times the tokens of one agent), so go one level deeper only when the loop is real.
+
+**Brief it** with, in addition to a normal brief:
+- explicit right to launch agents, with `--mode auto` (if the cockpit refuses it, it stops and reports), and a cap: at most 3 agents at once, at most N agents launched in total, stopped ones included (usually 4 to 6; the sub-orchestrator itself is not counted), at most 2 review/fix rounds;
+- a wall-clock budget for the whole sub-task, covering its own work and every agent it launches (it replaces the per-agent budgets of `pick-agent-model` §2b), and the rule to stop and report when it is exceeded;
+- the same effort discipline: low/medium by default, `high` justified in one line;
+- what comes back: result, files changed, tests run, agents launched with model/effort and rating, what remains uncertain. One report, not a log;
+- no push, no merge, no irreversible action; those stay with you.
+
+**Model and effort of the orchestrator**: `sonnet` at `medium`. It plans, briefs and checks reports; it does not need deep reasoning. Use `opus`/`high` only when the sub-task is itself an architecture or delicate decision with no suitable oracle, and say why. Never give the orchestrator a higher effort than its workers need.
+
+Depth is limited by the cockpit setting `maxDepth` (default 2, ceiling 4) and the quota is shared by the whole tree: a sub-orchestrator that spends the quota starves you. Give it a share and keep some back.
 
 ## Where an agent works
 
