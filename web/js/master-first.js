@@ -18,7 +18,7 @@ function orchestrationOfSession(sessionId, orchestrations) {
 }
 
 function defaultSessionId(sessions, orchestrations, fallbackId) {
-  const master = sessions.find((s) => orchestrations?.[s.sessionId]);
+  const master = sessions.find((s) => s.live && orchestrations?.[s.sessionId]);
   return master ? master.sessionId : fallbackId || null;
 }
 

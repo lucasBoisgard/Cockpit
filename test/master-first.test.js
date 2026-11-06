@@ -79,3 +79,8 @@ test('an agent running in the master worktree is not a separate worktree', () =>
   assert.strictEqual(g.top.length, 1);
   assert.strictEqual(g.summary('/p/master-wt').count, 0);
 });
+
+test('a master that is not live is not the default: the fallback keeps a live session', () => {
+  assert.strictEqual(defaultSessionId([sess('M', { live: false }), sess('A3')], orchs, 'A3'), 'A3');
+  assert.strictEqual(defaultSessionId([sess('M', { live: false })], orchs, 'M'), 'M');
+});

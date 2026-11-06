@@ -104,7 +104,7 @@ function select(target) {
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
   if (currentWt()?.review?.report) tab = 'report';
-  if (currentWt() && orchestrationOf(currentWt())) tab = 'orch';
+  if (currentWt() && orchestrationOf(currentWt())) tab = 'chat';
   renderGrid(); renderPanel();
   if (tab === 'app') loadScreen();
   if (target === USAGE) loadUsage();

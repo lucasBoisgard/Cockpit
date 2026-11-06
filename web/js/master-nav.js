@@ -28,8 +28,18 @@ function openMasterSession(masterSessionId) {
   openAgentSession(masterSessionId);
 }
 
+let groupingCache = { key: null, grouping: null };
+let boardOpenVersion = 0;
+
+function boardGrouping() {
+  const key = [state, state.worktrees, state.orchestrations, finishedUi.show, boardOpenVersion];
+  if (groupingCache.key?.every((v, i) => v === key[i])) return groupingCache.grouping;
+  groupingCache = { key, grouping: groupWorktrees(shownWorktrees(), state.orchestrations, boardAgentsOpen) };
+  return groupingCache.grouping;
+}
+
 function boardWorktrees(list) {
-  const grouping = groupWorktrees(list, state.orchestrations, boardAgentsOpen);
+  const grouping = boardGrouping();
   const extra = selected && grouping.masterPathOf(selected) ? list.find((w) => w.path === selected) : null;
   return grouping.top.flatMap((wt) => {
     const shown = grouping.visibleChildren(wt.path);
@@ -38,11 +48,11 @@ function boardWorktrees(list) {
 }
 
 function agentsStrip(wt, kind) {
-  const summary = groupWorktrees(shownWorktrees(), state.orchestrations, boardAgentsOpen).summary(wt.path);
+  const summary = boardGrouping().summary(wt.path);
   if (!summary.count) return '';
   const open = boardAgentsOpen.has(wt.path);
   const needs = summary.needs ? ` <span class="lane-badge">❓ ${summary.needs}</span>` : '';
-  return `<span class="agents-fold agents-fold-${kind}" data-agents-fold="${esc(wt.path)}" role="button" tabindex="0">${open ? '▾' : '▸'} ${summary.count} agent${summary.count > 1 ? 's' : ''}${needs}</span>`;
+  return `<button type="button" class="agents-fold agents-fold-${kind}" data-agents-fold="${esc(wt.path)}" aria-expanded="${open}">${open ? '▾' : '▸'} ${summary.count} agent${summary.count > 1 ? 's' : ''}${needs}</button>`;
 }
 
 document.addEventListener('click', (e) => {
@@ -51,6 +61,7 @@ document.addEventListener('click', (e) => {
     e.stopImmediatePropagation();
     const path = fold.dataset.agentsFold;
     if (boardAgentsOpen.has(path)) boardAgentsOpen.delete(path); else boardAgentsOpen.add(path);
+    boardOpenVersion++;
     renderGrid();
     return;
   }
@@ -62,8 +73,9 @@ document.addEventListener('click', (e) => {
     if (!orch) return;
     const draft = $('composer-input').value;
     openMasterSession(orch.masterSessionId);
+    if (chatSession !== orch.masterSessionId) { $('composer-input').value = draft; return; }
     $('composer-input').value = draft;
     autosizeComposer();
-    $('composer-input').focus();
+    if (draft.trim()) sendMessage(); else $('composer-input').focus();
   }
 }, true);
