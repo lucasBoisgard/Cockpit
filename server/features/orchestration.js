@@ -83,13 +83,13 @@ const launch = (name, cwd, args, settings = {}) => launchClaude(name, cwd, args,
 // --allowedTools takes several values: it is always followed by another flag, never by the prompt.
 function agentArgs(orch, agent, { resume, prompt }) {
   if (agent.provider === 'codex') {
-    const rules = core.agentSystemPrompt({ agent, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT });
+    const rules = core.agentSystemPrompt({ agent, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT, settings: orch.settings });
     // An isolated agent commits on its branch: its git metadata lives outside the worktree.
     return providerCore.launchArgs('codex', { resume, sessionId: agent.sessionId, hookCommand: codexHookCommand(), model: agent.model, effort: agent.effort, mode: agent.mode, rules: resume ? null : rules, prompt, addDirs: agent.isolated && agent.gitDir ? [agent.gitDir] : [] });
   }
   return providerCore.launchArgs('claude', {
     allow: allowList(), resume, sessionId: agent.sessionId, name: `${agent.id} · ${agent.name}`,
-    rules: core.agentSystemPrompt({ agent, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT }),
+    rules: core.agentSystemPrompt({ agent, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT, settings: orch.settings }),
     model: agent.model, effort: agent.effort, mode: agent.mode, prompt,
   });
 }
@@ -129,12 +129,12 @@ function newOrchestration(sessionId, fields, settings, now) {
 }
 
 // Master: a normal Claude session with the orchestrator system prompt and the CLI allowed.
-async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode }) {
+async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth }) {
   const name = String(worktree || '').trim();
   if (!validName(name)) return { error: 'Nom de worktree invalide (lettres, chiffres, . _ -).' };
   const goal = String(prompt || '').trim();
   if (!goal) return { error: 'Décris l\'objectif du maître.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth });
   if (normalized.error) return normalized;
   const setting = core.validateLaunch({ name: 'maître', brief: goal, model, effort, mode: mode || 'default' }, { settings: normalized.settings, phases: [], agents: [] });
   if (setting.error) return setting;
@@ -156,10 +156,10 @@ async function startMaster({ worktree, prompt, model, effort, mode, autonomy, ma
 }
 
 // Turns an existing session into a master: it gets the orchestrator instructions as a message.
-async function promote({ sessionId, autonomy, maxAgents, agentMode }) {
+async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth }) {
   const session = readSession(String(sessionId || ''));
   if (!session) return { error: 'Session inconnue.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth });
   if (normalized.error) return normalized;
   const store = load();
   if (core.findBySession(store, session.sessionId)) return { error: 'Cette session orchestre déjà, ou est un agent.' };
@@ -416,7 +416,7 @@ async function updateSettings({ master, ...input }) {
   if (normalized.error) return normalized;
   mutate(orch.masterSessionId, (o) => {
     o.settings = normalized.settings;
-    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, autonomie ${normalized.settings.autonomy}` }, Date.now());
+    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, autonomie ${normalized.settings.autonomy}` }, Date.now());
   });
   await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}`, true);
   return { ok: true };

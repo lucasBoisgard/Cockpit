@@ -11,9 +11,9 @@ const AUTONOMY = {
   milestones: 'Ask the user to validate the plan before launching the first agents, then at the end of each phase before starting the next one. Between those points, decide alone.',
   decisions: 'Ask the user before every meaningful decision: the plan, each agent you launch (task, model, effort), and how to resolve each blocked agent.',
 };
-const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits' };
+const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits', maxDepth: 2 };
 const MAX_AGENTS_LIMIT = 20;
-const MAX_DEPTH = 2;
+const MAX_DEPTH_LIMIT = 4;
 const START_GRACE_MS = 2 * 60 * 1000;
 const ACTIVE = ['starting', 'working', 'needs'];
 const FINISHED = ['done', 'stopped'];
@@ -36,6 +36,10 @@ function normalizeSettings(input = {}, base = DEFAULT_SETTINGS) {
   if (input.agentMode !== undefined) {
     if (!AGENT_MODES.includes(input.agentMode)) return { error: `Mode de permission refusé pour un agent : ${input.agentMode}.` };
     out.agentMode = input.agentMode;
+  }
+  if (input.maxDepth !== undefined) {
+    const n = Math.round(Number(input.maxDepth));
+    if (Number.isFinite(n)) out.maxDepth = Math.min(MAX_DEPTH_LIMIT, Math.max(1, n));
   }
   return { settings: out };
 }
@@ -98,12 +102,14 @@ function agentStatus(agent, session, { live, now }) {
   return 'done';
 }
 
+const maxDepth = (settings) => settings?.maxDepth ?? DEFAULT_SETTINGS.maxDepth;
+
 function canLaunch(orch, statuses, parentId) {
   if (orch.paused) return 'Le maître est en pause : aucun nouvel agent tant que l\'utilisateur ne le relance pas.';
   if (orch.endedAt) return 'Cette orchestration est terminée.';
   const active = orch.agents.filter((a) => isActive(statuses[a.id])).length;
   if (active >= orch.settings.maxAgents) return `Déjà ${active} agents actifs sur ${orch.settings.maxAgents} autorisés : attends qu'un agent finisse ou arrête-en un.`;
-  if (parentId && depthOf(orch, parentId) >= MAX_DEPTH) return `Profondeur maximale atteinte (${MAX_DEPTH} niveaux d'agents).`;
+  if (parentId && depthOf(orch, parentId) >= maxDepth(orch.settings)) return `Profondeur maximale atteinte (${maxDepth(orch.settings)} niveaux d'agents).`;
   return null;
 }
 
@@ -170,13 +176,14 @@ function masterSystemPrompt({ settings, root }) {
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more.`,
+    `The agent tree may go ${maxDepth(settings)} level${maxDepth(settings) > 1 ? 's' : ''} deep below you; the cockpit refuses a launch beyond that.`,
     'Choose each agent\'s provider, model and effort from the relevance matrix (orchestrate matrix), launch it with --kind, and rate its work once checked (orchestrate rate).',
     'After launching agents, end your turn: the cockpit writes to you when an agent finishes its turn. Never wait in a sleep or polling loop.',
     'Answer the user in French.',
   ].join('\n');
 }
 
-function agentSystemPrompt({ agent, masterWorktree, isolated, branch, root }) {
+function agentSystemPrompt({ agent, masterWorktree, isolated, branch, root, settings }) {
   return [
     `You are agent ${agent.id} ("${agent.name}") of a team orchestrated by a master session in the Cockpit (worktree ${masterWorktree}). The first message is your brief from the master.`,
     'Work autonomously on that brief only. Never ask the user questions and never use AskUserQuestion: when you are blocked or need a decision, end your turn with a message that starts with "BLOQUÉ :" and states the question, the options you see and the one you recommend. The master answers you.',
@@ -187,7 +194,7 @@ function agentSystemPrompt({ agent, masterWorktree, isolated, branch, root }) {
       : 'Other agents work in the same worktree at the same time: only touch the files your brief needs, and never run git commit, checkout, reset, stash, rebase or push unless your brief says so.',
     agent.provider === 'codex'
       ? 'You cannot reach the cockpit from your sandbox: never try to launch sub-agents.'
-      : `If your brief explicitly allows it, you may launch sub-agents with ${cliCommand(root)} (see ${root}/skills/orchestrate/SKILL.md).`,
+      : `If your brief explicitly allows it, you may launch sub-agents with ${cliCommand(root)} (see ${root}/skills/orchestrate/SKILL.md). The agent tree may go ${maxDepth(settings)} level${maxDepth(settings) > 1 ? 's' : ''} deep below the master; the cockpit refuses a launch beyond that.`,
   ].join('\n');
 }
 
@@ -205,8 +212,8 @@ function findBySession(store, sessionId) {
 }
 
 module.exports = {
-  MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH, START_GRACE_MS,
-  isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, agentStatus, canLaunch,
+  MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
+  isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch,
   currentPhase, masterState, counts, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
   masterSystemPrompt, agentSystemPrompt, findBySession,
 };

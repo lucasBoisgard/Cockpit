@@ -118,3 +118,29 @@ test('wakeTarget sends a sub-agent report to its parent even while the master is
   assert.deepStrictEqual(core.wakeTarget(orch, orch.agents[0]), { sessionId: 'm1', hold: true });
   assert.deepStrictEqual(core.wakeTarget({ ...orch, paused: false }, orch.agents[0]), { sessionId: 'm1', hold: false });
 });
+
+test('maxDepth defaults to 2 and is clamped to 1..4', () => {
+  assert.strictEqual(core.DEFAULT_SETTINGS.maxDepth, 2);
+  assert.strictEqual(core.normalizeSettings({}).settings.maxDepth, 2);
+  assert.strictEqual(core.normalizeSettings({ maxDepth: '3' }).settings.maxDepth, 3);
+  assert.strictEqual(core.normalizeSettings({ maxDepth: 9 }).settings.maxDepth, 4);
+  assert.strictEqual(core.normalizeSettings({ maxDepth: 0 }).settings.maxDepth, 1);
+  assert.strictEqual(core.normalizeSettings({ maxDepth: 'abc' }).settings.maxDepth, 2);
+  assert.strictEqual(core.normalizeSettings({ maxDepth: 'abc' }, { ...core.DEFAULT_SETTINGS, maxDepth: 3 }).settings.maxDepth, 3);
+});
+
+test('canLaunch refuses a launch at the configured depth and accepts below it', () => {
+  const chain = [agent('w1'), agent('w2', { parentId: 'w1' }), agent('w3', { parentId: 'w2' })];
+  const statuses = { w1: 'done', w2: 'done', w3: 'done' };
+  const orch = (maxDepth) => orchWith(chain, { settings: { ...core.DEFAULT_SETTINGS, maxDepth } });
+  assert.match(core.canLaunch(orch(2), statuses, 'w2'), /Profondeur maximale atteinte \(2 niveaux/);
+  assert.strictEqual(core.canLaunch(orch(2), statuses, 'w1'), null);
+  assert.strictEqual(core.canLaunch(orch(3), statuses, 'w2'), null);
+  assert.match(core.canLaunch(orch(3), statuses, 'w3'), /\(3 niveaux/);
+});
+
+test('system prompts state the configured depth', () => {
+  const settings = { ...core.DEFAULT_SETTINGS, maxDepth: 3 };
+  assert.match(core.masterSystemPrompt({ settings, root: '/cockpit' }), /3 levels deep below you/);
+  assert.match(core.agentSystemPrompt({ agent: agent('w2'), masterWorktree: 'wt', isolated: false, root: '/cockpit', settings }), /3 levels deep below the master/);
+});
