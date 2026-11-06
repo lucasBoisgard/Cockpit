@@ -85,13 +85,13 @@ const launch = (name, cwd, args, settings = {}) => launchClaude(name, cwd, args,
 // --allowedTools takes several values: it is always followed by another flag, never by the prompt.
 function agentArgs(orch, agent, { resume, prompt }) {
   if (agent.provider === 'codex') {
-    const rules = core.agentSystemPrompt({ agent, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT });
+    const rules = core.agentSystemPrompt({ agent, orch, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT });
     // An isolated agent commits on its branch: its git metadata lives outside the worktree.
     return providerCore.launchArgs('codex', { resume, sessionId: agent.sessionId, hookCommand: codexHookCommand(), model: agent.model, effort: agent.effort, mode: agent.mode, rules: resume ? null : rules, prompt, addDirs: agent.isolated && agent.gitDir ? [agent.gitDir] : [] });
   }
   return providerCore.launchArgs('claude', {
     allow: allowList(), resume, sessionId: agent.sessionId, name: `${agent.id} · ${agent.name}`,
-    rules: core.agentSystemPrompt({ agent, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT }),
+    rules: core.agentSystemPrompt({ agent, orch, masterWorktree: orch.worktree, isolated: agent.isolated, branch: agent.branch, root: ROOT }),
     model: agent.model, effort: agent.effort, mode: agent.mode, prompt,
   });
 }
@@ -223,8 +223,9 @@ function launchAgent({ caller, ...input }) {
       const info = await codexInfo();
       if (!info.installed || !info.loggedIn) return { error: info.installed ? 'Codex n’est pas connecté : l’utilisateur doit lancer « codex login ». Lance cet agent avec Claude en attendant.' : 'Codex CLI n’est pas installé sur cette machine : lance cet agent avec Claude.' };
     }
-    const checked = core.validateLaunch(input, orch, input.provider === 'codex' ? await codexCatalog() : undefined);
+    const checked = core.validateLaunch(input, orch, input.provider === 'codex' ? await codexCatalog() : undefined, { inheritMode: true });
     if (checked.error) return checked;
+    if (input.mode && checked.agent.mode !== orch.settings.agentMode) checked.agent.modeOverride = true;
     const kind = input.kind ? String(input.kind) : null;
     if (kind && !matrix.categoryIds().includes(kind)) return { error: `Catégorie inconnue : ${kind} (${matrix.categoryIds().join(', ')}).` };
     checked.agent.kind = kind;
@@ -459,17 +460,22 @@ function propagateMode(masterId, mode) {
     const master = rawMaster ? effectiveStatus(rawMaster, panes, Date.now()) : null;
     const masterStatus = master && paneOf(master, panes) ? turnStatus(master) : 'ended';
     const plan = orch.agents.map((agent) => {
-      const action = modeCore.agentModeAction({ provider: agent.provider || 'claude', status: statuses[agent.id], permission: !!sessions[agent.id]?.permission });
+      const kept = !!agent.modeOverride && modeCore.isStricter(agent.mode, mode);
+      const action = modeCore.agentModeAction({ provider: agent.provider || 'claude', status: statuses[agent.id], permission: !!sessions[agent.id]?.permission, kept });
       const inSync = agent.mode === mode && !agent.modePending;
-      return { agent, action: inSync && action !== 'cycle' ? 'skip' : action };
+      return { agent, action: inSync && !['cycle', 'keep'].includes(action) ? 'skip' : action };
     });
     mutate(masterId, (o) => {
-      for (const a of o.agents) a.mode = mode;
+      for (const a of o.agents) {
+        if (plan.find((p) => p.agent.id === a.id)?.action === 'keep') continue;
+        a.mode = mode;
+        delete a.modeOverride;
+      }
     });
     const outcomes = new Map();
     const alone = plan.filter((p) => p.action !== 'relaunch');
     await Promise.all([
-      ...alone.map(async (p) => outcomes.set(p.agent.id, p.action === 'skip' ? 'unchanged' : await runModeAction(masterId, p.agent, p.action, mode))),
+      ...alone.map(async (p) => outcomes.set(p.agent.id, p.action === 'skip' ? 'unchanged' : p.action === 'keep' ? 'kept' : await runModeAction(masterId, p.agent, p.action, mode))),
       (async () => {
         const action = modeCore.masterModeAction(masterStatus);
         outcomes.set('master', action === 'record' ? 'recorded' : action === 'cycle' ? await cycleOutcome(masterId, mode) : 'deferred');
@@ -520,6 +526,12 @@ function applyPendingMasterMode(masterId) {
   });
 }
 
+// Tells every agent that still runs about the new autonomy level; a stopped one reads it in its rules on resume.
+async function notifyAutonomy(orch, autonomy) {
+  const outcomes = await Promise.all(orch.agents.filter((a) => !a.stoppedAt).map((a) => deliver(a.sessionId, core.autonomyNotice(autonomy), true)));
+  return outcomes.filter((o) => o === 'sent' || o === 'queued').length;
+}
+
 async function updateSettings({ master, ...input }) {
   const orch = load()[String(master || '')];
   if (!orch) return { error: 'Maître inconnu.' };
@@ -529,12 +541,16 @@ async function updateSettings({ master, ...input }) {
     o.settings = normalized.settings;
   });
   const modeText = input.agentMode !== undefined ? await propagateMode(orch.masterSessionId, normalized.settings.agentMode) : null;
+  const autonomyChanged = normalized.settings.autonomy !== orch.settings.autonomy;
+  const notified = autonomyChanged ? await notifyAutonomy(load()[orch.masterSessionId] || orch, normalized.settings.autonomy) : null;
   mutate(orch.masterSessionId, (o) => {
-    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, autonomie ${normalized.settings.autonomy}, permissions ${modeText || modeCore.MODE_LABELS[normalized.settings.agentMode]}` }, Date.now());
+    const autonomy = `autonomie ${normalized.settings.autonomy}${notified === null ? '' : ` (${notified} agent${notified > 1 ? 's' : ''} prévenu${notified > 1 ? 's' : ''})`}`;
+    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, ${autonomy}, permissions ${modeText || modeCore.MODE_LABELS[normalized.settings.agentMode]}` }, Date.now());
   });
   const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
-  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}`, true);
-  return { ok: true, modes: modeText };
+  const autonomyNote = notified === null ? '' : `\nLe cockpit a prévenu tes agents en cours (${notified}) du nouveau niveau d'autonomie.`;
+  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}${autonomyNote}`, true);
+  return { ok: true, modes: modeText, notified };
 }
 
 function endOrchestration({ master, stopAgents }) {

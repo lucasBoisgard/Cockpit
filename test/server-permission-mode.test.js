@@ -67,3 +67,20 @@ test('modeSummary counts what happened to each agent and to the master', () => {
   assert.strictEqual(core.modeSummary('default', [], 'recorded'), 'par défaut (aucun agent à mettre à jour)');
   assert.strictEqual(core.modeSummary('auto', ['unchanged'], 'deferred'), 'auto (1 déjà dans ce mode, maître à la fin de son tour)');
 });
+
+test('overrideError lets an agent be stricter than its orchestration, never looser', () => {
+  assert.strictEqual(core.overrideError('plan', 'auto'), null);
+  assert.strictEqual(core.overrideError('plan', 'acceptEdits'), null);
+  assert.strictEqual(core.overrideError('default', 'acceptEdits'), null);
+  assert.strictEqual(core.overrideError('acceptEdits', 'acceptEdits'), null);
+  assert.strictEqual(core.overrideError(null, 'plan'), null);
+  assert.match(core.overrideError('auto', 'acceptEdits'), /refusé/);
+  assert.match(core.overrideError('acceptEdits', 'default'), /refusé/);
+  assert.match(core.overrideError('default', 'plan'), /aucun mode plus strict/);
+});
+
+test('an agent launched stricter keeps its mode when the new mode is looser', () => {
+  assert.strictEqual(core.agentModeAction({ provider: 'claude', status: 'working', kept: true }), 'keep');
+  assert.strictEqual(core.agentModeAction({ provider: 'codex', status: 'stopped', kept: true }), 'keep');
+  assert.strictEqual(core.modeSummary('auto', ['kept', 'applied'], null), 'auto (1 agent mis à jour, 1 gardent leur mode plus strict)');
+});

@@ -1,4 +1,5 @@
 const providers = require('./providers');
+const permissionMode = require('./permission-mode');
 
 // Pure decisions of the agent orchestration: a master session plans phases and launches agents
 // (real Claude sessions in tmux), the cockpit tracks them and wakes the master when one finishes.
@@ -48,7 +49,8 @@ function validatePhases(phases) {
 }
 
 // `models`: the provider's model catalog when it is not fixed (Codex); Claude's list is known.
-function validateLaunch(input = {}, orch, models) {
+// `inheritMode`: an agent launched into the orchestration may only be stricter than its mode.
+function validateLaunch(input = {}, orch, models, { inheritMode = false } = {}) {
   const name = String(input.name || '').trim();
   if (!name || name.length > 80) return { error: 'Donne un nom court à l\'agent (80 caractères au plus).' };
   const brief = String(input.brief || '').trim();
@@ -58,6 +60,10 @@ function validateLaunch(input = {}, orch, models) {
   const settings = providers.validateSettings(provider, { model: input.model, effort: input.effort, mode: input.mode || orch.settings.agentMode }, provider === 'claude' ? MODELS : models);
   if (settings.error) return settings;
   const { model, effort, mode } = settings;
+  if (input.mode && inheritMode) {
+    const refused = permissionMode.overrideError(mode, orch.settings.agentMode);
+    if (refused) return { error: refused };
+  }
   const skills = (Array.isArray(input.skills) ? input.skills : input.skill ? [input.skill] : []).map((s) => String(s).trim()).filter(Boolean);
   if (skills.some((s) => !/^[\w:.-]{1,80}$/.test(s))) return { error: 'Nom de skill invalide.' };
   let phase = input.phase === undefined || input.phase === null || input.phase === '' ? null : Number(input.phase);
@@ -176,19 +182,39 @@ function masterSystemPrompt({ settings, root }) {
   ].join('\n');
 }
 
-function agentSystemPrompt({ agent, masterWorktree, isolated, branch, root }) {
+// 1 for an agent the master launched, +1 for each level of agent below it.
+function agentDepth(orch, agent) {
+  return (agent.parentId ? depthOf(orch, agent.parentId) : 0) + 1;
+}
+
+function canLaunchSubAgents(orch, agent) {
+  return agent.provider !== 'codex' && agentDepth(orch, agent) < MAX_DEPTH;
+}
+
+function agentSystemPrompt({ agent, orch = { settings: DEFAULT_SETTINGS, agents: [] }, masterWorktree, isolated, branch, root }) {
+  const parent = agent.parentId ? orch.agents.find((a) => a.id === agent.parentId) : null;
+  const boss = parent ? `agent ${parent.id} ("${parent.name}"), who launched you` : 'the master';
+  const autonomy = orch.settings?.autonomy || DEFAULT_SETTINGS.autonomy;
   return [
-    `You are agent ${agent.id} ("${agent.name}") of a team orchestrated by a master session in the Cockpit (worktree ${masterWorktree}). The first message is your brief from the master.`,
-    'Work autonomously on that brief only. Never ask the user questions and never use AskUserQuestion: when you are blocked or need a decision, end your turn with a message that starts with "BLOQUÉ :" and states the question, the options you see and the one you recommend. The master answers you.',
-    'Your last message of each turn is read by the master: make it a short report (what you did, the files you changed, what is left or uncertain), in French.',
+    `You are agent ${agent.id} ("${agent.name}") of a team orchestrated by a master session in the Cockpit (worktree ${masterWorktree}). ${parent ? `You were launched by ${boss}; ` : ''}The first message is your brief from ${parent ? 'it' : 'the master'}.`,
+    `Work autonomously on that brief only. Never ask the user questions and never use AskUserQuestion: when you are blocked or need a decision, end your turn with a message that starts with "BLOQUÉ :" and states the question, the options you see and the one you recommend. ${parent ? `${boss[0].toUpperCase()}${boss.slice(1)}` : 'The master'} answers you.`,
+    `How often the master involves the user in this orchestration: ${AUTONOMY[autonomy]} The cockpit tells you if it changes.`,
+    `Your last message of each turn is read by ${parent ? `agent ${parent.id}` : 'the master'}: make it a short report (what you did, the files you changed, what is left or uncertain), in French.`,
     ...(agent.skills.length ? [`Load these skills with the Skill tool before you start: ${agent.skills.join(', ')}.`] : []),
     isolated
       ? `You work in your own worktree on branch ${branch}. Commit your work on that branch before your final report; the master merges it. Never push.`
       : 'Other agents work in the same worktree at the same time: only touch the files your brief needs, and never run git commit, checkout, reset, stash, rebase or push unless your brief says so.',
     agent.provider === 'codex'
       ? 'You cannot reach the cockpit from your sandbox: never try to launch sub-agents.'
-      : `If your brief explicitly allows it, you may launch sub-agents with ${cliCommand(root)} (see ${root}/skills/orchestrate/SKILL.md).`,
+      : canLaunchSubAgents(orch, agent)
+        ? `If your brief explicitly allows it, you may launch sub-agents with ${cliCommand(root)} (see ${root}/skills/orchestrate/SKILL.md).`
+        : 'You are at the maximum depth of the agent tree: you cannot launch sub-agents, the cockpit refuses it. Do the work yourself.',
   ].join('\n');
+}
+
+// What the cockpit tells a running agent when the autonomy level changes.
+function autonomyNotice(autonomy) {
+  return `[cockpit] Le niveau d'autonomie de l'orchestration a changé. How often the master involves the user is now: ${AUTONOMY[autonomy]}`;
 }
 
 // Finds which orchestration a session belongs to: as its master, or as one of its agents.
@@ -205,6 +231,7 @@ function findBySession(store, sessionId) {
 }
 
 module.exports = {
+  agentDepth, canLaunchSubAgents, autonomyNotice,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, agentStatus, canLaunch,
   currentPhase, masterState, counts, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
