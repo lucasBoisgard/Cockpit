@@ -169,6 +169,7 @@ const writeActions = {
   '/api/orch/pause': (body) => orchestration.setPaused(body),
   '/api/orch/settings': (body) => orchestration.updateSettings(body),
   '/api/orch/end': (body) => orchestration.endOrchestration(body),
+  '/api/orch/new': (body) => orchestration.newJob(body),
 };
 
 const terminalActions = {

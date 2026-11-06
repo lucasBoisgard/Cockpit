@@ -11,6 +11,7 @@ const CALLER = process.env.COCKPIT_CALLER || process.env.CLAUDE_CODE_SESSION_ID 
 const USAGE = `orchestrate <commande>
 
   status                         état de l'équipe (phases, agents, derniers événements)
+  new "<objectif>"               clôt le job livré et repart d'un board vierge (refusé si un agent travaille encore)
   plan <phase> <phase>…          définit les phases, dans l'ordre (numérotées à partir de 1)
   skills                         skills disponibles pour les agents
   models                         fournisseurs (Claude, GPT via Codex), leurs modèles et leurs niveaux d'effort
@@ -109,6 +110,10 @@ async function main() {
   switch (command) {
     case 'status':
       return printStatus(await call(`/api/orch${q()}`));
+    case 'new': {
+      const r = await call('/api/orch/new', { goal: rest.join(' ') });
+      return console.log(`Job ${r.job} ouvert : le board est vierge, les agents repartent de w1. L'ancien job reste dans l'historique.`);
+    }
     case 'plan': {
       const r = await call('/api/orch/plan', { phases: rest });
       return console.log(`Plan enregistré : ${r.phases.map((p, i) => `${i + 1}. ${p}`).join('  ')}`);

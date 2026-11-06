@@ -246,3 +246,23 @@ test('strictest picks the stricter permission mode', () => {
   assert.strictEqual(pm.strictest('plan', 'default'), 'plan');
   assert.strictEqual(pm.strictest('default', undefined), 'default');
 });
+
+test('agentTag keeps job 1 names and tells later jobs apart', () => {
+  assert.strictEqual(core.agentTag({ masterSessionId: 'abcd-1', job: undefined }, 'w1'), 'abcd-w1');
+  assert.strictEqual(core.agentTag({ masterSessionId: 'abcd-1', job: 2 }, 'w1'), 'abcd-j2-w1');
+});
+
+test('freshJob keeps the settings and master, empties the rest, and findBySession ignores the archive', () => {
+  const old = { masterSessionId: 'm1', worktree: 'wt', goal: 'old', settings: { ...core.DEFAULT_SETTINGS, maxAgents: 2 }, phases: ['A'], agents: [agent('w1', { sessionId: 's1' })], events: [], createdAt: 1 };
+  const fresh = core.freshJob(old, 'new', 9);
+  assert.deepStrictEqual([fresh.masterSessionId, fresh.goal, fresh.phases, fresh.agents, fresh.job, fresh.settings.maxAgents], ['m1', 'new', [], [], 2, 2]);
+  const store = { m1: fresh, [core.archiveKey(old)]: { ...old, endedAt: 5, archivedOf: 'm1' } };
+  assert.strictEqual(core.findBySession(store, 's1'), null);
+  assert.strictEqual(core.findBySession(store, 'm1').orch, fresh);
+});
+
+test('newJobRefusal names the agents that still work', () => {
+  const orch = orchWith([agent('w1'), agent('w2'), agent('w3')]);
+  assert.strictEqual(core.newJobRefusal(orch, { w1: 'done', w2: 'stopped', w3: 'done' }), null);
+  assert.match(core.newJobRefusal(orch, { w1: 'working', w2: 'needs', w3: 'done' }), /w1, w2/);
+});

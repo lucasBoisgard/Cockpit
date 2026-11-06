@@ -9,7 +9,7 @@ const ORCH_AUTONOMY = { blocking: 'Seulement si bloquant', milestones: 'Aux éta
 const ORCH_COL = 270;
 const ORCH_SIZE = { master: [220, 74], phase: [170, 52], agent: [240, 68] };
 const ORCH_VGAP = 14;
-const orchUi = { byPhase: localGet('orchByPhase') !== '0', zoom: 1, collapsed: new Set(), pick: {}, inspector: {}, compose: false, settings: false, signature: '' };
+const orchUi = { history: false, byPhase: localGet('orchByPhase') !== '0', zoom: 1, collapsed: new Set(), pick: {}, inspector: {}, compose: false, settings: false, signature: '' };
 
 const currentOrch = () => (currentWt() ? orchestrationOf(currentWt()) : null);
 
@@ -158,6 +158,17 @@ function orchSettings(orch) {
     <div class="orch-row"><button class="btn primary">Appliquer</button><button type="button" class="btn orch-danger" data-orch-end>Terminer l’orchestration</button></div></form>`;
 }
 
+function orchHistory(orch) {
+  const items = [...(orch.history || [])].reverse().map((j) => `<li><b>Job ${j.job}</b> · ${new Date(j.endedAt).toLocaleDateString('fr-FR')}<p>${esc(oneLineText(j.goal, 160))}</p><span class="orch-muted">${j.agents.length} agent${j.agents.length > 1 ? 's' : ''}${j.agents.length ? ` · ${esc(j.agents.map((a) => a.id).join(', '))}` : ''}</span></li>`).join('');
+  return `<div class="orch-settings orch-history"><ul>${items}</ul></div>`;
+}
+
+function orchHistoryButton(orch) {
+  const n = orch.history?.length || 0;
+  if (!n) return '';
+  return `<span class="orch-pop"><button class="orch-btn" data-orch-history-open aria-expanded="${orchUi.history}">Jobs précédents (${n})</button>${orchUi.history ? orchHistory(orch) : ''}</span>`;
+}
+
 function orchFinishedButton(orch) {
   const n = hiddenAgentIds(orch.agents).size;
   return n || (finishedUi.show && orch.counts.stopped) ? `<button class="orch-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedLabel(n)}</button>` : '';
@@ -170,7 +181,7 @@ function renderOrchestration(force = false) {
   const master = orch.masterSessionId;
   const pick = orchUi.pick[master] || null;
   const inspector = orchUi.inspector[master] && pick;
-  const signature = JSON.stringify([orch, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings]);
+  const signature = JSON.stringify([orch, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings, orchUi.history]);
   if (!force && signature === orchUi.signature) return;
   orchUi.signature = signature;
   const layout = orchLayout(orchTree(orch));
@@ -189,6 +200,7 @@ function renderOrchestration(force = false) {
       <div class="orch-seg" role="group" aria-label="Regroupement"><button data-orch-group="1" aria-pressed="${orchUi.byPhase}">Par phase</button><button data-orch-group="0" aria-pressed="${!orchUi.byPhase}">Par agent</button></div>
       ${orchUi.collapsed.size ? '<button class="orch-btn" data-orch-expand>Tout déplier</button>' : ''}
       ${orchFinishedButton(orch)}
+      ${orchHistoryButton(orch)}
       <span class="orch-grow"></span>
       <button class="orch-btn ${orch.paused ? 'is-on' : ''}" data-orch-pause="${orch.paused ? '0' : '1'}">${orch.paused ? 'Reprendre' : 'Pause'}</button>
       <span class="orch-pop"><button class="orch-btn" data-orch-settings-open aria-expanded="${orchUi.settings}">Réglages</button>${orchUi.settings ? orchSettings(orch) : ''}</span>
@@ -237,6 +249,7 @@ $('orch-view').addEventListener('click', (e) => {
   if (zoom) { const d = Number(zoom.dataset.orchZoom); orchUi.zoom = d === 0 ? 1 : Math.max(0.5, Math.min(1.6, orchUi.zoom * (d > 0 ? 1.15 : 1 / 1.15))); renderOrchestration(); return; }
   const pause = t.closest('[data-orch-pause]');
   if (pause) { orchPost('/api/orch/pause', { master, paused: pause.dataset.orchPause === '1' }, pause.dataset.orchPause === '1' ? 'Maître en pause : plus aucun nouvel agent.' : 'Maître relancé.'); return; }
+  if (t.closest('[data-orch-history-open]')) { orchUi.history = !orchUi.history; renderOrchestration(); return; }
   if (t.closest('[data-orch-settings-open]')) { orchUi.settings = !orchUi.settings; renderOrchestration(); return; }
   if (t.closest('[data-orch-end]')) {
     if (!confirm('Terminer l’orchestration ? Les agents encore actifs sont arrêtés ; leurs conversations restent.')) return;

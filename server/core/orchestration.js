@@ -250,6 +250,48 @@ function autonomyNotice(autonomy) {
   return `[cockpit] Le niveau d'autonomie de l'orchestration a changé. How often the master involves the user is now: ${AUTONOMY[autonomy]}`;
 }
 
+// A new job on the same master closes the current orchestration. Agents still busy are never cut off:
+// the master finishes or stops them first. Agents that merely finished their turn are stopped by the caller.
+function newJobRefusal(orch, statuses) {
+  const busy = orch.agents.filter((a) => ['starting', 'working', 'needs'].includes(statuses[a.id]));
+  if (!busy.length) return null;
+  return `${busy.map((a) => a.id).join(', ')} travaille${busy.length > 1 ? 'nt' : ''} encore : attends leur fin ou arrête-les (orchestrate stop), puis relance « orchestrate new ».`;
+}
+
+const jobNumber = (orch) => orch.job || 1;
+
+const archiveKey = (orch) => `${orch.masterSessionId}#job${jobNumber(orch)}`;
+
+// Same master session and settings, empty plan, no agent, ids from w1 again. The goal is the new one.
+function freshJob(orch, goal, now) {
+  return {
+    masterSessionId: orch.masterSessionId,
+    worktree: orch.worktree,
+    goal: String(goal).slice(0, 2000),
+    model: orch.model,
+    effort: orch.effort,
+    tmux: orch.tmux,
+    job: jobNumber(orch) + 1,
+    phases: [], agents: [], events: [{ at: now, type: 'start', text: `Nouveau job : ${oneLine(goal, 160)}` }], paused: false, pendingWake: [],
+    settings: { ...orch.settings },
+    createdAt: now,
+  };
+}
+
+// Isolated worktrees and branches of a later job carry the job number so that a new w1 never collides with an archived one.
+function agentTag(orch, agentId) {
+  const base = `${orch.masterSessionId.slice(0, 4)}-`;
+  return jobNumber(orch) > 1 ? `${base}j${jobNumber(orch)}-${agentId}` : `${base}${agentId}`;
+}
+
+// Archived jobs of a master, oldest first, as slim summaries for the history entry.
+function jobHistory(store, masterSessionId) {
+  return Object.values(store)
+    .filter((o) => o.archivedOf === masterSessionId)
+    .sort((a, b) => jobNumber(a) - jobNumber(b))
+    .map((o) => ({ job: jobNumber(o), goal: o.goal || '', startedAt: o.createdAt, endedAt: o.endedAt, phases: o.phases, agents: o.agents.map((a) => ({ id: a.id, name: a.name, branch: a.branch || null })) }));
+}
+
 // Finds which orchestration a session belongs to: as its master, or as one of its agents.
 // Ended orchestrations are kept for a while as history but no longer own their sessions.
 function findBySession(store, sessionId) {
@@ -268,5 +310,5 @@ module.exports = {
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
   currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
-  masterSystemPrompt, agentSystemPrompt, findBySession,
+  masterSystemPrompt, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, agentTag, jobHistory,
 };

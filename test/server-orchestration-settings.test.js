@@ -27,7 +27,7 @@ const delivered = [];
 const queue = require('../server/features/queue');
 queue.sendToSession = async (sessionId, text) => { sent.push({ sessionId, text }); return true; };
 queue.deliver = async (sessionId, text) => { delivered.push({ sessionId, text }); return 'sent'; };
-const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks } = require('../server/features/orchestration');
+const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks, newJob, orchestrationViews } = require('../server/features/orchestration');
 require('../server/features/agent-mode').timing.attempts = 2;
 require('../server/features/agent-mode').timing.gapMs = 1;
 const core = require('../server/core/orchestration');
@@ -234,4 +234,45 @@ test('a resumed child is never looser than its parent, and resume ignores the de
   const [launch] = launches();
   const mode = launch.indexOf('--permission-mode');
   assert.deepStrictEqual(launch.slice(mode, mode + 2), ['--permission-mode', 'plan']);
+});
+
+const store = () => JSON.parse(fs.readFileSync(path.join(home, '.claude', 'worktree-orchestration.json'), 'utf8'));
+
+test('a new job archives the current one, stops finished agents and opens a blank orchestration with the same settings', async () => {
+  writeState('s-w1', 'done', '%900001');
+  const settings = { ...core.DEFAULT_SETTINGS, maxAgents: 3 };
+  seed([agent('w1')], { goal: 'old', phases: ['A'], settings });
+  const result = await newJob({ caller: 'm1', goal: 'next job' });
+  assert.deepStrictEqual([result.ok, result.job], [true, 2]);
+  const all = store();
+  const fresh = all.m1;
+  assert.deepStrictEqual([fresh.goal, fresh.phases, fresh.agents, fresh.job, !!fresh.endedAt], ['next job', [], [], 2, false]);
+  assert.deepStrictEqual(fresh.settings, settings);
+  const archived = all['m1#job1'];
+  assert.ok(archived.endedAt);
+  assert.strictEqual(archived.archivedOf, 'm1');
+  assert.ok(archived.agents[0].stoppedAt);
+  assert.strictEqual(core.nextAgentId(fresh), 'w1');
+  const views = await orchestrationViews();
+  assert.deepStrictEqual(views.active.m1.history.map((j) => [j.job, j.goal]), [[1, 'old']]);
+  assert.ok(views.ended['m1#job1']);
+  assert.strictEqual(core.findBySession(all, 's-w1'), null);
+});
+
+test('a new job is refused while an agent works, and only the master can ask for it', async () => {
+  writeState('s-w1', 'working', '%900001');
+  seed([agent('w1')]);
+  assert.match((await newJob({ caller: 'm1', goal: 'x' })).error, /w1/);
+  assert.strictEqual(store()['m1#job1'], undefined);
+  assert.ok((await newJob({ caller: 's-w1', goal: 'x' })).error);
+  assert.ok((await newJob({ caller: 'm1', goal: ' ' })).error);
+});
+
+test('a second archived job gets its own key and the history lists both', async () => {
+  seed([]);
+  await newJob({ caller: 'm1', goal: 'two' });
+  await newJob({ caller: 'm1', goal: 'three' });
+  const all = store();
+  assert.deepStrictEqual(Object.keys(all).sort(), ['m1', 'm1#job1', 'm1#job2']);
+  assert.deepStrictEqual(core.jobHistory(all, 'm1').map((j) => j.job), [1, 2]);
 });

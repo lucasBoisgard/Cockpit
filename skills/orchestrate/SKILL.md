@@ -29,6 +29,7 @@ Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`
 | `orchestrate read w3` | The agent's full last report and the files it changed |
 | `orchestrate send w3 "…"` | Writes to an agent (queued until its turn ends if it is working) |
 | `orchestrate stop w3` | Stops an agent (its conversation is kept). Stop agents once their work is integrated and you no longer need to talk to them |
+| `orchestrate new "<goal>"` | Closes the delivered job and starts a blank board for the same session (see "A new job"). Refused while an agent is still working |
 | `orchestrate resume w3 "…"` | Restarts a stopped agent with a message |
 
 Agent statuses: `démarre`, `travaille`, `ATTEND L'UTILISATEUR` (a permission prompt only the user
@@ -56,6 +57,17 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
 6. **Deliver.** Summarize for the user: what was done, by which agents, what was checked, what is
    left. Pushing, opening a pull request or anything irreversible needs the user's go unless the goal
    says otherwise.
+
+## A new job
+
+Once a job is delivered and reported, and the user asks for a new one, run `orchestrate new "<goal>"`
+**before anything else** (before `plan`, before any launch). The cockpit archives the delivered job
+(still readable under "Jobs précédents"), stops the agents that only finished their turn, and gives
+you an empty board: no plan, no agent, ids from `w1` again, same settings. If it refuses because an
+agent is still working, wait for it or stop it, then retry.
+
+Close delivered topics yourself too: stop the agents whose work is integrated, remove merged worktrees
+(`git worktree remove`) and delete their merged branches.
 
 ## Choosing each agent's settings
 

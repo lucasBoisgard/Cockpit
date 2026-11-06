@@ -188,12 +188,11 @@ async function setPlan({ caller, phases }) {
 
 // An isolated agent works next to the master's worktree, on a branch made from its HEAD.
 // The master's id is in the names so that a later master in the same worktree never collides.
-async function isolatedWorktree(baseCwd, masterWorktree, masterSessionId, agentId) {
+async function isolatedWorktree(baseCwd, masterWorktree, tag) {
   const top = await toplevel(baseCwd);
   const common = ((await git(top, ['rev-parse', '--path-format=absolute', '--git-common-dir'])) || '').trim();
   const repo = path.basename(common) === '.git' ? path.dirname(common) : top;
   const base = ((await git(top, ['rev-parse', '--abbrev-ref', 'HEAD'])) || '').trim();
-  const tag = `${masterSessionId.slice(0, 4)}-${agentId}`;
   const folder = `${masterWorktree}--${tag}`.replace(/[^\w.-]/g, '-');
   const branch = `${base && base !== 'HEAD' ? base : `orchestration/${masterWorktree}`}--${tag}`;
   const dir = top === repo ? path.join(path.dirname(repo), `${path.basename(repo)}-worktrees`, folder) : path.join(path.dirname(top), folder);
@@ -239,7 +238,7 @@ function launchAgent({ caller, ...input }) {
     const id = core.nextAgentId(orch);
     const agent = { id, ...checked.agent, parentId, sessionId: checked.agent.provider === 'codex' ? null : crypto.randomUUID(), createdAt: Date.now(), cwd: await toplevel(parentCwd), worktree: found.agent?.worktree || orch.worktree };
     if (agent.isolated) {
-      const made = await isolatedWorktree(agent.cwd, orch.worktree, orch.masterSessionId, id);
+      const made = await isolatedWorktree(agent.cwd, orch.worktree, core.agentTag(orch, id));
       if (made.error) return made;
       Object.assign(agent, { cwd: made.cwd, worktree: made.worktree, branch: made.branch, gitDir: made.gitDir });
     }
@@ -385,13 +384,15 @@ function agentView(agent, status, session) {
   };
 }
 
-function view(orch, panes) {
+function view(orch, panes, store = load()) {
   const { statuses, sessions } = liveStatuses(orch, panes);
   const rawMaster = readSession(orch.masterSessionId);
   const master = rawMaster ? effectiveStatus(rawMaster, panes, Date.now()) : null;
   const masterStatus = master ? (paneOf(master, panes) ? turnStatus(master) : 'ended') : 'starting';
   return {
     masterSessionId: orch.masterSessionId,
+    job: core.jobNumber(orch),
+    history: core.jobHistory(store, orch.masterSessionId),
     worktree: orch.worktree,
     goal: orch.goal,
     settings: { ...orch.settings, maxDepth: core.maxDepth(orch.settings) },
@@ -421,9 +422,10 @@ async function orchestrationViews(givenPanes) {
   attachPending();
   const active = {};
   const ended = {};
-  for (const orch of Object.values(load())) {
-    if (!orch.endedAt) active[orch.masterSessionId] = view(orch, panes);
-    else ended[orch.masterSessionId] = core.agentRefs(orch, liveStatuses(orch, panes).statuses);
+  const store = load();
+  for (const [key, orch] of Object.entries(store)) {
+    if (!orch.endedAt) active[orch.masterSessionId] = view(orch, panes, store);
+    else ended[key] = core.agentRefs(orch, liveStatuses(orch, panes).statuses);
   }
   return { active, ended };
 }
@@ -650,6 +652,33 @@ function endOrchestration({ master, stopAgents }) {
   });
 }
 
+// A new job on the same master: the current orchestration is archived (readable as history, kept 7 days
+// like any ended one) and a blank one replaces it. Agents that only finished their turn are stopped,
+// agents still working make the command refuse so that no work is cut off.
+function newJob({ caller, goal }) {
+  return locked(async () => {
+    const found = resolveCaller(load(), caller);
+    if (found.error) return found;
+    if (found.agent) return { error: 'Seul le maître ouvre un nouveau job.' };
+    const text = String(goal || '').trim();
+    if (!text) return { error: 'Donne l\'objectif du nouveau job.' };
+    const { orch } = found;
+    const refusal = core.newJobRefusal(orch, liveStatuses(orch, await livePanes()).statuses);
+    if (refusal) return { error: refusal, refused: true };
+    for (const agent of orch.agents) if (!agent.stoppedAt) await killAgent(orch, agent, 'Nouveau job : arrêt de');
+    const store = load();
+    const current = store[orch.masterSessionId];
+    if (!current || current.endedAt) return { error: 'Orchestration introuvable.' };
+    const now = Date.now();
+    const fresh = core.freshJob(current, text, now);
+    core.pushEvent(current, { type: 'end', text: 'Job livré, nouveau job ouvert' }, now);
+    store[core.archiveKey(current)] = { ...current, endedAt: now, archivedOf: current.masterSessionId };
+    store[orch.masterSessionId] = fresh;
+    save(store);
+    return { ok: true, job: fresh.job, archived: core.archiveKey(current) };
+  });
+}
+
 // The master rates an agent's work once it has checked it: the rating feeds the relevance matrix.
 async function rateAgent({ caller, id, score, note, kind }) {
   const found = agentOf(load(), caller, id);
@@ -739,6 +768,6 @@ function activeAgentsBySession(views) {
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
-  setPaused, updateSettings, endOrchestration, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
+  setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree,
 };
