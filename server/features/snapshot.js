@@ -10,7 +10,7 @@ const { cachedSnapshot, storeSnapshot } = require('../cache');
 const { listWorktrees, livePanes, describe, hasTranscript, externalRepos, repoOf, baseBranchOf } = require('./worktrees');
 const { agentsRunning, forgetOld } = require('./agents');
 const { appState } = require('./app');
-const { readUsageSnapshots } = require('./usage');
+const { readUsageSnapshots, codexUsage } = require('./usage');
 const { cachedPr } = require('./pr');
 const { eventsSeq } = require('./events');
 const { loadQueues } = require('./queue');
@@ -28,7 +28,8 @@ async function snapshot() {
   const described = await Promise.all(worktrees.map(describe));
   const byPath = new Map(described.map((d) => [d.path, d]));
   const snapshots = readUsageSnapshots();
-  const usageBySession = new Map(snapshots.map((u) => [u.sessionId, u]));
+  const codex = codexUsage();
+  const usageBySession = new Map([...codex.sessions, ...snapshots].map((u) => [u.sessionId, u]));
   const queues = loadQueues();
   const links = loadStore('worktree-links.json', {});
   const orch = await orchestrations(panes);
@@ -89,7 +90,7 @@ async function snapshot() {
     worktrees: described,
     shell: { live: shellLive },
     app,
-    limits: latestLimits(snapshots),
+    limits: { claude: latestLimits(snapshots), codex: codex.limits },
     archives: loadStore('worktree-archive.json', []),
     orchestrations: orch,
     lastEventId: eventsSeq(),

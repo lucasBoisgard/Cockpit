@@ -45,7 +45,7 @@ function renderPanelBody() {
   }
   if (selected === USAGE) {
     delete $('panel-head').dataset.html;
-    $('panel-head').innerHTML = `<div><div class="name">Tokens</div><div class="branch">limites du compte, sessions et usage des 7 derniers jours</div></div>${headEnd()}`;
+    $('panel-head').innerHTML = `<div><div class="name">Tokens</div><div class="branch">limites Claude et GPT, sessions et usage des 7 derniers jours</div></div>${headEnd()}`;
     renderUsage();
     return;
   }
