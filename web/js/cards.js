@@ -25,8 +25,8 @@ function renderCounters() {
   $('tools-menu').querySelector('summary').textContent = 'Outils ▾';
   $('topbar-tools').innerHTML = '';
   $('repo-title').innerHTML = `Worktrees<span class="repo" title="${esc(state.repo)}">${esc(state.repoName)}</span>`;
-  const count = (st) => state.worktrees.filter((w) => sessionStatus(w) === st).length;
-  const dirty = state.worktrees.filter((w) => w.files.length).length;
+  const count = (st) => shownWorktrees().filter((w) => sessionStatus(w) === st).length;
+  const dirty = shownWorktrees().filter((w) => w.files.length).length;
   $('counters').innerHTML = [
     ['needs', count('needs_input'), 'attendent ta réponse'],
     ['working', count('working'), 'en cours'],
@@ -34,7 +34,7 @@ function renderCounters() {
     ['', dirty, 'avec changements'],
   ].map(([cls, n, label]) => `<span class="counter ${n ? cls : ''}">${n} ${label}</span>`).join('')
     + limitAlerts().map((w) => `<span class="counter limit-${w.level}" title="${esc(resetText(w))}">Limite ${esc(w.label)} : ${w.pct} % utilisés</span>`).join('');
-  $('updated').textContent = `${state.worktrees.length} worktrees · mis à jour ${new Date(state.generatedAt).toLocaleTimeString()}`;
+  $('updated').textContent = `${shownWorktrees().length} worktrees · mis à jour ${new Date(state.generatedAt).toLocaleTimeString()}`;
   $('worktree-names').innerHTML = state.worktrees.filter((w) => !w.mainCheckout).map((w) => `<option value="${esc(w.name)}">`).join('');
 }
 
@@ -163,7 +163,8 @@ function archivesSection() {
 }
 
 function renderGrid() {
-  const list = sorted(filter === 'active' ? state.worktrees.filter(isActive) : state.worktrees);
+  const visible = shownWorktrees();
+  const list = sorted(filter === 'active' ? visible.filter(isActive) : visible);
   const standard = list.filter((w) => !w.review);
   const reviews = list.filter((w) => w.review);
   const empty = '<div class="empty">Aucun worktree actif</div>';
@@ -206,6 +207,9 @@ function renderGrid() {
   if (focusIndex >= 0) document.querySelectorAll('#grid .card')[focusIndex]?.classList.add('focused');
   document.querySelectorAll('#filters button').forEach((b) => b.classList.toggle('on', b.dataset.filter === filter));
   document.querySelectorAll('#order-seg button').forEach((b) => b.classList.toggle('on', b.dataset.order === order));
+  const finished = finishedBoardCount();
+  $('finished-toggle').hidden = !finished;
+  $('finished-toggle').textContent = finishedLabel(finished);
   $('selection-bar').hidden = !selecting;
   $('selection-count').textContent = `${picked.size} sélectionnée${picked.size > 1 ? 's' : ''}`;
   renderQueue();

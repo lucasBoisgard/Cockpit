@@ -1,11 +1,12 @@
 function renderChatBar(wt) {
   const chip = branchChip(wt);
-  const signature = `${wt.path}|${wt.sessions.map((s) => `${s.sessionId}:${s.live}:${s.status}`).join(',')}|${chatSession}|${chip}|${prChip(wt.pr)}|${extChips(wt)}`;
+  const listed = wt.sessions.filter((s) => s.sessionId === chatSession || shownSessions(wt).includes(s));
+  const signature = `${wt.path}|${listed.map((s) => `${s.sessionId}:${s.live}:${s.status}`).join(',')}|${chatSession}|${chip}|${prChip(wt.pr)}|${extChips(wt)}`;
   if (signature === chatBarSignature || document.activeElement?.id === 'session-select') return;
   chatBarSignature = signature;
   const onBranch = `<span class="on-branch">Sur <span class="repo-chip">${esc(state.repoName)}</span>${chip}${prChip(wt.pr)}${extChips(wt)}</span>`;
   if (!wt.sessions.length) { $('chat-bar').innerHTML = `${onBranch} · Aucune session suivie pour ce worktree.`; return; }
-  const options = wt.sessions.map((s) => `<option value="${esc(s.sessionId)}" ${s.sessionId === chatSession ? 'selected' : ''}>${s.live ? '⌨ ' : ''}${s.live && (s.status === 'working' || backgroundOnly(s)) ? '● ' : ''}${s.live && s.status === 'needs_input' ? '❓ ' : ''}${esc((s.lastPrompt || s.task || 'Session sans prompt').slice(0, 70))} · ${ago(s.updatedAt)}</option>`).join('');
+  const options = listed.map((s) => `<option value="${esc(s.sessionId)}" ${s.sessionId === chatSession ? 'selected' : ''}>${s.live ? '⌨ ' : ''}${s.live && (s.status === 'working' || backgroundOnly(s)) ? '● ' : ''}${s.live && s.status === 'needs_input' ? '❓ ' : ''}${esc((s.lastPrompt || s.task || 'Session sans prompt').slice(0, 70))} · ${ago(s.updatedAt)}</option>`).join('');
   $('chat-bar').innerHTML = `${onBranch}<label for="session-select">Session</label><select id="session-select">${options}</select>`;
 }
 
