@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { isFinishedAgent, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree } = require('../web/js/finished-agents');
 
-const agent = (id, status, extra = {}) => ({ id, status, parentId: null, sessionId: `s-${id}`, worktree: 'main-wt', phase: 0, stoppedAt: status === 'stopped' ? 1 : null, lost: false, ...extra });
+const agent = (id, status, extra = {}) => ({ id, status, parentId: null, sessionId: `s-${id}`, worktree: 'main-wt', phase: 0, stoppedAt: status === 'stopped' ? 10 : null, lostAt: null, ...extra });
 
 test('only stopped agents are hidden: done agents may still wait for an answer', () => {
   const hidden = hiddenAgentIds([agent('w1', 'stopped'), agent('w2', 'done'), agent('w3', 'working'), agent('w4', 'needs'), agent('w5', 'starting')]);
@@ -29,9 +29,13 @@ test('an agent whose parent is unknown is judged on its own status', () => {
 
 test('an agent that died on its own is not finished: only a stop by the master or the user hides it', () => {
   assert.strictEqual(isFinishedAgent(agent('w1', 'stopped')), true);
-  assert.strictEqual(isFinishedAgent(agent('w1', 'stopped', { lost: true })), false);
+  assert.strictEqual(isFinishedAgent(agent('w1', 'stopped', { lostAt: 20 })), false);
   assert.strictEqual(isFinishedAgent(agent('w1', 'stopped', { stoppedAt: null })), false);
-  assert.strictEqual(hiddenAgentIds([agent('w1', 'stopped', { lost: true })]).size, 0);
+  assert.strictEqual(hiddenAgentIds([agent('w1', 'stopped', { lostAt: 20 })]).size, 0);
+});
+
+test('an agent lost and then stopped on purpose is finished', () => {
+  assert.strictEqual(isFinishedAgent(agent('w1', 'stopped', { lostAt: 5, stoppedAt: 10 })), true);
 });
 
 test('hiddenCountByRoot counts hidden agents under their top-level agent, even below a visible parent', () => {
@@ -42,10 +46,13 @@ test('hiddenCountByRoot counts hidden agents under their top-level agent, even b
 
 test('isFinishedWorktree hides only an idle worktree whose sessions are all hidden agents', () => {
   const scope = { sessions: new Set(['a', 'b']), worktrees: new Set(['wt-x']) };
-  const wt = (extra = {}) => ({ path: '/p/wt-x', name: 'wt-x', sessions: [{ sessionId: 'a' }, { sessionId: 'b' }], files: [], ahead: 0, ...extra });
+  const wt = (extra = {}) => ({ path: '/p/wt-x', name: 'wt-x', sessions: [{ sessionId: 'a' }, { sessionId: 'b' }], files: [], staged: 0, ahead: 0, unmerged: false, ...extra });
   assert.strictEqual(isFinishedWorktree(wt(), scope, null), true);
   assert.strictEqual(isFinishedWorktree(wt({ files: ['x'] }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt({ staged: 1 }), scope, null), false);
   assert.strictEqual(isFinishedWorktree(wt({ ahead: 2 }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt({ unmerged: true }), scope, null), false);
+  assert.strictEqual(isFinishedWorktree(wt({ unmerged: undefined }), scope, null), false);
   assert.strictEqual(isFinishedWorktree(wt({ sessions: [] }), scope, null), false);
   assert.strictEqual(isFinishedWorktree(wt({ sessions: [{ sessionId: 'a' }, { sessionId: 'mine' }] }), scope, null), false);
   assert.strictEqual(isFinishedWorktree(wt(), scope, '/p/wt-x'), false);

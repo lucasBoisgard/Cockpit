@@ -63,7 +63,7 @@ function queueArchives() {
 
 function queueFinished() {
   const n = finishedBoardCount();
-  return n ? `<div class="queue-archives"><button class="queue-section-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedUi.show ? '▾' : '▸'} ${finishedLabel(n)}</button></div>` : '';
+  return n ? `<div class="queue-archives"><button class="queue-section-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedUi.show ? '▾' : '▸'} ${finishedWorktreeLabel(n)}</button></div>` : '';
 }
 
 function renderQueue() {

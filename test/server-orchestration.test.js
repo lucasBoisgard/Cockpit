@@ -125,19 +125,14 @@ test('agentRefs keeps only what the board needs to hide finished agents', () => 
     masterSessionId: 'm',
     worktree: 'wt',
     agents: [
-      { id: 'w1', status: 'stopped', parentId: null, sessionId: 's1', worktree: 'wt', stoppedAt: null, lost: false },
-      { id: 'w2', status: 'working', parentId: 'w1', sessionId: null, worktree: 'wt--w2', stoppedAt: null, lost: true },
+      { id: 'w1', status: 'stopped', parentId: null, sessionId: 's1', worktree: 'wt', stoppedAt: null, lostAt: null },
+      { id: 'w2', status: 'working', parentId: 'w1', sessionId: null, worktree: 'wt--w2', stoppedAt: null, lostAt: 9 },
     ],
   });
 });
 
-test('agentRefs carries stoppedAt and lost so a crashed agent is told from a stopped one', () => {
+test('agentRefs carries stoppedAt and lostAt so a crashed agent is told from a stopped one', () => {
   const orch = orchWith([agent('w1', { stoppedAt: 7 }), agent('w2', { lostAt: 9 })], { masterSessionId: 'm', worktree: 'wt' });
   const refs = core.agentRefs(orch, { w1: 'stopped', w2: 'stopped' }).agents;
-  assert.deepStrictEqual(refs.map((a) => [a.stoppedAt, a.lost]), [[7, false], [null, true]]);
-});
-
-test('settledStatuses skips the live lookup only when every agent was stopped on purpose', () => {
-  assert.deepStrictEqual(core.settledStatuses(orchWith([agent('w1', { stoppedAt: 1 }), agent('w2', { stoppedAt: 2 })])), { w1: 'stopped', w2: 'stopped' });
-  assert.strictEqual(core.settledStatuses(orchWith([agent('w1', { stoppedAt: 1 }), agent('w2')])), null);
+  assert.deepStrictEqual(refs.map((a) => [a.stoppedAt, a.lostAt]), [[7, null], [null, 9]]);
 });

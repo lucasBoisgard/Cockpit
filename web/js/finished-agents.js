@@ -1,10 +1,10 @@
 // Agents the master has stopped have finished their work: the board and the orchestration tree hide them
-// unless the user asks to see them. An agent that died on its own (lost) has not finished and stays visible,
+// unless the user asks to see them. An agent that died on its own (lost after its last stop) has not finished and stays visible,
 // and so does a stopped parent while one of its sub-agents is not hidden.
 // Decisions without DOM, also required by the tests.
 const finishedUi = { show: typeof localGet === 'function' && localGet('showFinished') === '1' };
 
-const isFinishedAgent = (a) => a.status === 'stopped' && !!a.stoppedAt && !a.lost;
+const isFinishedAgent = (a) => a.status === 'stopped' && !!a.stoppedAt && !(a.lostAt > a.stoppedAt);
 
 function hiddenAgentIds(agents) {
   const kids = new Map();
@@ -52,9 +52,10 @@ function hiddenCountByRoot(agents, hidden) {
   return counts;
 }
 
-// A worktree with no session, uncommitted files or unpushed commits still holds work: never hidden.
+// A worktree with no session, files (staged or not), unpushed commits or a branch the master has not merged
+// (`unmerged`, set by the snapshot, is false only once the branch is an ancestor of the master's HEAD) still holds work.
 function isFinishedWorktree(wt, scope, selectedPath) {
-  return wt.path !== selectedPath && scope.worktrees.has(wt.name) && wt.sessions.length > 0 && !wt.files.length && !(wt.ahead > 0)
+  return wt.path !== selectedPath && scope.worktrees.has(wt.name) && wt.sessions.length > 0 && !wt.files.length && !wt.staged && !(wt.ahead > 0) && wt.unmerged === false
     && wt.sessions.every((s) => scope.sessions.has(s.sessionId));
 }
 
@@ -75,7 +76,8 @@ const finishedBoardCount = () => state.worktrees.filter((w) => isFinishedWorktre
 
 const finishedSessionCount = (wt) => wt.sessions.filter((s) => finishedNow().sessions.has(s.sessionId)).length;
 
-const finishedLabel = (n) => (finishedUi.show ? 'Masquer les terminés' : `Afficher ${n} agent${n > 1 ? 's' : ''} terminé${n > 1 ? 's' : ''}`);
+const finishedLabel = (n, noun = 'agent') => (finishedUi.show ? 'Masquer les terminés' : `Afficher ${n} ${noun}${n > 1 ? 's' : ''} terminé${n > 1 ? 's' : ''}`);
+const finishedWorktreeLabel = (n) => finishedLabel(n, 'worktree d’agent');
 
 function setShowFinished(value) {
   finishedUi.show = value;

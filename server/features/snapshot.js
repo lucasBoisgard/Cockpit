@@ -19,6 +19,26 @@ const { pendingScreens } = require('./codex-screens');
 const { orchestrationViews, activeAgentsBySession } = require('./orchestration');
 
 const SIZE_TTL_MS = 10 * 60 * 1000;
+const ancestorCache = new Map();
+
+async function isAncestor(repo, commit, of) {
+  const key = `${repo}:${commit}:${of}`;
+  if (!ancestorCache.has(key)) ancestorCache.set(key, (await run('git', ['-C', repo, 'merge-base', '--is-ancestor', commit, of])).ok);
+  return ancestorCache.get(key);
+}
+
+// An agent's worktree is `unmerged` until its branch is an ancestor of its master's HEAD: it then still holds commits
+// nobody integrated, even when no upstream tells `ahead`. Without a verdict it counts as unmerged.
+async function flagUnmerged(described, views) {
+  const byName = new Map(described.map((d) => [d.name, d]));
+  for (const orch of views) {
+    const master = byName.get(orch.worktree);
+    for (const agent of orch.agents) {
+      const wt = agent.worktree !== orch.worktree ? byName.get(agent.worktree) : null;
+      if (wt) wt.unmerged = !(master?.headSha && wt.headSha && (await isAncestor(wt.repo, wt.headSha, master.headSha)));
+    }
+  }
+}
 const sizeCache = new Map();
 
 async function snapshot() {
@@ -33,6 +53,7 @@ async function snapshot() {
   const links = loadStore('worktree-links.json', {});
   const { active: orch, ended: endedOrch } = await orchestrationViews(panes);
   const orchAgents = activeAgentsBySession(orch);
+  await flagUnmerged(described, [...Object.values(orch), ...Object.values(endedOrch)]);
   for (const session of readSessions().map((s) => effectiveStatus(s, panes, Date.now()))) {
     const owner = fs.existsSync(session.cwd) && ownerOf(session.cwd, worktrees);
     if (!owner) continue;

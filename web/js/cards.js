@@ -209,7 +209,7 @@ function renderGrid() {
   document.querySelectorAll('#order-seg button').forEach((b) => b.classList.toggle('on', b.dataset.order === order));
   const finished = finishedBoardCount();
   $('finished-toggle').hidden = !finished;
-  $('finished-toggle').textContent = finishedLabel(finished);
+  $('finished-toggle').textContent = finishedWorktreeLabel(finished);
   $('selection-bar').hidden = !selecting;
   $('selection-count').textContent = `${picked.size} sélectionnée${picked.size > 1 ? 's' : ''}`;
   renderQueue();
