@@ -21,7 +21,7 @@ async function refresh() {
   if (selected && selected !== SHELL && selected !== USAGE && !currentWt()) selected = null;
   ensureSelection();
   if (currentWt()) dropLostRepo();
-  if (currentWt() && document.visibilityState === 'visible' && document.hasFocus()) markRead(currentWt());
+  if (currentWt()) markRead(currentWt());
   renderCounters(); renderGrid(); renderPanel();
   updateTitle();
   checkEvents();

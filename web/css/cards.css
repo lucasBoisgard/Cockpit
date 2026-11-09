@@ -46,7 +46,7 @@ main { padding: 20px; display: flex; flex-direction: column; gap: 26px; }
 
 .card.fresh { box-shadow: 0 0 0 2px var(--green), var(--shadow); }
 
-.kanban { display: grid; grid-template-columns: repeat(4, minmax(300px, 1fr)); gap: 14px; overflow-x: auto; align-items: start; padding-bottom: 4px; }
+.kanban { display: grid; grid-template-columns: repeat(5, minmax(300px, 1fr)); gap: 14px; overflow-x: auto; align-items: start; padding-bottom: 4px; }
 .column { --c: var(--faint); background: var(--surface-2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 10px; min-width: 0; border-top: 3px solid var(--c); }
 .column.needs { --c: var(--amber); } .column.working { --c: var(--blue); } .column.review { --c: var(--green); } .column.read { --c: var(--muted); }
 .column > h2 { margin: 2px 4px 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--c); display: flex; gap: 8px; align-items: baseline; }

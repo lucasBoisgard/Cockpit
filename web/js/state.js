@@ -41,11 +41,27 @@ const pins = new Set(parseJson(localGet('pins'), []));
 let seenTurns = parseJson(localGet('seen-turns'), {});
 const turnRead = (wt) => isTurnRead(primarySession(wt), seenTurns);
 
+// A finished turn counts as read once its session has stayed selected and on screen for a moment,
+// so walking the queue with j/k or loading in a background tab marks nothing.
+const READ_DWELL_MS = 1500;
+let readTimer = null;
+let selectedSince = 0;
+const lookingAt = (wt) => !!wt && selected === wt.path && Date.now() - selectedSince >= READ_DWELL_MS
+  && document.visibilityState === 'visible' && document.hasFocus();
+
 function markRead(wt) {
+  if (!lookingAt(wt) || sessionStatus(wt) !== 'done') return false;
   const next = markTurnRead(primarySession(wt), seenTurns);
-  if (next === seenTurns) return;
+  if (next === seenTurns) return false;
   seenTurns = next;
   localSet('seen-turns', JSON.stringify(next));
+  return true;
+}
+
+function markReadAfterDwell(wt) {
+  clearTimeout(readTimer);
+  selectedSince = Date.now();
+  if (wt) readTimer = setTimeout(() => { if (markRead(wt)) { renderCounters(); renderGrid(); renderPanel(); } }, READ_DWELL_MS);
 }
 let selecting = false;
 const picked = new Set();
