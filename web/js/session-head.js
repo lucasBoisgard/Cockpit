@@ -2,7 +2,7 @@
 // for the details the cards used to show, and a ⋯ menu with every worktree action.
 let sessionMenuOpen = false;
 
-const HEAD_STATE = { needs: 'À toi', review: 'À relire', working: 'En cours', idle: 'Au repos' };
+const HEAD_STATE = { needs: 'À toi', review: 'À relire', working: 'En cours', read: 'Lu', idle: 'Au repos' };
 
 function headActions(wt, s, st) {
   const orch = orchestrationOf(wt);
@@ -53,7 +53,7 @@ function headMenu(wt, s) {
 
 function sessionHead(wt, st) {
   const s = primarySession(wt);
-  const group = queueGroupOf(st);
+  const group = queueGroupOf(st, turnRead(wt));
   const orch = orchestrationOf(wt);
   const why = queueReason(wt, s, st);
   const age = s ? statusAge(s, st) : '';

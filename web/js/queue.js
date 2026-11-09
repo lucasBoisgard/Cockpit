@@ -27,7 +27,7 @@ function queueReason(wt, s, st) {
 function queueItems() {
   return boardWorktrees(shownWorktrees()).map((wt) => {
     const s = primarySession(wt);
-    return { key: wt.path, wt, s, status: sessionStatus(wt), pinned: pins.has(wt.path), since: s?.statusSince || s?.updatedAt || 0, activity: lastActivity(wt) };
+    return { key: wt.path, wt, s, status: sessionStatus(wt), read: turnRead(wt), pinned: pins.has(wt.path), since: s?.statusSince || s?.updatedAt || 0, activity: lastActivity(wt) };
   });
 }
 
@@ -35,7 +35,7 @@ const queueOrdered = () => queueFlat(queueGroups(queueItems())).map((item) => it
 
 function queueRow(item) {
   const { wt, s, status } = item;
-  const group = queueGroupOf(status);
+  const group = queueGroupOf(status, item.read);
   const current = selected === wt.path;
   const master = orchestrationOf(wt);
   const age = s ? statusAge(s, status) : wt.lastCommit ? ago(wt.lastCommit.at) : '';
@@ -50,7 +50,7 @@ function queueRow(item) {
 
 function queueDot(item, index) {
   const { wt, s, status } = item;
-  const group = queueGroupOf(status);
+  const group = queueGroupOf(status, item.read);
   return `<button class="queue-dot queue-${group} ${orchestrationOf(wt) ? 'is-master' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${selected === wt.path}" title="${esc(`${wt.label || wt.name} · ${oneLineText(queueReason(wt, s, status), 90)}`)}"><span class="queue-dot-g"></span><span class="queue-dot-n">${index + 1}</span></button>`;
 }
 
@@ -71,7 +71,7 @@ function renderQueue() {
   if (!nav || !state || !isWorkstation()) return;
   const groups = queueGroups(queueItems());
   const flat = queueFlat(groups);
-  const todo = flat.filter((i) => ['needs', 'review'].includes(queueGroupOf(i.status))).length;
+  const todo = flat.filter((i) => ['needs', 'review'].includes(queueGroupOf(i.status, i.read))).length;
   const full = `<div class="queue-head"><span>${shownWorktrees().length} worktrees · <kbd>j</kbd> <kbd>k</kbd></span><button class="queue-fold" data-queue-fold title="Replier la file ([)" aria-label="Replier la file">«</button></div>
     <div class="queue-scroll">${groups.map((g) => `<div class="queue-group queue-g-${g.id}"><span>${g.label}</span><span class="queue-n">${g.items.length}</span></div>${g.items.map(queueRow).join('')}`).join('')}
       <div class="queue-end">${todo ? `Rien d’autre après ${todo === 1 ? 'celle-ci' : `ces ${todo}`}` : 'Rien à faire pour l’instant'}</div>

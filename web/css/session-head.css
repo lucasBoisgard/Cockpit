@@ -9,6 +9,7 @@
 .shead-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .shead-state-needs { color: var(--saffron); background: var(--saffron-bg); }
 .shead-state-review { color: var(--jade); background: var(--jade-bg); }
+.shead-state-read { color: var(--muted); background: var(--surface-2); }
 .shead-state-working { color: var(--slate); background: var(--slate-bg); }
 .shead-state-working .shead-dot { animation: breathe 2.6s ease-in-out infinite; }
 .shead-why { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: 13.5px; }

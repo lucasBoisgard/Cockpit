@@ -135,7 +135,7 @@ function card(wt) {
   const last = s?.actions?.[0];
   const meta = cardMeta(wt, s, st);
   const pinned = pins.has(wt.path);
-  return `<div class="card ${st} ${selected === wt.path ? 'selected' : ''} ${freshDone.has(wt.path) && st === 'done' ? 'fresh' : ''}" data-path="${esc(wt.path)}">
+  return `<div class="card ${st} ${st === 'done' && turnRead(wt) ? 'read' : ''} ${selected === wt.path ? 'selected' : ''} ${freshDone.has(wt.path) && st === 'done' ? 'fresh' : ''}" data-path="${esc(wt.path)}">
     <div class="top">
       ${selecting ? `<input type="checkbox" class="pick" data-pick="${esc(wt.path)}" ${picked.has(wt.path) ? 'checked' : ''} aria-label="Sélectionner ${esc(wt.name)}">` : ''}
       <div><div class="name">${esc(wt.label || wt.name)}</div><div class="branch-row">${wt.otherRepo ? `<span class="repo-chip" title="${esc(wt.repo)}">${esc(wt.repoName)}</span>` : ''}${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}</div></div>
@@ -177,7 +177,8 @@ function renderGrid() {
     const columns = [
       ['needs', 'À toi de jouer', 'Claude attend une réponse ou une permission.', (w) => sessionStatus(w) === 'needs_input'],
       ['working', 'En cours', 'Claude travaille.', (w) => sessionStatus(w) === 'working'],
-      ['review', 'À relire', 'Tour terminé avec des changements, des commits ou une PR ouverte.', (w) => sessionStatus(w) === 'done' && (w.files.length || w.ahead || w.pr?.state === 'OPEN')],
+      ['review', 'À relire', 'Tour terminé avec des changements, des commits ou une PR ouverte.', (w) => sessionStatus(w) === 'done' && !turnRead(w) && (w.files.length || w.ahead || w.pr?.state === 'OPEN')],
+      ['read', 'Lu', 'Tour terminé que tu as déjà ouvert.', (w) => sessionStatus(w) === 'done' && turnRead(w) && (w.files.length || w.ahead || w.pr?.state === 'OPEN')],
       ['rest', 'Au repos', 'Rien en attente.', () => true],
     ];
     const left = [...standard];

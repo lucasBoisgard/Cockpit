@@ -38,6 +38,15 @@ let screenLast = '';
 let flushTimer = null;
 let order = localGet('order') || 'fixed';
 const pins = new Set(parseJson(localGet('pins'), []));
+let seenTurns = parseJson(localGet('seen-turns'), {});
+const turnRead = (wt) => isTurnRead(primarySession(wt), seenTurns);
+
+function markRead(wt) {
+  const next = markTurnRead(primarySession(wt), seenTurns);
+  if (next === seenTurns) return;
+  seenTurns = next;
+  localSet('seen-turns', JSON.stringify(next));
+}
 let selecting = false;
 const picked = new Set();
 let focusIndex = -1;

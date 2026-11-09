@@ -101,6 +101,7 @@ function select(target) {
   freshDone.delete(target);
   selected = target; selectedFile = null; chatSession = null; chatLane = 'conversation'; chatAgentsOpen = false; chatSignature = null; chatBarSignature = null; reportSignature = null;
   since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
+  if (currentWt()) markRead(currentWt());
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
   if (currentWt()?.review?.report) tab = 'report';
