@@ -14,7 +14,6 @@ function buildPalette() {
     { label: 'Skills', kind: 'action', run: () => openSkills() },
     { label: 'Nettoyage des worktrees', kind: 'action', run: openCleanup },
     { label: 'Automatisations', kind: 'action', run: openAutomations },
-    { label: 'Écrire à plusieurs sessions', kind: 'action', run: startSelecting },
     { label: 'Terminal', kind: 'outil', run: () => select(SHELL) },
     { label: 'Tokens', kind: 'outil', run: () => select(USAGE) },
     { label: 'Raccourcis clavier', kind: 'aide', run: () => $('help-dialog').showModal() },

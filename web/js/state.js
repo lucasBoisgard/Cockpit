@@ -61,8 +61,6 @@ function markReadAfterDwell(wt) {
   selectedSince = Date.now();
   if (wt) readTimer = setTimeout(() => { if (markRead(wt)) { renderCounters(); renderBoard(); renderPanel(); } }, READ_DWELL_MS);
 }
-let selecting = false;
-const picked = new Set();
 let lastSeenEvent = Number(localGet('lastSeenEvent') || 0);
 let eventsBootstrapped = false;
 let since = null;

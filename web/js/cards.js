@@ -83,7 +83,5 @@ function renderBoard() {
   const finished = finishedBoardCount();
   $('finished-toggle').hidden = !finished;
   $('finished-toggle').textContent = finishedWorktreeLabel(finished);
-  $('selection-bar').hidden = !selecting;
-  $('selection-count').textContent = `${picked.size} sélectionnée${picked.size > 1 ? 's' : ''}`;
   renderQueue();
 }

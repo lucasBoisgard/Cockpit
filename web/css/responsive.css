@@ -10,7 +10,6 @@
   .composer { position: sticky; bottom: 0; background: var(--surface); padding: 10px 12px; }
   .card-actions .btn { padding: 7px 12px; font-size: 13px; }
   dialog.wide { width: 100vw; max-height: 100vh; border-radius: 0; }
-  .selection-bar { width: calc(100vw - 32px); justify-content: center; }
 }
 
 @media (max-width: 760px) {
