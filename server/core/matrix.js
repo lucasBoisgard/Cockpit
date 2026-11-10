@@ -81,7 +81,7 @@ function recommend(matrix, categoryId, { available = {}, ratings = {} } = {}) {
   });
   const listed = new Set(picks.map((p) => keyOf(category.id, p)));
   for (const [key, o] of Object.entries(ratings)) {
-    if (o.category !== category.id || listed.has(key) || o.n < OFF_MATRIX_MIN) continue;
+    if (o.category !== category.id || !o.model || listed.has(key) || o.n < OFF_MATRIX_MIN) continue;
     picks.push({ provider: o.provider, model: o.model, effort: o.effort, score: null, why: 'Observé hors matrice : choisi par des maîtres sans figurer dans la catégorie.', offMatrix: true,
       observed: { avg: o.avg, n: o.n, notes: o.notes }, rank: blended(OFF_MATRIX_PRIOR, o), available: available[o.provider] !== false });
   }

@@ -64,11 +64,12 @@ test('ratings are aggregated per category, provider, model and effort', () => {
 test('a combination rated at least twice outside the matrix is ranked as observed', () => {
   const matrix = m.mergeMatrix(defaults);
   const rate = (model, effort, score) => ({ category: 'explore', provider: 'claude', model, effort, score });
-  const ratings = m.aggregateRatings([rate('sonnet', 'medium', 5), rate('sonnet', 'medium', 4), rate('fable', 'low', 5)]);
+  const ratings = m.aggregateRatings([rate('sonnet', 'medium', 5), rate('sonnet', 'medium', 4), rate('fable', 'low', 5), rate(null, 'low', 4), rate(null, 'low', 4)]);
   const rec = m.recommend(matrix, 'explore', { ratings });
   const off = rec.picks.find((p) => p.model === 'sonnet');
   assert.deepStrictEqual([off.offMatrix, off.score, off.rank, off.observed.n], [true, null, m.blended(m.OFF_MATRIX_PRIOR, { sum: 9, n: 2 }), 2]);
   assert.ok(!rec.picks.some((p) => p.model === 'fable'), 'a single rating outside the matrix stays hidden');
+  assert.ok(rec.picks.every((p) => p.model), 'a rating without a model never becomes a pick');
   assert.ok(!rec.picks.find((p) => p.model === 'haiku').offMatrix);
 });
 
