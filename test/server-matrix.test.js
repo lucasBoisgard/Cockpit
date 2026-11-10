@@ -84,3 +84,33 @@ test('recommend blends observed ratings into the reference score and puts unavai
   assert.strictEqual(m.recommend(matrix, 'nope'), null);
   assert.strictEqual(m.blended(5, null), 5);
 });
+
+test('calibrationCoverage lists available picks scored high enough that lack ratings', () => {
+  const matrix = { categories: [{ id: 'debug', picks: [
+    { provider: 'claude', model: 'fable', effort: 'medium', score: 5 },
+    { provider: 'claude', model: 'haiku', effort: 'low', score: 2 },
+    { provider: 'codex', model: 'gpt-6', effort: 'high', score: 4 },
+  ] }, { id: 'explore', picks: [{ provider: 'claude', model: 'haiku', effort: 'low', score: 3 }] }] };
+  const ratings = m.aggregateRatings([
+    { category: 'debug', provider: 'claude', model: 'fable', effort: 'medium', score: 4 },
+    { category: 'debug', provider: 'claude', model: 'fable', effort: 'medium', score: 5 },
+    { category: 'explore', provider: 'claude', model: 'haiku', effort: 'low', score: 3 },
+    { category: 'debug', provider: 'claude', model: 'other', effort: 'low', score: 5 },
+  ]);
+  const c = m.calibrationCoverage(matrix, ratings, { available: { claude: true, codex: true } });
+  assert.deepStrictEqual([c.total, c.done, c.complete, c.target], [3, 1, false, 2]);
+  assert.deepStrictEqual(c.missing.map((x) => [x.category, x.model, x.n]), [['debug', 'gpt-6', 0], ['explore', 'haiku', 1]]);
+  const noCodex = m.calibrationCoverage(matrix, ratings, { available: { claude: true, codex: false } });
+  assert.strictEqual(noCodex.total, 2);
+  assert.strictEqual(m.calibrationCoverage({ categories: [] }, {}, {}).complete, true);
+});
+
+test('rescorePicks updates a listed pick, adds a missing one and refuses a full category', () => {
+  const picks = [{ provider: 'claude', model: 'fable', effort: 'medium', score: 3, why: 'old' }];
+  const updated = m.rescorePicks(picks, { provider: 'claude', model: 'fable', effort: 'medium', score: 4, why: 'new' });
+  assert.deepStrictEqual(updated.picks, [{ provider: 'claude', model: 'fable', effort: 'medium', score: 4, why: 'new' }]);
+  const added = m.rescorePicks(picks, { provider: 'codex', model: 'gpt-6', effort: 'high', score: 5, why: 'x' });
+  assert.strictEqual(added.picks.length, 2);
+  const full = Array.from({ length: 8 }, (_, i) => ({ provider: 'claude', model: `m${i}`, effort: null, score: 3, why: '' }));
+  assert.ok(m.rescorePicks(full, { provider: 'claude', model: 'z', effort: null, score: 3, why: 'x' }).error);
+});

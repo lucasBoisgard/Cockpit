@@ -89,4 +89,29 @@ function recommend(matrix, categoryId, { available = {}, ratings = {} } = {}) {
   return { ...category, picks };
 }
 
-module.exports = { PRIOR_WEIGHT, OFF_MATRIX_MIN, OFF_MATRIX_PRIOR, keyOf, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };
+// Every available pick worth using (score >= minScore) needs `target` ratings before calibration is complete.
+function calibrationCoverage(matrix, ratings = {}, { available = {}, target = 2, minScore = 3 } = {}) {
+  const missing = [];
+  let total = 0;
+  for (const c of matrix.categories) {
+    for (const p of c.picks) {
+      if (available[p.provider] === false || !(p.score >= minScore)) continue;
+      total += 1;
+      const n = ratings[keyOf(c.id, p)]?.n || 0;
+      if (n < target) missing.push({ category: c.id, provider: p.provider, model: p.model, effort: p.effort || null, n });
+    }
+  }
+  missing.sort((a, b) => a.category.localeCompare(b.category) || a.n - b.n);
+  return { target, total, done: total - missing.length, missing, complete: missing.length === 0 };
+}
+
+// Sets the reference score and reason of a pick, adding it when the category does not list it yet.
+function rescorePicks(picks = [], target = {}) {
+  const same = (p) => p.provider === target.provider && p.model === target.model && (p.effort || null) === (target.effort || null);
+  const entry = { provider: target.provider, model: target.model, effort: target.effort || null, score: target.score, why: target.why };
+  if (picks.some(same)) return { picks: picks.map((p) => (same(p) ? { ...p, ...entry } : p)) };
+  if (picks.length >= MAX_PICKS) return { error: `La catégorie a déjà ${MAX_PICKS} choix : retire-en un avant d’ajouter ${target.model}.` };
+  return { picks: [...picks, entry] };
+}
+
+module.exports = { calibrationCoverage, rescorePicks, PRIOR_WEIGHT, OFF_MATRIX_MIN, OFF_MATRIX_PRIOR, keyOf, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };

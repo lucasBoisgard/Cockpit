@@ -19,6 +19,11 @@ const USAGE = `orchestrate <commande>
                                  avec les notes observées sur les agents précédents
   rate <id> <1-5> [note] [--kind <catégorie>]
                                  note le travail d'un agent une fois vérifié (alimente la matrice)
+  calibration [on|off]           mode calibration : les maîtres mettent les modèles en concurrence et un juge les note,
+                                 jusqu'à ce que chaque combinaison pertinente ait assez de notes ; sans argument, affiche l'état
+  rescore <catégorie> <fournisseur>:<modèle>:<effort> <1-5> "<raison>"
+                                 corrige la note de référence d'un choix (l'ajoute à la catégorie s'il y manque), ex. :
+                                 rescore debug claude:fable:medium 4 "a trouvé la cause seul en 6 min"
   launch --name <nom> [--kind <catégorie>] [--phase <nom|numéro>] [--provider claude|codex] [--model <modèle>] [--effort low|medium|high|xhigh|max]
          [--skill <nom>]… [--mode acceptEdits|auto|plan|default] [--isolated] [--brief <texte> | --brief-file <fichier>]
                                  lance un agent ; sans --brief, le brief est lu sur l'entrée standard
@@ -84,10 +89,29 @@ function readStdin() {
 
 const STATUS = { starting: 'démarre', working: 'travaille', needs: 'ATTEND L\'UTILISATEUR', done: 'a fini', stopped: 'arrêté' };
 
-function printStatus(v) {
+const comboLabel = (p) => `${p.provider === 'codex' ? 'GPT ' : ''}${p.model}·${p.effort || '-'}`;
+
+function calibrationLine(c) {
+  const ratio = `${c.done}/${c.total} combinaisons calibrées`;
+  return c.complete ? `Mode calibration actif : ${ratio} — complète : orchestrate calibration off` : `Mode calibration actif : ${ratio} — voir orchestrate calibration`;
+}
+
+function printCalibration(c) {
+  const lines = [`Calibration : ${c.on ? 'active' : 'inactive'}`, `${c.done}/${c.total} combinaisons calibrées (cible : ${c.target} notes)`];
+  const byCategory = {};
+  for (const m of c.missing) (byCategory[m.category] ||= []).push(m);
+  for (const [category, list] of Object.entries(byCategory)) {
+    lines.push('', `${category} :`, ...list.map((m) => `  ${comboLabel(m)} (${m.n} note${m.n > 1 ? 's' : ''})`));
+  }
+  if (c.on && c.complete) lines.push('', 'La calibration est complète : désactive-la avec orchestrate calibration off.');
+  console.log(lines.join('\n'));
+}
+
+function printStatus(v, calibration) {
   const phase = v.phases.length ? `phase ${v.phase + 1}/${v.phases.length} « ${v.phases[v.phase] || '?'} »` : 'pas de plan';
   const phaseName = (i) => (v.phases[i] ? `« ${v.phases[i]} »` : `${i + 1}`);
   const lines = [`Maître ${v.worktree} · ${phase} · ${v.counts.working + v.counts.starting} actifs / ${v.settings.maxAgents} max · autonomie ${v.settings.autonomy}${v.paused ? ' · EN PAUSE' : ''}`];
+  if (calibration?.on) lines.push(calibrationLine(calibration));
   if (v.phases.length) lines.push(`Plan : ${v.phases.map((p, i) => `${i + 1}. ${p}`).join('  ')}`);
   if (!v.agents.length) lines.push('Aucun agent.');
   for (const a of v.agents) {
@@ -109,7 +133,7 @@ async function main() {
   const q = (extra = '') => `?caller=${encodeURIComponent(CALLER)}${extra}`;
   switch (command) {
     case 'status':
-      return printStatus(await call(`/api/orch${q()}`));
+      return printStatus(await call(`/api/orch${q()}`), await call('/api/calibration'));
     case 'new': {
       const r = await call('/api/orch/new', { goal: rest.join(' ') });
       return console.log(`Job ${r.job} ouvert : le board est vierge, les agents repartent de w1. L'ancien job reste dans l'historique.`);
@@ -141,6 +165,21 @@ async function main() {
     case 'rate': {
       await call('/api/orch/rate', { id: rest[0], score: Number(rest[1]), note: rest.slice(2).join(' '), kind: flags.kind });
       return console.log(`${rest[0]} noté ${rest[1]}/5. Merci : la matrice en tient compte.`);
+    }
+    case 'calibration': {
+      if (rest[0] && rest[0] !== 'on' && rest[0] !== 'off') fail('Usage : orchestrate calibration [on|off]');
+      if (rest[0]) {
+        const c = await call('/api/calibration', { mode: rest[0] });
+        return console.log(`Calibration : ${c.on ? 'active' : 'inactive'}`);
+      }
+      return printCalibration(await call('/api/calibration'));
+    }
+    case 'rescore': {
+      const [category, combo, score, ...reason] = rest;
+      const [provider, model, effort] = String(combo || '').split(':');
+      if (!category || !provider || !model || !score) fail('Usage : orchestrate rescore <catégorie> <fournisseur>:<modèle>:<effort> <1-5> "<raison>"');
+      await call('/api/orch/rescore', { category, provider, model, effort: effort || null, score: Number(score), why: reason.join(' ') });
+      return console.log(`${provider === 'codex' ? 'GPT ' : ''}${model}·${effort || '-'} réévalué ${score}/5 en ${category}.`);
     }
     case 'skills': {
       const list = await call('/api/orch/skills');

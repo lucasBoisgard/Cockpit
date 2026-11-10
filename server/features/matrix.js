@@ -9,6 +9,8 @@ const { codexInfo, codexCatalog } = require('./providers');
 const DEFAULT_FILE = path.join(ROOT, 'server', 'data', 'model-matrix.json');
 const OVERRIDES = 'worktree-matrix.json';
 const RATINGS = 'worktree-matrix-ratings.json';
+const CALIBRATION = 'worktree-matrix-calibration.json';
+const CALIBRATION_TARGET = 2;
 
 function defaults() {
   try {
@@ -57,4 +59,31 @@ function recordRating(rating) {
   saveStore(RATINGS, core.addRating(loadStore(RATINGS, []), rating));
 }
 
-module.exports = { getMatrix, saveCategory, resetCategory, recordRating, categoryIds };
+async function availability() {
+  const codex = await codexInfo();
+  return { claude: true, codex: codex.installed && codex.loggedIn };
+}
+
+async function getCalibration() {
+  const coverage = core.calibrationCoverage(merged(), core.aggregateRatings(loadStore(RATINGS, [])), { available: await availability(), target: CALIBRATION_TARGET });
+  return { on: loadStore(CALIBRATION, {}).mode === 'on', ...coverage };
+}
+
+async function setCalibration({ mode } = {}) {
+  if (mode !== 'on' && mode !== 'off') return { error: 'Mode de calibration : on ou off.' };
+  saveStore(CALIBRATION, { mode });
+  return getCalibration();
+}
+
+async function rescorePick({ category, provider, model, effort, score, why } = {}) {
+  const current = merged().categories.find((c) => c.id === category);
+  if (!current) return { error: `Catégorie inconnue : ${category}.` };
+  const reason = String(why ?? '').trim();
+  if (!reason) return { error: 'Une raison est requise pour réévaluer un choix.' };
+  const next = core.rescorePicks(current.picks, { provider, model, effort, score: Number(score), why: reason });
+  if (next.error) return next;
+  const saved = await saveCategory({ id: current.id, label: current.label, description: current.description, picks: next.picks });
+  return saved.error ? saved : { ok: true, category: current.id, label: current.label };
+}
+
+module.exports = { getCalibration, setCalibration, rescorePick, getMatrix, saveCategory, resetCategory, recordRating, categoryIds };

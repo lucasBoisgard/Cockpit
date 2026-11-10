@@ -47,6 +47,8 @@ A master picks each agent's provider, model and effort from a **relevance matrix
 
 The matrix learns: a master launches an agent with `--kind <category>` and, once it has checked the work, rates it (`orchestrate rate <id> <1-5> "<note>"`). Ratings go to `~/.claude/worktree-matrix-ratings.json`; the page and `orchestrate matrix [category]` show the observed average next to the reference score, and the ranking blends them (the reference counts as two ratings). Picks of a provider that is not available (Codex not logged in) come last. Routes: `GET /api/matrix`, `POST /api/matrix/category`, `POST /api/matrix/reset`, `POST /api/orch/rate`.
 
+**Calibration mode** (`orchestrate calibration on|off`, flag kept in `~/.claude/worktree-matrix-calibration.json`, off by default): while on, masters run each task that needs a model as a competition between several models and a judge rates them, until every available pick scored 3 or more has 2 ratings. `orchestrate calibration` shows the coverage and the missing combinations, and `orchestrate status` reports the mode in its header; the flag is never switched off automatically. `orchestrate rescore <category> <provider>:<model>:<effort> <1-5> "<reason>"` sets the reference score and reason of a pick (adding it when absent, 8 picks at most) as a local edit. Routes: `GET`/`POST /api/calibration`, `POST /api/orch/rescore`.
+
 ### Connections: AI providers and MCP servers
 
 "⋯ → Connexions : IA et MCP" gathers everything the cockpit connects to.
@@ -158,7 +160,7 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 - A session counts as running in tmux when its state file names a live pane, or when Claude Code's own registry (`~/.claude/sessions/<pid>.json`) maps it to a live pane and its process is alive. The second check keeps a session drivable after the same conversation was resumed in another terminal.
 - Sessions with no message (no transcript) are hidden unless they are running, and so are sessions whose worktree directory was removed.
 - `index.html`, `web/` and `server/` are read at startup: after editing them, click "Recharger le cockpit" (it reruns `start.sh`) or rerun `start.sh`.
-- The server keeps its own data in `~/.claude`: `worktree-events.json` (notifications), `worktree-queue.json` (queued messages), `worktree-links.json` (delegations), `worktree-archive.json`, `worktree-automations.json`, and `worktree-app-serve.json` (app served from a worktree), and `worktree-orchestration.json` (masters, their phases, agents and events), `worktree-matrix.json` (local edits of the relevance matrix) and `worktree-matrix-ratings.json` (ratings of agents).
+- The server keeps its own data in `~/.claude`: `worktree-events.json` (notifications), `worktree-queue.json` (queued messages), `worktree-links.json` (delegations), `worktree-archive.json`, `worktree-automations.json`, and `worktree-app-serve.json` (app served from a worktree), and `worktree-orchestration.json` (masters, their phases, agents and events), `worktree-matrix.json` (local edits of the relevance matrix) `worktree-matrix-ratings.json` (ratings of agents) and `worktree-matrix-calibration.json` (calibration mode).
 - Only one server should run its background loop at a time. `start.sh` turns it on with `COCKPIT_TICK=1`; an instance started directly with `node server.js` (a test instance) does not send queued messages, run automations or record events.
 
 ## Uninstall

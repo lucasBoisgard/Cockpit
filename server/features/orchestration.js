@@ -706,6 +706,17 @@ async function rateAgent({ caller, id, score, note, kind }) {
   return { ok: true };
 }
 
+async function rescorePick(body = {}) {
+  const result = await matrix.rescorePick(body);
+  if (result.error) return result;
+  const live = resolveCaller(load(), body.caller);
+  if (!live.error) {
+    const label = `${body.provider === 'codex' ? 'GPT ' : ''}${body.model}·${body.effort || '-'}`;
+    mutate(live.orch.masterSessionId, (o) => core.pushEvent(o, { type: 'rescore', text: `${live.agent?.id || 'maître'} réévalue ${label} à ${body.score}/5 en ${result.category} : ${core.oneLine(String(body.why), 120)}` }, Date.now()));
+  }
+  return { ok: true, category: result.category };
+}
+
 async function skillsForAgents() {
   const entries = (await skillEntries()).filter((e) => e.kind === 'skill');
   return [...new Map(entries.map((e) => [e.name, { name: e.name, description: core.excerpt(e.description, 200) }])).values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -774,6 +785,6 @@ function activeAgentsBySession(views) {
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
-  setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, onSessionEvent, checkLostAgents, activeAgentsBySession,
+  setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree, readStore: load,
 };
