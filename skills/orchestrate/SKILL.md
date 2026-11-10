@@ -101,6 +101,15 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 - **How many**: only as many agents as there are truly independent tasks. The cockpit refuses
   launches beyond the user's limit; when refused, wait for a notification instead of retrying.
 
+## Arène mode
+
+Lucas turns the Arène mode on or off per orchestration (at creation or in the session's Réglages); it is slower and costlier, so never assume it. Run `orchestrate calibration` at the start of every job and again when the cockpit tells you the mode changed. While it says **Arène : active**, Lucas wants every model compared instead of the best one picked:
+- **Every task that needs a model** (anything you would give one agent) goes to a judge instead: launch one `role-model-judge` sub-orchestrator with `--kind review --provider claude --model fable --effort high` (fallback `opus`/`high`), `--skill role-model-judge`, `--mode auto`, the task brief exactly as you would give one agent, its category, whether it writes files, a budget, and "at most 4 competitors". It runs the competition, rates every competitor and hands you the winner's result. Integrate that result as if one agent had produced it; for a writing task, integrate the winner's branch and delete the others.
+- **Never duplicated**: actions with effects outside the repo (push, PR, PR comment, message, prod query, deploy) and the framing step (`role-framer`). Those keep one agent.
+- **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors). Run one competition at a time unless the user's agent limit allows more, and keep tasks sequential rather than shrinking the competitor count below 2.
+- You do not rate the competitors yourself; the judge does. Rate the judge (category `review`) on how well it judged: evidence, blindness, a usable winner.
+- When `orchestrate calibration` says coverage is complete, tell Lucas in one `@Lucas` line and suggest turning the Arène mode off for this session; do not turn it off yourself. When it is inactive, pick one model per task as below.
+
 ## Sub-orchestrators (depth)
 
 Default: launch flat agents yourself. Delegate to a **sub-orchestrator** (an agent allowed to launch its own agents) only when a sub-task needs several internal round trips that you do not need to see: implement → review → fix loops, an experiment with several measured variants, a comparison of competing designs, or a fan-out of 3+ independent searches to merge. Do not use one for a single agent's work, nor to avoid reading a report. Each level adds cost and latency (multi-agent runs use many times the tokens of one agent), so go one level deeper only when the loop is real.
