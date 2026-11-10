@@ -629,7 +629,7 @@ function notifiedText({ nextMessage, onResume }) {
   return parts.join(', ') || 'aucun agent';
 }
 
-async function updateSettings({ master, ...input }) {
+async function updateSettings({ master, reason, ...input }) {
   const orch = load()[String(master || '')];
   if (!orch) return { error: 'Maître inconnu.' };
   const normalized = core.normalizeSettings(input, orch.settings);
@@ -645,9 +645,9 @@ async function updateSettings({ master, ...input }) {
   const notified = autonomyChanged ? await notifyAutonomy(load()[orch.masterSessionId] || orch) : null;
   mutate(orch.masterSessionId, (o) => {
     const autonomy = `autonomie ${normalized.settings.autonomy}${notified === null ? '' : ` (${notifiedText(notified)})`}`;
-    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'}` : ''}` }, Date.now());
+    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : `désactivé${reason ? ` automatiquement : ${reason}` : ''}`}` : ''}` }, Date.now());
   });
-  const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : 'reviens au fonctionnement normal, un seul agent par tâche'}.` : '';
+  const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : `reviens au fonctionnement normal, un seul agent par tâche${reason ? `. Le cockpit l'a coupé lui-même (${reason}) pour éviter de toucher la limite d'utilisation : ne le réactive pas, seul Lucas peut le refaire` : ''}`}.` : '';
   const strictNote = normalized.settings.strictMaster !== false !== (orch.settings.strictMaster !== false) ? `\nMaître strict ${normalized.settings.strictMaster ? 'activé' : 'désactivé'} : les outils de cette session ne changent pas, seule la consigne compte ; le cockpit applique le réglage au prochain lancement d'un maître et à la prochaine reprise de cette session.` : '';
   const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
   const autonomyNote = notified === null ? '' : `\nNouveau niveau d'autonomie : le cockpit le transmet à tes agents (${notifiedText(notified)}), n'envoie rien de plus pour ça.`;

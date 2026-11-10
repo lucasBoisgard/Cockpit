@@ -24,6 +24,7 @@ const { listSkills, readSkill, createSkill, assistSkill } = require('./features/
 const { usageHistory } = require('./features/usage');
 const { listCommands } = require('./features/commands');
 const orchestration = require('./features/orchestration');
+const arenaBreaker = require('./features/arena-breaker');
 const { providersInfo } = require('./features/providers');
 const mcp = require('./features/mcp');
 const { answerAsk } = require('./features/asks');
@@ -143,7 +144,7 @@ const writeActions = {
   '/api/matrix/reset': (body) => modelMatrix.resetCategory(body),
   '/api/orch/rate': (body) => orchestration.rateAgent(body),
   '/api/orch/rescore': (body) => orchestration.rescorePick(body),
-  '/api/orch/arena': (body) => orchestration.setArena(body),
+  '/api/orch/arena': arenaBreaker.guarded.arena(orchestration.setArena),
   '/api/mcp/add': (body) => mcp.addMcp(body),
   '/api/mcp/share': (body) => mcp.shareMcp(body),
   '/api/connect/codex/device': () => connections.codexDeviceLogin(),
@@ -161,15 +162,15 @@ const writeActions = {
   },
   '/api/connect/codex/setup/end': (body) => codexScreens.endSetup(body),
   '/api/mcp/remove': (body) => mcp.removeMcp(body),
-  '/api/orch/start': (body) => orchestration.startMaster(body),
-  '/api/orch/promote': (body) => orchestration.promote(body),
+  '/api/orch/start': arenaBreaker.guarded.create(orchestration.startMaster),
+  '/api/orch/promote': arenaBreaker.guarded.create(orchestration.promote),
   '/api/orch/plan': (body) => orchestration.setPlan(body),
   '/api/orch/launch': (body) => orchestration.launchAgent(body),
   '/api/orch/stop': (body) => orchestration.stopAgent(body),
   '/api/orch/resume': (body) => orchestration.resumeAgent(body),
   '/api/orch/send': (body) => orchestration.sendToAgent(body),
   '/api/orch/pause': (body) => orchestration.setPaused(body),
-  '/api/orch/settings': (body) => orchestration.updateSettings(body),
+  '/api/orch/settings': arenaBreaker.guarded.settings(orchestration.updateSettings),
   '/api/orch/end': (body) => orchestration.endOrchestration(body),
   '/api/orch/new': (body) => orchestration.newJob(body),
 };

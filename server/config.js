@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { limitPercent } = require('./core/arena-breaker');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -31,6 +32,7 @@ const CONFIG = loadConfig();
 const REPO = process.env.REPO || CONFIG.repo || detectRepo();
 const CLAUDE_BIN = process.env.CLAUDE_BIN || CONFIG.claudeBin || path.join(os.homedir(), '.local', 'bin', 'claude');
 const APP = CONFIG.app?.command ? CONFIG.app : null;
+const ARENA_LIMIT_PERCENT = limitPercent(CONFIG.arena?.maxUsagePercent);
 
 module.exports = {
   ROOT,
@@ -52,6 +54,7 @@ module.exports = {
   SHELL_SESSION: 'cw-shell',
   APP_SESSION: 'cw-app',
   APP,
+  ARENA_LIMIT_PERCENT,
   USE_PM2: APP?.processManager === 'pm2',
   PM2_BIN: APP?.pm2Bin || (fs.existsSync(path.join(REPO, 'node_modules', '.bin', 'pm2')) ? path.join(REPO, 'node_modules', '.bin', 'pm2') : 'pm2'),
   PM2_PID_FILE: path.join(os.homedir(), '.pm2', 'pm2.pid'),

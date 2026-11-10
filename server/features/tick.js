@@ -11,6 +11,7 @@ const { migrateIfPulled } = require('./app');
 const { prRefreshDue, refreshPrs } = require('./pr');
 const { runDueAutomations } = require('./automations');
 const { onSessionEvent, checkLostAgents } = require('./orchestration');
+const { cutArenaIfOverLimit } = require('./arena-breaker');
 
 const AUTOMATION_CHECK_MS = 30000;
 const lastStatus = new Map();
@@ -51,6 +52,7 @@ async function tick() {
     const snap = await snapshot();
     detectTransitions(snap);
     await checkLostAgents().catch((error) => console.error('orchestration check failed', error));
+    await cutArenaIfOverLimit().catch((error) => console.error('arena breaker failed', error));
     await flushQueues(snap, (sessionId) => lastStatus.set(sessionId, 'working'));
     migrateIfPulled(snap.app).catch((error) => console.error('migrations failed', error));
     if (prRefreshDue()) refreshPrs(await listWorktrees()).catch(() => {});

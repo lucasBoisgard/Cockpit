@@ -15,6 +15,9 @@
     "labels": [],
     "assignee": ""
   },
+  "arena": {
+    "maxUsagePercent": 75
+  },
   "notify": {
     "ntfyUrl": ""
   }

@@ -80,4 +80,6 @@ function usageHistory(tzOffsetMin) {
   return data;
 }
 
-module.exports = { readUsageSnapshots, codexUsage, usageHistory };
+const currentLimits = () => ({ claude: latestLimits(readUsageSnapshots()), codex: codexUsage().limits });
+
+module.exports = { readUsageSnapshots, codexUsage, usageHistory, currentLimits };
