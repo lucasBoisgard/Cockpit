@@ -83,7 +83,7 @@ function setShowFinished(value) {
   finishedUi.show = value;
   localSet('showFinished', value ? '1' : '0');
   chatBarSignature = null;
-  renderGrid();
+  renderBoard();
   renderPanel();
 }
 

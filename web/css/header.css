@@ -6,7 +6,6 @@ h1 { font-size: 16px; margin: 0; font-weight: 650; }
 .counter.working { background: var(--blue-bg); color: var(--blue); }
 .counter.done { background: var(--green-bg); color: var(--green); }
 .actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.filters { display: flex; gap: 6px; }
 .btn { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
 .btn.on { color: var(--text); border-color: var(--text); }
 .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--paper); font-weight: 600; }

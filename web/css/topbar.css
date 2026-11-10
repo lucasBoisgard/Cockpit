@@ -1,5 +1,4 @@
 /* Workstation top bar. */
-body:not(.ws) .ws-only, body:not(.ws) #topbar-tools { display: none; }
 body.ws > header { flex-wrap: nowrap; align-items: center; min-width: 0; }
 body.ws #skills-btn { display: none; }
 body.ws h1 { flex: none; }

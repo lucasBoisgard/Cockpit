@@ -41,7 +41,6 @@ function queueRow(item) {
   const age = s ? statusAge(s, status) : wt.lastCommit ? ago(wt.lastCommit.at) : '';
   const where = wt.otherRepo ? `${wt.repoName} · ${wt.branch || ''}` : wt.branch || (wt.head ? `@ ${wt.head}` : '');
   return `<button class="queue-row queue-${group} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
-    ${selecting ? `<input type="checkbox" class="queue-pick" data-queue-pick="${esc(wt.path)}" ${picked.has(wt.path) ? 'checked' : ''} tabindex="-1" aria-label="Sélectionner ${esc(wt.name)}">` : ''}
     <span class="queue-title">${master ? '<span class="queue-master" title="Maître orchestrateur">◆</span>' : ''}${wt.review ? '<span class="queue-tag">REVIEW</span>' : ''}${isGpt(s) ? '<span class="queue-tag queue-gpt">GPT</span>' : ''}<span class="queue-name">${esc(wt.label || wt.name)}</span>${item.pinned ? '<span class="queue-pin" title="Épinglé">★</span>' : ''}</span>
     <span class="queue-why" title="${esc(queueReason(wt, s, status))}">${esc(oneLineText(queueReason(wt, s, status)))}</span>
     <span class="queue-sub"><span class="queue-where">${esc(where)}</span><span class="queue-age">${esc(age)}</span></span>
@@ -68,7 +67,7 @@ function queueFinished() {
 
 function renderQueue() {
   const nav = $('queue');
-  if (!nav || !state || !isWorkstation()) return;
+  if (!nav || !state) return;
   const groups = queueGroups(queueItems());
   const flat = queueFlat(groups);
   const todo = flat.filter((i) => ['needs', 'review'].includes(queueGroupOf(i.status, i.read))).length;
@@ -84,9 +83,9 @@ function renderQueue() {
   if (box) box.scrollTop = scroll;
 }
 
-// Workstation: something is always open; j/k walk the queue.
+// Something is always open; j/k walk the queue.
 function ensureSelection() {
-  if (!isWorkstation() || selected || !state?.worktrees.length) return;
+  if (selected || !state?.worktrees.length) return;
   const first = queueOrdered()[0];
   if (first) select(first);
 }
@@ -105,13 +104,6 @@ $('queue').addEventListener('click', (e) => {
   if (e.target.closest('[data-queue-archives]')) { queueArchivesOpen = !queueArchivesOpen; renderQueue(); return; }
   const restore = e.target.closest('[data-unarchive-q]');
   if (restore) { unarchive(restore.dataset.unarchiveQ, !!restore.dataset.resume); return; }
-  const pick = e.target.closest('[data-queue-pick]');
   const row = e.target.closest('[data-queue-path]');
-  if (selecting && row && row.dataset.queuePath !== SHELL && row.dataset.queuePath !== USAGE) {
-    const key = row.dataset.queuePath;
-    if (pick ? pick.checked : !picked.has(key)) picked.add(key); else picked.delete(key);
-    renderGrid();
-    return;
-  }
   if (row) select(row.dataset.queuePath);
 });

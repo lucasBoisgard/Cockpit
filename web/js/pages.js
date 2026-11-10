@@ -7,7 +7,6 @@ function measureHeader() {
 }
 
 function openPage(dialog) {
-  if (!isWorkstation()) { if (!dialog.open) dialog.showModal(); return; }
   for (const id of PAGE_DIALOGS) if (id !== dialog.id && $(id).open) $(id).close();
   measureHeader();
   dialog.classList.add('ws-page');

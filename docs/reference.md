@@ -16,14 +16,13 @@ A "Tokens utilisés" card shows how much of the account's usage limits is used (
 
 ### Workstation layout
 
-The page is a workstation for a full working day. On the left, the **attention queue** lists every worktree grouped by what you are expected to do: *À toi* (a permission or a question, oldest first), *À relire* (a finished turn), *En cours*, *Au repos*; each row says why. `j`/`k` walk it, `[` folds it to coloured dots. The selected session fills the centre: a one-line header (state, reason, the actions that state calls for, `d` for the details, ⋯ for every worktree action), its tabs and a compact composer whose `⚙ model · effort · mode` pill opens the session settings. The Changements tab shows the uncommitted lines added and removed (`+N −M`), and `f` hides the queue (focus mode). The top bar holds clickable state pills, the terminal, the token limits, `Ctrl K` and a ⋯ menu (tools, theme, fallback card layout). History, cleanup, automations and skills open as pages in the centre, with their own address. The previous card grid stays available from that menu.
+The page is a workstation for a full working day. On the left, the **attention queue** lists every worktree grouped by what you are expected to do: *À toi* (a permission or a question, oldest first), *À relire* (a finished turn), *En cours*, *Au repos*; each row says why. `j`/`k` walk it, `[` folds it to coloured dots. The selected session fills the centre: a one-line header (state, reason, the actions that state calls for, `d` for the details, ⋯ for every worktree action), its tabs and a compact composer whose `⚙ model · effort · mode` pill opens the session settings. The Changements tab shows the uncommitted lines added and removed (`+N −M`), and `f` hides the queue (focus mode). The top bar holds clickable state pills, the terminal, the token limits, `Ctrl K` and a ⋯ menu (tools, theme). History, cleanup, automations and skills open as pages in the centre, with their own address.
 
 ### Attention and triage
 
 - **Notifications.** A background loop (every 3 s, even with no page open) turns session transitions into events: permission asked, question asked, turn done, CI failing, PR merged, app KO, automation run. They show as short pills in the header (card name and state, full text on hover, click to open the session), and the card that just finished gets a green ring until it is opened. The tab title carries the number of sessions waiting for you and the favicon turns amber. With `notify.ntfyUrl` set, events are also posted to an ntfy topic for phone push.
-- **Peek and quick reply.** A card shows Claude's last message (click to unfold), a short reply field, and for a pending permission or `AskUserQuestion` the matching buttons (they send the option number to the session).
-- **Grouping and pins.** "Par état" groups worktrees into pinned, waiting for you, ready to review, working and others, sorted by last activity. ☆ pins a card on top in both orders.
-- **Keyboard.** `Ctrl K` opens a command palette; `j`/`k` move between cards, `Enter` opens, `Space` unfolds, `a` allows the pending permission, `1`-`9` switch tabs, `n` new session, `h` history, `?` help.
+- **Pins.** "Épingler en tête de file" in the ⋯ menu of a session keeps its worktree on top of its queue group.
+- **Keyboard.** `Ctrl K` opens a command palette; `j`/`k` move between queue rows, `a` allows the pending permission, `1`-`9` switch tabs, `n` new session, `h` history, `?` help.
 
 ### Questions answered in the conversation
 
@@ -32,7 +31,6 @@ When Claude asks a question (`AskUserQuestion`) in a session launched or resumed
 ### Steering several sessions
 
 - **One send, routed for you.** The composer has a single "Envoyer", like the CLI: the message always reaches the session, and while Claude works it is taken into account during the turn (Claude Code queues it itself). While Claude waits on a question or a permission, the message is held and leaves right after the answer. When a long message is sent to a busy session, a small model (`claude -p --model haiku`, about 2 s, `server/core/routing.js`) reads it against the current task: a clearly independent task starts a new session in the same worktree instead, and a toast says why. Short messages, follow-ups and slash commands skip that check.
-- **Broadcast.** "Outils → Écrire à plusieurs sessions" selects cards and sends one message to all of them (busy ones get it queued).
 - **Variants.** "Nouvelle session" can start N worktrees with the same prompt to compare approaches.
 - **Delegation.** "Déléguer" on a Claude message starts a linked session pre-filled with that context. Cards show the parent and child links, and the parent can be told when the child finishes a turn.
 - **Automations.** "Outils → Automatisations" starts a session with a prompt every day at a set time or every N minutes, in a fixed worktree or a new dated one.

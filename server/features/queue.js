@@ -71,17 +71,6 @@ async function deliver(sessionId, text, queueWhenWaiting = false) {
   return (await sendToSession(session.sessionId, text)) ? 'sent' : 'offline';
 }
 
-async function broadcast({ targets, text }) {
-  const message = String(text || '').trim();
-  if (!message || !Array.isArray(targets) || !targets.length) return { error: 'Message ou sessions manquants.' };
-  const report = { sent: [], queued: [], offline: [] };
-  for (const target of targets.slice(0, 50)) {
-    const outcome = await deliver(target, message, true);
-    (report[outcome] || report.offline).push(target);
-  }
-  return report;
-}
-
 async function flushQueues(snap, onSent) {
   const queues = loadQueues();
   for (const wt of snap.worktrees) {
@@ -98,4 +87,4 @@ async function flushQueues(snap, onSent) {
   }
 }
 
-module.exports = { loadQueues, sendToSession, enqueue, enqueueMerged, dropQueued, dequeue, deliver, broadcast, flushQueues };
+module.exports = { loadQueues, sendToSession, enqueue, enqueueMerged, dropQueued, dequeue, deliver, flushQueues };
