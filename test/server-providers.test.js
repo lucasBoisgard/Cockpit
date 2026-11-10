@@ -50,3 +50,9 @@ test('a Claude launch or resume always carries its permission mode, default incl
   assert.deepStrictEqual(resume.slice(resume.indexOf('--permission-mode')), ['--permission-mode', 'default']);
   assert.ok(!p.launchArgs('claude', { resume: true, sessionId: 's1' }).includes('--permission-mode'));
 });
+
+test('claude --disallowedTools is followed by another flag, the prompt stays last', () => {
+  const args = p.launchArgs('claude', { allow: ['Bash(x:*)'], disallow: ['Edit', 'Write'], sessionId: 'id', model: 'opus', prompt: 'Fais X' });
+  assert.deepStrictEqual(args, ['--allowedTools', 'Bash(x:*)', '--disallowedTools', 'Edit', 'Write', '--session-id', 'id', '--model', 'opus', 'Fais X']);
+  assert.ok(!p.launchArgs('claude', { disallow: [], prompt: 'x' }).includes('--disallowedTools'));
+});

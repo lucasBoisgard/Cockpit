@@ -79,7 +79,7 @@ $('new-form').addEventListener('submit', async (e) => {
   const parent = delegateParent ? { sessionId: delegateParent.sessionId, notify: $('new-notify').checked } : null;
   $('new-submit').disabled = true;
   if (newKind() === 'master') {
-    const result = await post('/api/orch/start', { worktree, prompt: $('new-prompt').value, model: $('orch-model').value, effort: $('orch-effort').value, autonomy: $('orch-autonomy').value, maxAgents: Number($('orch-max').value), agentMode: $('orch-mode').value, arena: $('orch-arena').checked });
+    const result = await post('/api/orch/start', { worktree, prompt: $('new-prompt').value, model: $('orch-model').value, effort: $('orch-effort').value, autonomy: $('orch-autonomy').value, maxAgents: Number($('orch-max').value), agentMode: $('orch-mode').value, arena: $('orch-arena').checked, strictMaster: $('orch-strict').checked });
     $('new-submit').disabled = false;
     if (!result.ok) { toast(`${worktree} : ${result.data.error || 'lancement impossible'}`, 'error'); return; }
     $('new-dialog').close();

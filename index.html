@@ -175,6 +175,7 @@
       <label for="orch-autonomy">Me solliciter<select id="orch-autonomy"><option value="blocking">Seulement si bloquant</option><option value="milestones">Aux étapes clés</option><option value="decisions">À chaque décision</option></select></label>
       <label for="orch-max">Agents actifs au maximum<input type="number" id="orch-max" min="1" max="20" value="6"></label>
       <label for="orch-mode">Permissions des agents<select id="orch-mode"><option value="acceptEdits">Accepter les modifs</option><option value="auto">Auto</option><option value="default">Par défaut</option></select></label>
+      <label class="orch-check" for="orch-strict"><input type="checkbox" id="orch-strict" checked> Maître strict<small>Le maître ne peut ni modifier de fichiers ni utiliser l'outil Agent interne : il délègue tout via orchestrate. Appliqué au lancement.</small></label>
       <label class="orch-check" for="orch-arena"><input type="checkbox" id="orch-arena"> Mode Arène<small>Chaque tâche est confiée à plusieurs modèles en parallèle, un juge les compare et les note. Plus lent et plus coûteux, pour apprendre la matrice.</small></label>
     </div>
     <label for="new-pr" id="new-pr-label" hidden>Pull request (lien ou numéro)

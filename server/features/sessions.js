@@ -117,7 +117,10 @@ async function resumeSession({ session: sessionId }) {
 // when they are unknown it comes back read-only rather than with more rights than it had.
 function resumeProcess(name, cwd, sessionId) {
   const session = readSession(sessionId);
-  if (session?.provider !== 'codex') return launchClaude(name, cwd, ['--resume', sessionId]);
+  if (session?.provider !== 'codex') {
+    const disallow = require('./orchestration').masterResumeDisallowed(sessionId);
+    return launchClaude(name, cwd, [...(disallow.length ? ['--disallowedTools', ...disallow] : []), '--resume', sessionId]);
+  }
   const launch = session.launch || { mode: 'plan' };
   const args = providerCore.launchArgs('codex', { resume: true, sessionId, hookCommand: codexHookCommand(), model: launch.model, effort: launch.effort, mode: launch.mode || 'plan' });
   registerCodexLaunch(name, cwd);

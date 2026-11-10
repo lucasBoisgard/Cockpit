@@ -63,7 +63,7 @@ function codexHookArgs(hookCommand) {
 
 // Arguments of the provider's binary. A Claude resume always carries its mode, `default` included: without
 // the flag Claude Code restores the mode stored in the session. `rules` is the cockpit's system prompt: Claude takes it as an
-// appended system prompt; Codex has none, so the rules lead the first message.
+// appended system prompt; `disallow` and `allow` are variadic flags, so another flag must follow them; Codex has none, so the rules lead the first message.
 function launchArgs(providerId, o) {
   if (providerId === 'codex') {
     const prompt = o.rules && !o.resume ? [`[Consignes du cockpit]\n${o.rules}`, o.prompt ? `[Ta tâche]\n${o.prompt}` : ''].filter(Boolean).join('\n\n') : o.prompt;
@@ -81,6 +81,7 @@ function launchArgs(providerId, o) {
   return [
     ...(o.newWorktree ? ['--worktree', o.newWorktree] : []),
     ...(o.allow?.length ? ['--allowedTools', ...o.allow] : []),
+    ...(o.disallow?.length ? ['--disallowedTools', ...o.disallow] : []),
     ...(o.resume ? ['--resume', o.sessionId] : o.sessionId ? ['--session-id', o.sessionId] : []),
     ...(o.name ? ['--name', o.name] : []),
     ...(o.rules ? ['--append-system-prompt', o.rules] : []),

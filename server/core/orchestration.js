@@ -12,7 +12,8 @@ const AUTONOMY = {
   milestones: 'Ask the user to validate the plan before launching the first agents, then at the end of each phase before starting the next one. Between those points, decide alone.',
   decisions: 'Ask the user before every meaningful decision: the plan, each agent you launch (task, model, effort), and how to resolve each blocked agent.',
 };
-const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits', maxDepth: 2, arena: false };
+const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits', maxDepth: 2, arena: false, strictMaster: true };
+const MASTER_DISALLOWED_TOOLS = ['Edit', 'Write', 'NotebookEdit', 'Agent'];
 const MAX_AGENTS_LIMIT = 20;
 const MAX_DEPTH_LIMIT = 4;
 const START_GRACE_MS = 2 * 60 * 1000;
@@ -44,7 +45,13 @@ function normalizeSettings(input = {}, base = DEFAULT_SETTINGS) {
     out.maxDepth = Math.min(MAX_DEPTH_LIMIT, Math.max(1, Math.round(n)));
   }
   if (input.arena !== undefined) out.arena = input.arena === true || input.arena === 'true';
+  if (input.strictMaster !== undefined) out.strictMaster = !(input.strictMaster === false || input.strictMaster === 'false');
   return { settings: out };
+}
+
+// Claude Code tools the master cannot use, so it delegates through `orchestrate launch` instead of working or spawning internal agents.
+function masterDisallowedTools(settings = DEFAULT_SETTINGS) {
+  return settings.strictMaster === false ? [] : [...MASTER_DISALLOWED_TOOLS];
 }
 
 function validatePhases(phases) {
@@ -199,6 +206,8 @@ function cliCommand(root) {
 function masterSystemPrompt({ settings, root }) {
   return [
     'This session is a master orchestrator started from the Cockpit. You do not do the work yourself: you plan it, launch agents (separate Claude sessions) to do it, follow them, check and integrate their results, and report to the user.',
+    'Your role is to orchestrate, never to do the work: you only run orchestrate commands, read agents\' reports and diffs, talk to the user, write briefs (Bash heredoc or --brief-file), and do the final merge or push after the user\'s go. Everything else (searches beyond a couple of lookups, edits, test runs, reviews, investigations, and deciding what to open, for which ask a role-dispatcher agent) is delegated with `orchestrate launch --kind`. Never use the internal Agent tool: those agents do not appear in the graph and cannot be rated. Before each action ask yourself: am I working instead of orchestrating?',
+    ...(settings.strictMaster === false ? [] : ['Edit, Write, NotebookEdit and Agent are disabled for you by the cockpit; a refusal means you must delegate.']),
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more.`,
@@ -276,6 +285,7 @@ function freshJob(orch, goal, now, job = jobNumber(orch) + 1) {
     model: orch.model,
     effort: orch.effort,
     tmux: orch.tmux,
+    masterRestricted: !!orch.masterRestricted,
     job,
     phases: [], agents: [], events: [{ at: now, type: 'start', text: `Nouveau job : ${oneLine(goal, 160)}` }], paused: !!orch.paused, pendingWake: [],
     settings: { ...orch.settings },
@@ -315,5 +325,5 @@ module.exports = {
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
   currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
-  masterSystemPrompt, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, nextJobNumber, agentTag, jobHistory,
+  masterSystemPrompt, masterDisallowedTools, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, nextJobNumber, agentTag, jobHistory,
 };

@@ -27,7 +27,7 @@ You turn a raw request into a framing the whole tree can verify against. You pro
 7. **Scope**: in, and explicitly out.
 8. **Assumptions**: safe defaults you took so the run does not stop. Each is reversible and listed.
 9. **Questions (P1 only, max 2)**: only scope or business ambiguity that changes the work. Everything else becomes an assumption.
-10. **Proposed topology**: catalogue topology or custom, number of leaves, models and efforts per the grid, loop bound.
+10. **Proposed topology**: catalogue topology or custom, indicative only (phases, dependencies, rough number of leaves, loop bound); concrete agents, models and efforts come from `role-dispatcher`.
 11. **Risks**: what would invalidate the framing.
 
 Facts you cite come from reading (memory, repo, PR, ticket), tagged per protocol. Do not copy memory files; extract only the rule that bears on this request.

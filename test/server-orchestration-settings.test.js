@@ -320,3 +320,49 @@ test('F4: reports queued for the master before a new job are dropped, and an arc
   onSessionEvent('s-w1', { type: 'done' }, { lastAssistant: 'late' });
   assert.deepStrictEqual((queue.loadQueues().m1 || []).map((i) => i.kind), ['user']);
 });
+
+test('strictMaster defaults to true and accepts true, false and the string "false"', () => {
+  const core = require('../server/core/orchestration');
+  assert.strictEqual(core.normalizeSettings({}).settings.strictMaster, true);
+  assert.strictEqual(core.normalizeSettings({ strictMaster: true }).settings.strictMaster, true);
+  assert.strictEqual(core.normalizeSettings({ strictMaster: false }).settings.strictMaster, false);
+  assert.strictEqual(core.normalizeSettings({ strictMaster: 'false' }).settings.strictMaster, false);
+  assert.strictEqual(core.normalizeSettings({}, { strictMaster: false }).settings.strictMaster, false);
+});
+
+test('masterDisallowedTools lists the editing tools only when strict', () => {
+  const core = require('../server/core/orchestration');
+  assert.deepStrictEqual(core.masterDisallowedTools({ strictMaster: true }), ['Edit', 'Write', 'NotebookEdit', 'Agent']);
+  assert.deepStrictEqual(core.masterDisallowedTools({ strictMaster: false }), []);
+});
+
+test('the master prompt always states the delegation role, the strict sentence only when strict', () => {
+  const core = require('../server/core/orchestration');
+  const strict = core.masterSystemPrompt({ settings: core.normalizeSettings({}).settings, root: '/r' });
+  const loose = core.masterSystemPrompt({ settings: core.normalizeSettings({ strictMaster: false }).settings, root: '/r' });
+  for (const text of [strict, loose]) {
+    assert.match(text, /never to do the work/);
+    assert.match(text, /Never use the internal Agent tool/);
+    assert.match(text, /role-dispatcher/);
+  }
+  assert.match(strict, /disabled for you by the cockpit/);
+  assert.doesNotMatch(loose, /disabled for you by the cockpit/);
+});
+
+test('a resumed master keeps its tool restriction only when it was launched restricted', () => {
+  const { masterResumeDisallowed } = require('../server/features/orchestration');
+  seed([], { masterRestricted: true });
+  assert.deepStrictEqual(masterResumeDisallowed('m1'), core.masterDisallowedTools());
+  seed([], { masterRestricted: false });
+  assert.deepStrictEqual(masterResumeDisallowed('m1'), []);
+  assert.deepStrictEqual(masterResumeDisallowed('unknown'), []);
+});
+
+test('settings stored before strictMaster existed read as strict and do not announce a change', async () => {
+  const { strictMaster, ...legacy } = core.DEFAULT_SETTINGS;
+  seed([], { settings: legacy });
+  assert.strictEqual(strictMaster, true);
+  assert.deepStrictEqual(core.masterDisallowedTools(legacy), core.masterDisallowedTools());
+  await updateSettings({ master: 'm1', maxAgents: 4 });
+  assert.ok(!delivered.at(-1).text.includes('Maître strict'));
+});

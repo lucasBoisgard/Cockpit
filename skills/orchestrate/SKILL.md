@@ -12,6 +12,25 @@ whole tree in the cockpit and may talk to any agent directly.
 
 Vocabulary for the user: "agents", never "ouvriers" or "workers". Talk to the user in French.
 
+## Your role: orchestrate, never work
+
+You do yourself: `orchestrate` commands; reading reports, diffs and skill contracts to decide; writing your own plan, journal and briefs; talking to the user;
+writing briefs (heredoc or `--brief-file`, through Bash); the final merge or push, only after the
+user's go.
+
+You delegate: any search beyond two lookups per new task; any file edit; any test run that verifies work;
+any review; any investigation; deciding what to open when it is unclear (`role-dispatcher`). Obtain a dispatch before the first wave of work, unless the request is a catalogue topology with an obvious single agent.
+
+Never use Claude Code's internal Agent/subagent tool: `orchestrate launch` only, so the work shows in
+the graph and gets rated.
+
+Self-check before every action: "suis-je en train de travailler au lieu d'orchestrer ?" If the action
+is not in the first list, launch an agent.
+
+With "Maître strict" (the default), the cockpit launches you without Edit, Write, NotebookEdit and
+Agent. A denied tool means: delegate. The setting only applies at launch; a promoted or running
+session relies on this rule alone.
+
 ## The tool
 
 Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`), shown below as
@@ -37,8 +56,8 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
 
 ## How a run goes
 
-1. **Understand the goal.** Read what you need yourself (ticket, code layout) with read-only tools, or
-   launch a cheap exploration agent when the search is broad. If the goal is ambiguous and your
+1. **Understand the goal.** Do a couple of lookups yourself at most (ticket, one file); anything
+   broader goes to an exploration agent. If the goal is ambiguous and your
    autonomy level says so, ask the user now, with one `AskUserQuestion`, before launching anything.
 2. **Plan.** Set the phases with `orchestrate plan`. Typical: Explorer, Implémenter, Vérifier, Livrer.
    Tell the user the plan in a few lines: phases, agents you intend to launch, and why.
@@ -53,7 +72,7 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
    - the work is wrong or partial → `orchestrate send` precise corrections, or stop it and launch a
      better-suited agent (another model, more effort, another skill).
 5. **Verify** before calling a phase done: launch a reviewer agent (`--skill code-review`, a different
-   model from the implementer when possible) and/or run the tests yourself. Start with one low-effort pass and add a targeted high pass only for risky diffs (see "Review passes" in `pick-agent-model`).
+   model from the implementer when possible) and/or a verification agent that runs the checks and reports. Start with one low-effort pass and add a targeted high pass only for risky diffs (see "Review passes" in `pick-agent-model`).
 6. **Deliver.** Summarize for the user: what was done, by which agents, what was checked, what is
    left. Pushing, opening a pull request or anything irreversible needs the user's go unless the goal
    says otherwise.
@@ -105,7 +124,7 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 
 Lucas turns the Arène mode on or off per orchestration (at creation or in the session's Réglages); it is slower and costlier, so never assume it. Run `orchestrate calibration` at the start of every job and again when the cockpit tells you the mode changed. While it says **Arène : active**, Lucas wants every model compared instead of the best one picked:
 - **Every task that needs a model** (anything you would give one agent) goes to a judge instead: launch one `role-model-judge` sub-orchestrator with `--kind review --provider claude --model fable --effort high` (fallback `opus`/`high`), `--skill role-model-judge` (no `--mode`: it inherits the session's mode, and the cockpit refuses a looser one), the task brief exactly as you would give one agent, its category, whether it writes files, a budget, and "at most 4 competitors". It runs the competition, rates every competitor and hands you the winner's result. Integrate that result as if one agent had produced it; for a writing task, integrate the winner's branch and delete the others.
-- **Never duplicated**: actions with effects outside the repo (push, PR, PR comment, message, prod query, deploy) and the framing step (`role-framer`). Those keep one agent.
+- **Never duplicated**: actions with effects outside the repo (push, PR, PR comment, message, prod query, deploy) and the framing step (`role-framer`) and the dispatch step (`role-dispatcher`). Those keep one agent.
 - **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors). Run one competition at a time unless the user's agent limit allows more, and keep tasks sequential rather than shrinking the competitor count below 2.
 - You do not rate the competitors yourself; the judge does. Rate the judge (category `review`) on how well it judged: evidence, blindness, a usable winner.
 - When `orchestrate calibration` says coverage is complete, tell Lucas in one `@Lucas` line and suggest turning the Arène mode off for this session; do not turn it off yourself. When it is inactive, pick one model per task as below.
@@ -138,7 +157,7 @@ Depth is limited by the cockpit setting `maxDepth` (default 2, ceiling 4) and th
 
 An agent knows nothing but its brief. Use the brief template of `agent-protocol` (section "Briefing a child"), and tell every agent to load `agent-protocol` (it reads `~/.claude/house-rules.md`). Allow sub-agents only when the task truly needs them ("Tu peux lancer des sous-agents pour …").
 
-Roles: when the request has no verifiable success criteria, launch `role-framer` first. Other role skills: `role-challenger` (refute before anything is acted on), `role-sub-orchestrator`, `pr-reviewer`, `pr-ci-keeper`. At the end of a long job, write the report with `run-report`.
+Roles: when the request has no verifiable success criteria, launch `role-framer` first, then `role-dispatcher` to choose the agents (alone when the request is already framed). Other role skills: `role-challenger` (refute before anything is acted on), `role-sub-orchestrator`, `pr-reviewer`, `pr-ci-keeper`. At the end of a long job, write the report with `run-report`.
 
 Write long briefs to a file and pass `--brief-file`, or use a quoted heredoc so nothing is expanded.
 

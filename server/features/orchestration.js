@@ -131,19 +131,20 @@ function newOrchestration(sessionId, fields, settings, now) {
 }
 
 // Master: a normal Claude session with the orchestrator system prompt and the CLI allowed.
-async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth, arena }) {
+async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster }) {
   const name = String(worktree || '').trim();
   if (!validName(name)) return { error: 'Nom de worktree invalide (lettres, chiffres, . _ -).' };
   const goal = String(prompt || '').trim();
   if (!goal) return { error: 'Décris l\'objectif du maître.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster });
   if (normalized.error) return normalized;
   const setting = core.validateLaunch({ name: 'maître', brief: goal, model, effort, mode: mode || 'default' }, { settings: normalized.settings, phases: [], agents: [] });
   if (setting.error) return setting;
   const existing = (await listWorktrees()).find((wt) => worktreeName(wt.path) === name);
   const sessionId = crypto.randomUUID();
+  const disallow = core.masterDisallowedTools(normalized.settings);
   const args = providerCore.launchArgs('claude', {
-    newWorktree: existing ? null : name, allow: allowList(), sessionId, name: `maître · ${name}`,
+    newWorktree: existing ? null : name, allow: allowList(), disallow, sessionId, name: `maître · ${name}`,
     rules: core.masterSystemPrompt({ settings: normalized.settings, root: ROOT }), ...setting.agent, prompt: goal,
   });
   const tmuxName = tmuxSessionName(name, Date.now());
@@ -151,17 +152,23 @@ async function startMaster({ worktree, prompt, model, effort, mode, autonomy, ma
   if (!result.ok) return { error: result.stderr.trim() };
   const store = load();
   const now = Date.now();
-  store[sessionId] = newOrchestration(sessionId, { worktree: name, goal: goal.slice(0, 2000), model: setting.agent.model, effort: setting.agent.effort, tmux: tmuxName }, normalized.settings, now);
+  store[sessionId] = newOrchestration(sessionId, { worktree: name, goal: goal.slice(0, 2000), model: setting.agent.model, effort: setting.agent.effort, tmux: tmuxName, masterRestricted: disallow.length > 0 }, normalized.settings, now);
   core.pushEvent(store[sessionId], { type: 'start', text: 'Maître lancé' }, now);
   save(store);
   return { session: tmuxName, sessionId };
 }
 
+// Tools a resumed master must stay without: Claude Code does not keep --disallowedTools in the session, so the cockpit passes them again.
+function masterResumeDisallowed(sessionId) {
+  const orch = loadStore(STORE, {})[sessionId];
+  return orch && orch.masterRestricted ? core.masterDisallowedTools(orch.settings) : [];
+}
+
 // Turns an existing session into a master: it gets the orchestrator instructions as a message.
-async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth, arena }) {
+async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster }) {
   const session = readSession(String(sessionId || ''));
   if (!session) return { error: 'Session inconnue.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster });
   if (normalized.error) return normalized;
   const store = load();
   if (core.findBySession(store, session.sessionId)) return { error: 'Cette session orchestre déjà, ou est un agent.' };
@@ -395,6 +402,7 @@ function view(orch, panes, store = load()) {
     history: core.jobHistory(store, orch.masterSessionId),
     worktree: orch.worktree,
     goal: orch.goal,
+    masterRestricted: !!orch.masterRestricted,
     settings: { ...orch.settings, maxDepth: core.maxDepth(orch.settings) },
     masterModePending: orch.masterModePending || null,
     paused: !!orch.paused,
@@ -636,9 +644,10 @@ async function updateSettings({ master, ...input }) {
     core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'}` : ''}` }, Date.now());
   });
   const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : 'reviens au fonctionnement normal, un seul agent par tâche'}.` : '';
+  const strictNote = normalized.settings.strictMaster !== false !== (orch.settings.strictMaster !== false) ? `\nMaître strict ${normalized.settings.strictMaster ? 'activé' : 'désactivé'} : la restriction des outils ne s'applique qu'au prochain lancement du maître, d'ici là seule la consigne compte.` : '';
   const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
   const autonomyNote = notified === null ? '' : `\nNouveau niveau d'autonomie : le cockpit le transmet à tes agents (${notifiedText(notified)}), n'envoie rien de plus pour ça.`;
-  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}${autonomyNote}${arenaNote}`, true);
+  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}${autonomyNote}${arenaNote}${strictNote}`, true);
   return { ok: true, modes: modeText, notified: notified && notified.nextMessage, onResume: notified && notified.onResume };
 }
 
@@ -803,5 +812,5 @@ module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
   setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
-  lastReport, isolatedWorktree, readStore: load,
+  lastReport, isolatedWorktree, readStore: load, masterResumeDisallowed,
 };
