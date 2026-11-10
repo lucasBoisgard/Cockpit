@@ -121,7 +121,7 @@ function orchInspector(orch, pick) {
       <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orch.counts.total} lancés · ${orch.settings.maxAgents} max</dd>
       <dt>Me solliciter</dt><dd>${ORCH_AUTONOMY[orch.settings.autonomy] || orch.settings.autonomy}</dd>
       <dt>Profondeur</dt><dd>${orch.settings.maxDepth} niveau${orch.settings.maxDepth > 1 ? 'x' : ''}</dd>
-      <dt>Permissions</dt><dd>${esc(orchModeLabel(orch.settings.agentMode, orch.masterModePending))}</dd>${orch.settings.arena ? '<dt>Mode Arène</dt><dd>actif</dd>' : ''}<dt>Maître strict</dt><dd>${orch.masterRestricted ? 'oui' : 'non'}</dd></dl>
+      <dt>Permissions</dt><dd>${esc(orchModeLabel(orch.settings.agentMode, orch.masterModePending))}</dd>${orch.settings.arena ? '<dt>Mode Arène</dt><dd>actif</dd>' : ''}<dt>Maître strict</dt><dd>${orch.masterRestricted ? 'oui' : 'non'}${orch.masterRestrictionPending ? ' (réglage appliqué à la prochaine reprise)' : ''}</dd></dl>
       <div class="orch-row"><button class="btn" data-orch-session="${esc(master)}">Conversation du maître</button></div>
       <h4>Journal</h4><ul class="orch-events">${events || '<li>Rien pour l’instant.</li>'}</ul>`;
   }

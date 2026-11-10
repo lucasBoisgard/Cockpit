@@ -349,13 +349,33 @@ test('the master prompt always states the delegation role, the strict sentence o
   assert.doesNotMatch(loose, /disabled for you by the cockpit/);
 });
 
-test('a resumed master keeps its tool restriction only when it was launched restricted', () => {
+test('changing strictMaster through the settings takes effect on the next resume, and the notice says when', async () => {
   const { masterResumeDisallowed } = require('../server/features/orchestration');
   seed([], { masterRestricted: true });
   assert.deepStrictEqual(masterResumeDisallowed('m1'), core.masterDisallowedTools());
-  seed([], { masterRestricted: false });
+  await updateSettings({ master: 'm1', strictMaster: false });
+  assert.match(delivered.at(-1).text, /prochaine reprise/);
+  assert.match(delivered.at(-1).text, /prochain lancement/);
   assert.deepStrictEqual(masterResumeDisallowed('m1'), []);
+  assert.strictEqual(saved().masterRestricted, false);
+  await updateSettings({ master: 'm1', strictMaster: true });
+  assert.deepStrictEqual(masterResumeDisallowed('m1'), core.masterDisallowedTools());
+  assert.strictEqual(saved().masterRestricted, true);
   assert.deepStrictEqual(masterResumeDisallowed('unknown'), []);
+});
+
+test('the prompt states the real restriction: a promoted master is rule-only until its next resume, and the inspector agrees', async () => {
+  const settings = core.normalizeSettings({}).settings;
+  const promoted = core.masterSystemPrompt({ settings, root: '/r', restricted: false });
+  assert.doesNotMatch(promoted, /disabled for you by the cockpit/);
+  assert.match(promoted, /NOT disabled/);
+  assert.match(promoted, /resumed/);
+  seed([], { masterRestricted: false });
+  const view = (await orchestrationViews()).active.m1;
+  assert.strictEqual(view.masterRestricted, false);
+  assert.strictEqual(view.masterRestrictionPending, true);
+  await updateSettings({ master: 'm1', maxAgents: 3 });
+  assert.match(delivered.at(-1).text, /NOT disabled/);
 });
 
 test('settings stored before strictMaster existed read as strict and do not announce a change', async () => {

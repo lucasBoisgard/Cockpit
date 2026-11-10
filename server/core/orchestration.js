@@ -203,11 +203,15 @@ function cliCommand(root) {
   return `node ${root}/bin/orchestrate.js`;
 }
 
-function masterSystemPrompt({ settings, root }) {
+// `restricted`: whether the live session really has the tools disabled (launch: follows the setting; promoted session: false).
+function masterSystemPrompt({ settings, root, restricted = settings.strictMaster !== false }) {
+  const strict = settings.strictMaster !== false;
   return [
     'This session is a master orchestrator started from the Cockpit. You do not do the work yourself: you plan it, launch agents (separate Claude sessions) to do it, follow them, check and integrate their results, and report to the user.',
     'Your role is to orchestrate, never to do the work: you only run orchestrate commands, read agents\' reports and diffs, talk to the user, write briefs (Bash heredoc or --brief-file), and do the final merge or push after the user\'s go. Everything else (searches beyond a couple of lookups, edits, test runs, reviews, investigations, and deciding what to open, for which ask a role-dispatcher agent) is delegated with `orchestrate launch --kind`. Never use the internal Agent tool: those agents do not appear in the graph and cannot be rated. Before each action ask yourself: am I working instead of orchestrating?',
-    ...(settings.strictMaster === false ? [] : ['Edit, Write, NotebookEdit and Agent are disabled for you by the cockpit; a refusal means you must delegate.']),
+    ...(restricted ? ['Edit, Write, NotebookEdit and Agent are disabled for you by the cockpit; a refusal means you must delegate.']
+      : strict ? ['Edit, Write, NotebookEdit and Agent are NOT disabled in this session (the cockpit could not apply it to a running session): only the rule holds, never use them. The cockpit disables them the next time this session is resumed.']
+        : ['Edit, Write, NotebookEdit and Agent are not disabled for you, but the rule still holds: never use them, delegate.']),
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more.`,

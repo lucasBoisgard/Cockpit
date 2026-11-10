@@ -161,7 +161,10 @@ async function startMaster({ worktree, prompt, model, effort, mode, autonomy, ma
 // Tools a resumed master must stay without: Claude Code does not keep --disallowedTools in the session, so the cockpit passes them again.
 function masterResumeDisallowed(sessionId) {
   const orch = loadStore(STORE, {})[sessionId];
-  return orch && orch.masterRestricted ? core.masterDisallowedTools(orch.settings) : [];
+  if (!orch) return [];
+  const disallow = core.masterDisallowedTools(orch.settings);
+  if (!!orch.masterRestricted !== disallow.length > 0) mutate(sessionId, (o) => { o.masterRestricted = disallow.length > 0; });
+  return disallow;
 }
 
 // Turns an existing session into a master: it gets the orchestrator instructions as a message.
@@ -176,7 +179,7 @@ async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth, ar
   store[session.sessionId] = newOrchestration(session.sessionId, { worktree: path.basename(session.cwd), goal: session.task || '' }, normalized.settings, now);
   core.pushEvent(store[session.sessionId], { type: 'start', text: 'Session passée en mode maître' }, now);
   save(store);
-  const outcome = await deliver(session.sessionId, `[cockpit] Tu deviens le maître orchestrateur de cette tâche.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}\nL'outil orchestrate peut te demander une permission la première fois.`, true);
+  const outcome = await deliver(session.sessionId, `[cockpit] Tu deviens le maître orchestrateur de cette tâche.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT, restricted: false })}\nL'outil orchestrate peut te demander une permission la première fois.`, true);
   return { ok: true, delivery: outcome };
 }
 
@@ -403,6 +406,7 @@ function view(orch, panes, store = load()) {
     worktree: orch.worktree,
     goal: orch.goal,
     masterRestricted: !!orch.masterRestricted,
+    masterRestrictionPending: (orch.settings.strictMaster !== false) !== !!orch.masterRestricted,
     settings: { ...orch.settings, maxDepth: core.maxDepth(orch.settings) },
     masterModePending: orch.masterModePending || null,
     paused: !!orch.paused,
@@ -644,10 +648,10 @@ async function updateSettings({ master, ...input }) {
     core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'}` : ''}` }, Date.now());
   });
   const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : 'reviens au fonctionnement normal, un seul agent par tâche'}.` : '';
-  const strictNote = normalized.settings.strictMaster !== false !== (orch.settings.strictMaster !== false) ? `\nMaître strict ${normalized.settings.strictMaster ? 'activé' : 'désactivé'} : la restriction des outils ne s'applique qu'au prochain lancement du maître, d'ici là seule la consigne compte.` : '';
+  const strictNote = normalized.settings.strictMaster !== false !== (orch.settings.strictMaster !== false) ? `\nMaître strict ${normalized.settings.strictMaster ? 'activé' : 'désactivé'} : les outils de cette session ne changent pas, seule la consigne compte ; le cockpit applique le réglage au prochain lancement d'un maître et à la prochaine reprise de cette session.` : '';
   const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
   const autonomyNote = notified === null ? '' : `\nNouveau niveau d'autonomie : le cockpit le transmet à tes agents (${notifiedText(notified)}), n'envoie rien de plus pour ça.`;
-  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}${autonomyNote}${arenaNote}${strictNote}`, true);
+  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT, restricted: !!orch.masterRestricted })}${modeNote}${autonomyNote}${arenaNote}${strictNote}`, true);
   return { ok: true, modes: modeText, notified: notified && notified.nextMessage, onResume: notified && notified.onResume };
 }
 

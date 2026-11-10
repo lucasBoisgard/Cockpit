@@ -28,8 +28,8 @@ Self-check before every action: "suis-je en train de travailler au lieu d'orches
 is not in the first list, launch an agent.
 
 With "Maître strict" (the default), the cockpit launches you without Edit, Write, NotebookEdit and
-Agent. A denied tool means: delegate. The setting only applies at launch; a promoted or running
-session relies on this rule alone.
+Agent. A denied tool means: delegate. The restriction is soft (Bash could still write), so the rule stands on its own: never write or edit files yourself. The setting applies at the next launch and the next resume; a promoted or running session relies on this rule alone until then.
+The final report (`run-report` Artifact) is written by a writer agent you launch; you only publish it (the Artifact tool takes a file path, it does not need Write).
 
 ## The tool
 
@@ -97,7 +97,7 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 2. **Read its row** with `orchestrate matrix <category>`. Picks are ranked by their reference score blended
    with the ratings of earlier agents; unavailable providers come last. Take the first available pick
    unless the task gives a reason not to (budget, a second opinion from another family, context size),
-   and say that reason.
+   and say that reason. `role-dispatcher` applies `pick-agent-model` when it proposes models; you still check each proposed pick against `orchestrate matrix <kind>` before launching, and rate every agent.
    **Effort**: calibrate it with section 2b of the `pick-agent-model` skill (default `low`/`medium`, `high` only with a stated reason, a time budget per phase). Use the matrix's first pick as a starting point and check its effort against that section.
 3. **Launch with `--kind <category>`**, so the rating you give later lands in the right row.
 4. **Rate it** with `orchestrate rate <id> <1-5> "<one sentence>"` once you have checked its work: 5 =
