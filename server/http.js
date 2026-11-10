@@ -143,7 +143,7 @@ const writeActions = {
   '/api/matrix/reset': (body) => modelMatrix.resetCategory(body),
   '/api/orch/rate': (body) => orchestration.rateAgent(body),
   '/api/orch/rescore': (body) => orchestration.rescorePick(body),
-  '/api/calibration': (body) => modelMatrix.setCalibration(body),
+  '/api/orch/arena': (body) => orchestration.setArena(body),
   '/api/mcp/add': (body) => mcp.addMcp(body),
   '/api/mcp/share': (body) => mcp.shareMcp(body),
   '/api/connect/codex/device': () => connections.codexDeviceLogin(),
@@ -270,6 +270,10 @@ const readRoutes = {
   '/api/providers': async (res) => json(res, 200, await providersInfo()),
   '/api/matrix': async (res) => json(res, 200, await modelMatrix.getMatrix()),
   '/api/calibration': async (res) => json(res, 200, await modelMatrix.getCalibration()),
+  '/api/orch/arena': async (res, q) => {
+    const result = await orchestration.arenaState({ caller: q.get('caller') });
+    return json(res, result.error ? 404 : 200, result);
+  },
   '/api/mcp': async (res, q) => json(res, 200, await mcp.listMcp({ refresh: q.get('refresh') === '1' })),
   '/api/connect': async (res) => json(res, 200, { ...(await connections.status()), repos: [...new Set([REPO, ...(await listWorktrees()).map((w) => w.repo).filter(Boolean)])] }),
   '/api/connect/codex/setup': async (res, q) => json(res, 200, await codexScreens.setupState({ tmux: q.get('tmux') })),

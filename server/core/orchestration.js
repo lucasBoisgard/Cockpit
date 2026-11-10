@@ -12,7 +12,7 @@ const AUTONOMY = {
   milestones: 'Ask the user to validate the plan before launching the first agents, then at the end of each phase before starting the next one. Between those points, decide alone.',
   decisions: 'Ask the user before every meaningful decision: the plan, each agent you launch (task, model, effort), and how to resolve each blocked agent.',
 };
-const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits', maxDepth: 2 };
+const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits', maxDepth: 2, arena: false };
 const MAX_AGENTS_LIMIT = 20;
 const MAX_DEPTH_LIMIT = 4;
 const START_GRACE_MS = 2 * 60 * 1000;
@@ -43,6 +43,7 @@ function normalizeSettings(input = {}, base = DEFAULT_SETTINGS) {
     if (!Number.isFinite(n)) return { error: `Profondeur entre 1 et ${MAX_DEPTH_LIMIT}.` };
     out.maxDepth = Math.min(MAX_DEPTH_LIMIT, Math.max(1, Math.round(n)));
   }
+  if (input.arena !== undefined) out.arena = input.arena === true || input.arena === 'true';
   return { settings: out };
 }
 
@@ -202,6 +203,7 @@ function masterSystemPrompt({ settings, root }) {
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more.`,
     `The agent tree may go ${maxDepth(settings)} level${maxDepth(settings) > 1 ? 's' : ''} deep below you; the cockpit refuses a launch beyond that.`,
+    ...(settings.arena ? ['Arena mode is ON: run every task that needs a model as a competition between several models in parallel, have a judge agent compare and rate them (orchestrate rate / rescore), and follow orchestrate calibration until every relevant combination has enough ratings. Slower and costlier on purpose.'] : []),
     'Choose each agent\'s provider, model and effort from the relevance matrix (orchestrate matrix), launch it with --kind, and rate its work once checked (orchestrate rate).',
     'After launching agents, end your turn: the cockpit writes to you when an agent finishes its turn. Never wait in a sleep or polling loop.',
     'Answer the user in French.',

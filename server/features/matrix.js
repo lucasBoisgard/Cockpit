@@ -9,7 +9,6 @@ const { codexInfo, codexCatalog } = require('./providers');
 const DEFAULT_FILE = path.join(ROOT, 'server', 'data', 'model-matrix.json');
 const OVERRIDES = 'worktree-matrix.json';
 const RATINGS = 'worktree-matrix-ratings.json';
-const CALIBRATION = 'worktree-matrix-calibration.json';
 const CALIBRATION_TARGET = 2;
 
 function defaults() {
@@ -66,13 +65,7 @@ async function availability() {
 
 async function getCalibration() {
   const coverage = core.calibrationCoverage(merged(), core.aggregateRatings(loadStore(RATINGS, [])), { available: await availability(), target: CALIBRATION_TARGET });
-  return { on: loadStore(CALIBRATION, {}).mode === 'on', ...coverage };
-}
-
-async function setCalibration({ mode } = {}) {
-  if (mode !== 'on' && mode !== 'off') return { error: 'Mode de calibration : on ou off.' };
-  saveStore(CALIBRATION, { mode });
-  return getCalibration();
+  return coverage;
 }
 
 async function rescorePick({ category, provider, model, effort, score, why } = {}) {
@@ -86,4 +79,4 @@ async function rescorePick({ category, provider, model, effort, score, why } = {
   return saved.error ? saved : { ok: true, category: current.id, label: current.label };
 }
 
-module.exports = { getCalibration, setCalibration, rescorePick, getMatrix, saveCategory, resetCategory, recordRating, categoryIds };
+module.exports = { getCalibration, rescorePick, getMatrix, saveCategory, resetCategory, recordRating, categoryIds };

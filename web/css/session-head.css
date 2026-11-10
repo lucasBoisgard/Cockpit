@@ -32,6 +32,7 @@
 .shead-task { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shead-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
 .shead-orch { color: var(--violet); background: var(--violet-bg); }
+.shead-arena { color: var(--amber, var(--violet)); background: var(--amber-bg, var(--violet-bg)); font-weight: 600; }
 @media (max-width: 760px) { .shead-row { flex-wrap: wrap; } .shead-name { max-width: 100%; } .shead-why { flex-basis: 100%; order: 5; } }
 @media (prefers-reduced-motion: reduce) { .shead-state-working .shead-dot { animation: none; } }
 .shead-gpt { flex: none; font: 700 11px var(--mono); color: var(--ink); background: var(--well); border: 1px solid var(--line-strong); border-radius: 6px; padding: 2px 7px; white-space: nowrap; }

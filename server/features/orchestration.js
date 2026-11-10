@@ -131,12 +131,12 @@ function newOrchestration(sessionId, fields, settings, now) {
 }
 
 // Master: a normal Claude session with the orchestrator system prompt and the CLI allowed.
-async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth }) {
+async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth, arena }) {
   const name = String(worktree || '').trim();
   if (!validName(name)) return { error: 'Nom de worktree invalide (lettres, chiffres, . _ -).' };
   const goal = String(prompt || '').trim();
   if (!goal) return { error: 'Décris l\'objectif du maître.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena });
   if (normalized.error) return normalized;
   const setting = core.validateLaunch({ name: 'maître', brief: goal, model, effort, mode: mode || 'default' }, { settings: normalized.settings, phases: [], agents: [] });
   if (setting.error) return setting;
@@ -158,10 +158,10 @@ async function startMaster({ worktree, prompt, model, effort, mode, autonomy, ma
 }
 
 // Turns an existing session into a master: it gets the orchestrator instructions as a message.
-async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth }) {
+async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth, arena }) {
   const session = readSession(String(sessionId || ''));
   if (!session) return { error: 'Session inconnue.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena });
   if (normalized.error) return normalized;
   const store = load();
   if (core.findBySession(store, session.sessionId)) return { error: 'Cette session orchestre déjà, ou est un agent.' };
@@ -625,6 +625,7 @@ async function updateSettings({ master, ...input }) {
   const mode = normalized.settings.agentMode;
   const propagate = input.agentMode !== undefined && modeOutOfStep(orch, mode);
   const autonomyChanged = normalized.settings.autonomy !== orch.settings.autonomy;
+  const arenaChanged = !!normalized.settings.arena !== !!orch.settings.arena;
   mutate(orch.masterSessionId, (o) => {
     o.settings = normalized.settings;
   });
@@ -632,11 +633,12 @@ async function updateSettings({ master, ...input }) {
   const notified = autonomyChanged ? await notifyAutonomy(load()[orch.masterSessionId] || orch) : null;
   mutate(orch.masterSessionId, (o) => {
     const autonomy = `autonomie ${normalized.settings.autonomy}${notified === null ? '' : ` (${notifiedText(notified)})`}`;
-    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}` }, Date.now());
+    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'}` : ''}` }, Date.now());
   });
+  const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : 'reviens au fonctionnement normal, un seul agent par tâche'}.` : '';
   const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
   const autonomyNote = notified === null ? '' : `\nNouveau niveau d'autonomie : le cockpit le transmet à tes agents (${notifiedText(notified)}), n'envoie rien de plus pour ça.`;
-  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}${autonomyNote}`, true);
+  await deliver(orch.masterSessionId, `[cockpit] L'utilisateur a changé tes réglages.\n${core.masterSystemPrompt({ settings: normalized.settings, root: ROOT })}${modeNote}${autonomyNote}${arenaNote}`, true);
   return { ok: true, modes: modeText, notified: notified && notified.nextMessage, onResume: notified && notified.onResume };
 }
 
@@ -717,6 +719,19 @@ async function rescorePick(body = {}) {
   return { ok: true, category: result.category };
 }
 
+async function arenaState({ caller }) {
+  const found = resolveCaller(load(), caller);
+  if (found.error) return found;
+  return { on: !!found.orch.settings.arena, ...(await matrix.getCalibration()) };
+}
+
+async function setArena({ caller, on }) {
+  const found = resolveCaller(load(), caller);
+  if (found.error) return found;
+  const result = await updateSettings({ master: found.orch.masterSessionId, arena: on === true });
+  return result.error ? result : arenaState({ caller });
+}
+
 async function skillsForAgents() {
   const entries = (await skillEntries()).filter((e) => e.kind === 'skill');
   return [...new Map(entries.map((e) => [e.name, { name: e.name, description: core.excerpt(e.description, 200) }])).values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -785,6 +800,6 @@ function activeAgentsBySession(views) {
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
-  setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, onSessionEvent, checkLostAgents, activeAgentsBySession,
+  setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree, readStore: load,
 };

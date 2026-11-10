@@ -266,3 +266,13 @@ test('newJobRefusal names the agents that still work', () => {
   assert.strictEqual(core.newJobRefusal(orch, { w1: 'done', w2: 'stopped', w3: 'done' }), null);
   assert.match(core.newJobRefusal(orch, { w1: 'working', w2: 'needs', w3: 'done' }), /w1, w2/);
 });
+
+test('normalizeSettings handles the arena flag', () => {
+  const core = require('../server/core/orchestration');
+  assert.strictEqual(core.normalizeSettings({}).settings.arena, false);
+  assert.strictEqual(core.normalizeSettings({ arena: true }).settings.arena, true);
+  assert.strictEqual(core.normalizeSettings({ arena: false }, { ...core.DEFAULT_SETTINGS, arena: true }).settings.arena, false);
+  assert.strictEqual(core.normalizeSettings({ autonomy: 'blocking' }, { ...core.DEFAULT_SETTINGS, arena: true }).settings.arena, true);
+  assert.ok(core.masterSystemPrompt({ settings: { ...core.DEFAULT_SETTINGS, arena: true }, root: '/x' }).includes('Arena mode is ON'));
+  assert.ok(!core.masterSystemPrompt({ settings: core.DEFAULT_SETTINGS, root: '/x' }).includes('Arena mode'));
+});

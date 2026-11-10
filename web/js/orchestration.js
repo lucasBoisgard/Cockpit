@@ -121,7 +121,7 @@ function orchInspector(orch, pick) {
       <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orch.counts.total} lancés · ${orch.settings.maxAgents} max</dd>
       <dt>Me solliciter</dt><dd>${ORCH_AUTONOMY[orch.settings.autonomy] || orch.settings.autonomy}</dd>
       <dt>Profondeur</dt><dd>${orch.settings.maxDepth} niveau${orch.settings.maxDepth > 1 ? 'x' : ''}</dd>
-      <dt>Permissions</dt><dd>${esc(orchModeLabel(orch.settings.agentMode, orch.masterModePending))}</dd></dl>
+      <dt>Permissions</dt><dd>${esc(orchModeLabel(orch.settings.agentMode, orch.masterModePending))}</dd>${orch.settings.arena ? '<dt>Mode Arène</dt><dd>actif</dd>' : ''}</dl>
       <div class="orch-row"><button class="btn" data-orch-session="${esc(master)}">Conversation du maître</button></div>
       <h4>Journal</h4><ul class="orch-events">${events || '<li>Rien pour l’instant.</li>'}</ul>`;
   }
@@ -154,6 +154,7 @@ function orchSettings(orch) {
     <label>Me solliciter<select name="autonomy">${Object.entries(ORCH_AUTONOMY).map(([k, l]) => `<option value="${k}" ${orch.settings.autonomy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Agents actifs au maximum<input type="number" name="maxAgents" min="1" max="20" value="${orch.settings.maxAgents}"></label>
     <label>Profondeur maximale des agents<input type="number" name="maxDepth" min="1" max="4" value="${orch.settings.maxDepth}"><small>Niveaux de sous-orchestrateurs sous le maître (plafond 4). Plus c’est profond, plus le coût en tokens grimpe.</small></label>
+    <label class="orch-check"><input type="checkbox" name="arena" ${orch.settings.arena ? 'checked' : ''}> Mode Arène<small>Chaque tâche est confiée à plusieurs modèles en parallèle, un juge les compare et les note. Plus lent et plus coûteux, pour apprendre la matrice.</small></label>
     <label>Permissions de tous les agents, maître compris<select name="agentMode">${[['acceptEdits', 'Accepter les modifs'], ['auto', 'Auto'], ['default', 'Par défaut'], ['plan', 'Plan']].map(([k, l]) => `<option value="${k}" ${orch.settings.agentMode === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="orch-row"><button class="btn primary">Appliquer</button><button type="button" class="btn orch-danger" data-orch-end>Terminer l’orchestration</button></div></form>`;
 }
@@ -278,7 +279,7 @@ $('orch-view').addEventListener('submit', async (e) => {
   const form = e.target;
   if (form.matches('[data-orch-settings]')) {
     const data = Object.fromEntries(new FormData(form));
-    if (await orchPost('/api/orch/settings', { master: orch.masterSessionId, autonomy: data.autonomy, maxAgents: Number(data.maxAgents), agentMode: data.agentMode, maxDepth: data.maxDepth === '' ? undefined : Number(data.maxDepth) }, (r) => (r.modes ? `Permissions : ${r.modes}` : 'Réglages appliqués, le maître est prévenu.'))) { orchUi.settings = false; renderOrchestration(true); }
+    if (await orchPost('/api/orch/settings', { master: orch.masterSessionId, autonomy: data.autonomy, maxAgents: Number(data.maxAgents), agentMode: data.agentMode, maxDepth: data.maxDepth === '' ? undefined : Number(data.maxDepth), arena: data.arena === 'on' }, (r) => (r.modes ? `Permissions : ${r.modes}` : 'Réglages appliqués, le maître est prévenu.'))) { orchUi.settings = false; renderOrchestration(true); }
     return;
   }
   if (form.matches('[data-orch-send]')) {

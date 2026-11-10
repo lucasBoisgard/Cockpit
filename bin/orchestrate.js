@@ -19,8 +19,8 @@ const USAGE = `orchestrate <commande>
                                  avec les notes observées sur les agents précédents
   rate <id> <1-5> [note] [--kind <catégorie>]
                                  note le travail d'un agent une fois vérifié (alimente la matrice)
-  calibration [on|off]           mode calibration : les maîtres mettent les modèles en concurrence et un juge les note,
-                                 jusqu'à ce que chaque combinaison pertinente ait assez de notes ; sans argument, affiche l'état
+  calibration [on|off]           mode Arène de cette orchestration : chaque tâche est confiée à plusieurs modèles en parallèle,
+                                 un juge les note, jusqu'à ce que chaque combinaison pertinente ait assez de notes ; sans argument, affiche l'état
   rescore <catégorie> <fournisseur>:<modèle>:<effort> <1-5> "<raison>"
                                  corrige la note de référence d'un choix (l'ajoute à la catégorie s'il y manque), ex. :
                                  rescore debug claude:fable:medium 4 "a trouvé la cause seul en 6 min"
@@ -93,11 +93,11 @@ const comboLabel = (p) => `${p.provider === 'codex' ? 'GPT ' : ''}${p.model}·${
 
 function calibrationLine(c) {
   const ratio = `${c.done}/${c.total} combinaisons calibrées`;
-  return c.complete ? `Mode calibration actif : ${ratio} — complète : orchestrate calibration off` : `Mode calibration actif : ${ratio} — voir orchestrate calibration`;
+  return c.complete ? `Mode Arène actif : ${ratio} — complète : orchestrate calibration off` : `Mode Arène actif : ${ratio} — voir orchestrate calibration`;
 }
 
 function printCalibration(c) {
-  const lines = [`Calibration : ${c.on ? 'active' : 'inactive'}`, `${c.done}/${c.total} combinaisons calibrées (cible : ${c.target} notes)`];
+  const lines = [`Arène : ${c.on ? 'active' : 'inactive'}`, `${c.done}/${c.total} combinaisons calibrées (cible : ${c.target} notes)`];
   const byCategory = {};
   for (const m of c.missing) (byCategory[m.category] ||= []).push(m);
   for (const [category, list] of Object.entries(byCategory)) {
@@ -111,7 +111,7 @@ function printStatus(v, calibration) {
   const phase = v.phases.length ? `phase ${v.phase + 1}/${v.phases.length} « ${v.phases[v.phase] || '?'} »` : 'pas de plan';
   const phaseName = (i) => (v.phases[i] ? `« ${v.phases[i]} »` : `${i + 1}`);
   const lines = [`Maître ${v.worktree} · ${phase} · ${v.counts.working + v.counts.starting} actifs / ${v.settings.maxAgents} max · autonomie ${v.settings.autonomy}${v.paused ? ' · EN PAUSE' : ''}`];
-  if (calibration?.on) lines.push(calibrationLine(calibration));
+  if (v.settings.arena && calibration) lines.push(calibrationLine(calibration));
   if (v.phases.length) lines.push(`Plan : ${v.phases.map((p, i) => `${i + 1}. ${p}`).join('  ')}`);
   if (!v.agents.length) lines.push('Aucun agent.');
   for (const a of v.agents) {
@@ -133,7 +133,8 @@ async function main() {
   const q = (extra = '') => `?caller=${encodeURIComponent(CALLER)}${extra}`;
   switch (command) {
     case 'status':
-      return printStatus(await call(`/api/orch${q()}`), await call('/api/calibration'));
+      const status = await call(`/api/orch${q()}`);
+      return printStatus(status, status.settings.arena ? await call('/api/calibration') : null);
     case 'new': {
       const r = await call('/api/orch/new', { goal: rest.join(' ') });
       return console.log(`Job ${r.job} ouvert : le board est vierge, les agents repartent de w1. L'ancien job reste dans l'historique.`);
@@ -169,10 +170,10 @@ async function main() {
     case 'calibration': {
       if (rest[0] && rest[0] !== 'on' && rest[0] !== 'off') fail('Usage : orchestrate calibration [on|off]');
       if (rest[0]) {
-        const c = await call('/api/calibration', { mode: rest[0] });
-        return console.log(`Calibration : ${c.on ? 'active' : 'inactive'}`);
+        const c = await call('/api/orch/arena', { on: rest[0] === 'on' });
+        return console.log(`Arène : ${c.on ? 'active' : 'inactive'}`);
       }
-      return printCalibration(await call('/api/calibration'));
+      return printCalibration(await call(`/api/orch/arena${q()}`));
     }
     case 'rescore': {
       const [category, combo, score, ...reason] = rest;

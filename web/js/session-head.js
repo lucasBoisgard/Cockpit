@@ -59,7 +59,7 @@ function sessionHead(wt, st) {
   const age = s ? statusAge(s, st) : '';
   const details = [
     s?.task ? `<div class="shead-task" title="${esc(s.task)}">${esc(oneLineText(s.task, 400))}</div>` : '',
-    `<div class="shead-chips">${wt.otherRepo ? `<span class="repo-chip">${esc(wt.repoName)}</span>` : ''}${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}${orch ? `<span class="chip shead-orch">◆ maître · ${orch.counts.total} agent${orch.counts.total > 1 ? 's' : ''}</span>` : ''}${cardMeta(wt, s, st).join('')}</div>`,
+    `<div class="shead-chips">${wt.otherRepo ? `<span class="repo-chip">${esc(wt.repoName)}</span>` : ''}${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}${orch ? `<span class="chip shead-orch">◆ maître · ${orch.counts.total} agent${orch.counts.total > 1 ? 's' : ''}</span>${orch.settings.arena ? '<span class="chip shead-arena">Arène</span>' : ''}` : ''}${cardMeta(wt, s, st).join('')}</div>`,
     parallelRow(wt),
   ].join('');
   return `<div class="shead shead-${group}">
