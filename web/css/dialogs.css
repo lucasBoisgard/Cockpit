@@ -5,9 +5,9 @@ dialog label small.hint { display: block; font-weight: 400; color: var(--faint);
 dialog .kinds small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
 dialog label[hidden] { display: none; }
 
-dialog { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+dialog { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; overflow-x: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
 dialog::backdrop { background: rgba(10,12,16,.45); }
-dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+dialog form { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
 dialog h2 { margin: 0; font-size: 16px; }
 dialog label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 dialog input[type="text"], dialog textarea { font-family: inherit; font-size: 13.5px; line-height: 1.45; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
@@ -60,9 +60,20 @@ dialog select, dialog input[type="number"], dialog input[type="time"] { font-fam
 .auto-state.paused { background: var(--grey-bg); color: var(--faint); }
 .notice { border-radius: 10px; padding: 10px 14px; font-size: 13px; background: var(--amber-bg); color: var(--amber); }
 
-.orch-new { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.orch-new { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 .orch-new label { display: flex; min-width: 0; }
-.orch-new label:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.orch-new label[for="orch-mode"] { grid-column: 1 / -1; }
+.new-opts { grid-column: 1 / -1; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 2px; }
+dialog .new-opt { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; cursor: pointer; color: var(--text); font-size: 13px; font-weight: 400; }
+.new-opt + .new-opt { border-top: 1px solid var(--border); }
+.new-opt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.new-opt-title { font-weight: 600; font-size: 13px; }
+.new-opt small { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.4; overflow-wrap: anywhere; }
+dialog .orch-new .new-switch { appearance: none; -webkit-appearance: none; flex: none; width: 34px; height: 20px; min-width: 34px; border-radius: 999px; background: var(--grey-bg); border: 1px solid var(--border); position: relative; cursor: pointer; margin: 0; padding: 0; transition: background .15s; }
+.new-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+dialog .orch-new .new-switch:checked { background: var(--green); border-color: var(--green); }
+.new-switch:checked::after { transform: translateX(14px); background: #fff; }
+.new-switch:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 dialog .orch-new select, dialog .orch-new input { width: 100%; min-width: 0; }
 dialog input.narrow { width: 96px; }
 
@@ -72,7 +83,7 @@ dialog input.narrow { width: 96px; }
   dialog form { padding: 16px; gap: 12px; }
   dialog .kinds { flex-direction: column; }
   dialog .kinds label { padding: 8px 10px; }
-  .orch-new { gap: 10px; }
+  .orch-new { gap: 12px 10px; }
   dialog .buttons { position: sticky; bottom: 0; background: var(--surface); padding: 10px 0 4px; box-shadow: 0 -8px 12px -8px rgba(0,0,0,.35); }
 }
 .orch-new[hidden] { display: none; }

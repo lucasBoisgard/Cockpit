@@ -173,10 +173,12 @@
       <label for="orch-model">Modèle du maître<select id="orch-model"><option value="opus">Opus</option><option value="sonnet">Sonnet</option><option value="">Par défaut</option></select></label>
       <label for="orch-effort">Effort<select id="orch-effort"><option value="high">Élevé</option><option value="medium">Moyen</option><option value="xhigh">Très élevé</option><option value="max">Max</option><option value="">Par défaut</option></select></label>
       <label for="orch-autonomy">Me solliciter<select id="orch-autonomy"><option value="blocking">Seulement si bloquant</option><option value="milestones">Aux étapes clés</option><option value="decisions">À chaque décision</option></select></label>
-      <label for="orch-max">Agents actifs au maximum<input type="number" id="orch-max" min="1" max="20" value="6"></label>
+      <label for="orch-max">Agents actifs max<input type="number" id="orch-max" min="1" max="20" value="6"></label>
       <label for="orch-mode">Permissions des agents<select id="orch-mode"><option value="acceptEdits">Accepter les modifs</option><option value="auto">Auto</option><option value="default">Par défaut</option></select></label>
-      <label class="orch-check" for="orch-strict"><input type="checkbox" id="orch-strict" checked> Maître strict<small>Le maître ne peut ni modifier de fichiers ni utiliser l'outil Agent interne : il délègue tout via orchestrate. Appliqué au lancement.</small></label>
-      <label class="orch-check" for="orch-arena"><input type="checkbox" id="orch-arena"> Mode Arène<small>Chaque tâche est confiée à plusieurs modèles en parallèle, un juge les compare et les note. Plus lent et plus coûteux, pour apprendre la matrice.</small></label>
+      <div class="new-opts" role="group" aria-label="Options du maître">
+        <label class="new-opt" for="orch-strict"><span class="new-opt-text"><span class="new-opt-title">Maître strict</span><small>Le maître ne modifie aucun fichier lui-même : il délègue tout via orchestrate.</small></span><input type="checkbox" id="orch-strict" class="new-switch" checked></label>
+        <label class="new-opt" for="orch-arena"><span class="new-opt-text"><span class="new-opt-title">Mode Arène</span><small>Chaque tâche est confiée à plusieurs modèles, un juge compare et note. Plus lent et plus coûteux.</small></span><input type="checkbox" id="orch-arena" class="new-switch"></label>
+      </div>
     </div>
     <label for="new-pr" id="new-pr-label" hidden>Pull request (lien ou numéro)
       <input type="text" id="new-pr" placeholder="https://github.com/org/repo/pull/1234" autocomplete="off">
