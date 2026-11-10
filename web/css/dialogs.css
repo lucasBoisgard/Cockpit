@@ -62,6 +62,7 @@ dialog select, dialog input[type="number"], dialog input[type="time"] { font-fam
 
 .orch-new { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 .orch-new label { display: flex; min-width: 0; }
+.orch-new label:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .orch-new label[for="orch-mode"] { grid-column: 1 / -1; }
 .new-opts { grid-column: 1 / -1; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 2px; }
 dialog .new-opt { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; cursor: pointer; color: var(--text); font-size: 13px; font-weight: 400; }
@@ -84,6 +85,7 @@ dialog input.narrow { width: 96px; }
   dialog .kinds { flex-direction: column; }
   dialog .kinds label { padding: 8px 10px; }
   .orch-new { gap: 12px 10px; }
+  .orch-new label[for="orch-autonomy"] { grid-column: 1 / -1; }
   dialog .buttons { position: sticky; bottom: 0; background: var(--surface); padding: 10px 0 4px; box-shadow: 0 -8px 12px -8px rgba(0,0,0,.35); }
 }
 .orch-new[hidden] { display: none; }
