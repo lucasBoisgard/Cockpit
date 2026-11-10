@@ -33,6 +33,8 @@ const connections = require('./features/connections');
 const codexScreens = require('./features/codex-screens');
 const providerCore = require('./core/providers');
 const { codexHookCommand, codexCatalog, CODEX_BIN } = require('./features/providers');
+const { saveImage } = require('./features/uploads');
+const { IMAGE_MAX_BYTES } = require('./core/uploads');
 const { saveAutomation, deleteAutomation, listAutomations, runAutomation } = require('./features/automations');
 
 const BODY_MAX_BYTES = 1024 * 1024;
@@ -74,23 +76,22 @@ function allowedWrite(req) {
   }
 }
 
-function readBody(req) {
+function readRaw(req, maxBytes) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > BODY_MAX_BYTES) reject(new Error('body too large'));
+      if (size > maxBytes) reject(new Error('body too large'));
       else chunks.push(chunk);
     });
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
-      } catch (error) {
-        reject(error);
-      }
-    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
   });
+}
+
+async function readBody(req) {
+  return JSON.parse((await readRaw(req, BODY_MAX_BYTES)).toString('utf8') || '{}');
 }
 
 function send(res, status, type, body, extraHeaders = {}) {
@@ -193,6 +194,14 @@ const terminalActions = {
 
 async function handleWrite(req, res, route) {
   if (!allowedWrite(req)) return json(res, 403, { error: 'Requête refusée.' });
+  if (route === '/api/upload-image') {
+    const tooBig = () => json(res, 413, { error: 'Image trop lourde (10 Mo maximum).' });
+    if (Number(req.headers['content-length']) > IMAGE_MAX_BYTES) return tooBig();
+    let buffer;
+    try { buffer = await readRaw(req, IMAGE_MAX_BYTES); } catch { return tooBig(); }
+    const result = saveImage(buffer);
+    return json(res, result.error ? 400 : 200, result);
+  }
   const body = await readBody(req);
   invalidateSnapshot();
   if (route === '/api/restart') {
