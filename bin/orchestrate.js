@@ -177,7 +177,9 @@ async function main() {
     }
     case 'rescore': {
       const [category, combo, score, ...reason] = rest;
-      const [provider, model, effort] = String(combo || '').split(':');
+      const parts = String(combo || '').split(':');
+      const [provider, effort] = [parts[0], parts.length > 2 ? parts[parts.length - 1] : undefined];
+      const model = parts.slice(1, parts.length > 2 ? -1 : undefined).join(':');
       if (!category || !provider || !model || !score) fail('Usage : orchestrate rescore <catégorie> <fournisseur>:<modèle>:<effort> <1-5> "<raison>"');
       await call('/api/orch/rescore', { category, provider, model, effort: effort || null, score: Number(score), why: reason.join(' ') });
       return console.log(`${provider === 'codex' ? 'GPT ' : ''}${model}·${effort || '-'} réévalué ${score}/5 en ${category}.`);

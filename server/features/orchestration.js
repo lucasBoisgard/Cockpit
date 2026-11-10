@@ -728,6 +728,8 @@ async function arenaState({ caller }) {
 async function setArena({ caller, on }) {
   const found = resolveCaller(load(), caller);
   if (found.error) return found;
+  if (found.agent) return { error: 'Seul le maître ou Lucas change le mode Arène.' };
+  if (!!found.orch.settings.arena === (on === true)) return arenaState({ caller });
   const result = await updateSettings({ master: found.orch.masterSessionId, arena: on === true });
   return result.error ? result : arenaState({ caller });
 }
