@@ -106,10 +106,6 @@ function isActive(wt) {
   return wt.files.length > 0 || wt.ahead > 0 || ['needs_input', 'working', 'done'].includes(st) || wt.sessions.some((s) => s.live);
 }
 
-function sorted(list) {
-  return [...list].sort((a, b) => (b.name === 'main') - (a.name === 'main') || a.name.localeCompare(b.name, 'fr', { numeric: true }));
-}
-
 const currentWt = () => (selected && selected !== SHELL ? state?.worktrees.find((w) => w.path === selected) : null);
 const currentSession = () => currentWt()?.sessions.find((s) => s.sessionId === chatSession) || null;
 

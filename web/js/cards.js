@@ -25,13 +25,6 @@ function renderCounters() {
   $('worktree-names').innerHTML = state.worktrees.filter((w) => !w.mainCheckout).map((w) => `<option value="${esc(w.name)}">`).join('');
 }
 
-function shellCard() {
-  const live = state.shell?.live;
-  return `<button class="tool-pill ${selected === SHELL ? 'selected' : ''}" data-shell="1" title="Session tmux persistante, indépendante des worktrees : elle survit à la fermeture de la page">
-    <span class="pill-dot ${live ? 'on' : ''}"></span><b>Terminal</b><span class="pill-sub">${live ? 'ouvert' : 'démarre au clic'}</span>
-  </button>`;
-}
-
 function prChip(pr) {
   if (!pr) return '';
   let cls = 'pr-open';

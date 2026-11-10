@@ -14,7 +14,7 @@
 }
 
 @media (max-width: 760px) {
-  header { padding: 12px 16px; } 
+  header { padding: 12px 16px; }
   .actions { margin-left: 0; }
   .side-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .side { border-right: 0; border-bottom: 1px solid var(--border); max-height: 40vh; }
