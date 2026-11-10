@@ -23,8 +23,8 @@ const mxDots = (n, max = 5) => `<span class="mx-dots" title="${n}/${max}">${Arra
 const mxLevel = (n) => (n == null ? '—' : ['', 'bas', 'moyen', 'élevé', 'très élevé'][n] || n);
 
 function mxRow(p, i) {
-  const obs = p.observed ? `<span class="mx-obs ${p.observed.avg >= p.score ? 'up' : 'down'}" title="${esc(p.observed.notes.map((n) => `${n.score}/5 · ${n.note}`).join('\n'))}">${p.observed.avg}/5 <small>sur ${p.observed.n}</small></span>` : '<span class="mx-muted">—</span>';
-  return `<tr class="${p.available ? '' : 'mx-off'}"><td class="mx-rank">${i + 1}</td><td>${mxProvider(p.provider)}</td><td class="mx-model">${esc(p.model)}</td><td>${esc(MX_EFFORT[p.effort] || p.effort || 'défaut')}</td><td>${mxDots(p.score)}</td><td>${obs}</td><td class="mx-why">${esc(p.why)}${p.available ? '' : ' <span class="mx-muted">· indisponible</span>'}</td></tr>`;
+  const obs = p.observed ? `<span class="mx-obs ${p.offMatrix || p.observed.avg >= p.score ? 'up' : 'down'}" title="${esc(p.observed.notes.map((n) => `${n.score}/5 · ${n.note}`).join('\n'))}">${p.observed.avg}/5 <small>sur ${p.observed.n}</small></span>` : '<span class="mx-muted">—</span>';
+  return `<tr class="${p.available ? '' : 'mx-off'}"><td class="mx-rank">${i + 1}</td><td>${mxProvider(p.provider)}</td><td class="mx-model">${esc(p.model)}</td><td>${esc(MX_EFFORT[p.effort] || p.effort || 'défaut')}</td><td>${p.offMatrix ? '<span class="mx-muted">hors matrice</span>' : mxDots(p.score)}</td><td>${obs}</td><td class="mx-why">${esc(p.why)}${p.available ? '' : ' <span class="mx-muted">· indisponible</span>'}</td></tr>`;
 }
 
 function mxEditRow(p, i) {
@@ -88,7 +88,7 @@ $('matrix-page').addEventListener('click', async (e) => {
   if (pick && !matrixUi.edit) { matrixUi.pick = pick.dataset.mxPick; renderMatrix(); return; }
   if (t.closest('[data-mx-edit]')) {
     const c = matrixUi.data.categories.find((x) => x.id === matrixUi.pick);
-    matrixUi.edit = { id: c.id, label: c.label, description: c.description, picks: [...c.picks].sort((a, b) => b.score - a.score).map(({ provider, model, effort, score, why }) => ({ provider, model, effort, score, why })) };
+    matrixUi.edit = { id: c.id, label: c.label, description: c.description, picks: c.picks.filter((p) => !p.offMatrix).sort((a, b) => b.score - a.score).map(({ provider, model, effort, score, why }) => ({ provider, model, effort, score, why })) };
     renderMatrix();
     return;
   }

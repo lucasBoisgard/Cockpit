@@ -124,9 +124,9 @@ async function main() {
     }
     case 'matrix': {
       const m = await call('/api/matrix');
-      const stars = (n) => `${n}/5`;
+      const stars = (n) => (n == null ? 'hors matrice' : `${n}/5`);
       const pick = (p, i) => {
-        const obs = p.observed ? ` · observé ${p.observed.avg}/5 sur ${p.observed.n}` : '';
+        const obs = `${p.observed ? ` · observé ${p.observed.avg}/5 sur ${p.observed.n}` : ''}${(p.observed?.n || 0) < 3 ? ' · à éprouver' : ''}`;
         const label = `${p.provider === 'codex' ? 'GPT ' : ''}${p.model} · ${p.effort || 'effort par défaut'}`;
         return `  ${i + 1}. ${label.padEnd(30)} ${stars(p.score)}${obs}${p.available ? '' : ' · INDISPONIBLE'}${p.why ? `\n     ${p.why}` : ''}${(p.observed?.notes || []).map((n) => `\n     « ${n.note} » (${n.score}/5, ${n.agent || '?'})`).join('')}`;
       };

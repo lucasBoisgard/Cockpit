@@ -6,6 +6,9 @@ const providers = require('./providers');
 const PRIOR_WEIGHT = 2;
 const MAX_PICKS = 8;
 const RATINGS_MAX = 2000;
+// A combination the masters used outside the matrix shows up once rated this often, starting from a neutral prior.
+const OFF_MATRIX_MIN = 2;
+const OFF_MATRIX_PRIOR = 3;
 
 const keyOf = (category, p) => `${category}|${p.provider}|${p.model}|${p.effort || ''}`;
 const clip = (text, max) => String(text ?? '').trim().slice(0, max);
@@ -55,7 +58,7 @@ function aggregateRatings(ratings = []) {
   for (const r of ratings) {
     if (!r.category) continue;
     const k = keyOf(r.category, r);
-    const a = out[k] || (out[k] = { sum: 0, n: 0, notes: [] });
+    const a = out[k] || (out[k] = { category: r.category, provider: r.provider, model: r.model, effort: r.effort || null, sum: 0, n: 0, notes: [] });
     a.sum += r.score;
     a.n += 1;
     if (r.note) a.notes = [{ at: r.at, score: r.score, note: r.note, agent: r.agent }, ...a.notes].slice(0, 3);
@@ -76,8 +79,14 @@ function recommend(matrix, categoryId, { available = {}, ratings = {} } = {}) {
     const observed = ratings[keyOf(category.id, p)] || null;
     return { ...p, observed: observed ? { avg: observed.avg, n: observed.n, notes: observed.notes } : null, rank: blended(p.score, observed), available: available[p.provider] !== false };
   });
-  picks.sort((a, b) => (b.available - a.available) || (b.rank - a.rank) || (b.score - a.score));
+  const listed = new Set(picks.map((p) => keyOf(category.id, p)));
+  for (const [key, o] of Object.entries(ratings)) {
+    if (o.category !== category.id || listed.has(key) || o.n < OFF_MATRIX_MIN) continue;
+    picks.push({ provider: o.provider, model: o.model, effort: o.effort, score: null, why: 'Observé hors matrice : choisi par des maîtres sans figurer dans la catégorie.', offMatrix: true,
+      observed: { avg: o.avg, n: o.n, notes: o.notes }, rank: blended(OFF_MATRIX_PRIOR, o), available: available[o.provider] !== false });
+  }
+  picks.sort((a, b) => (b.available - a.available) || (b.rank - a.rank) || ((b.score || 0) - (a.score || 0)));
   return { ...category, picks };
 }
 
-module.exports = { PRIOR_WEIGHT, keyOf, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };
+module.exports = { PRIOR_WEIGHT, OFF_MATRIX_MIN, OFF_MATRIX_PRIOR, keyOf, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };
