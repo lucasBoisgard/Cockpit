@@ -16,9 +16,21 @@ const defaults = {
 
 test('the versioned default matrix is valid against the providers', () => {
   const data = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'server', 'data', 'model-matrix.json'), 'utf8'));
-  const catalogs = { claude: providers.CLAUDE_MODELS, codex: providers.CODEX_DEFAULT_MODELS.concat(['gpt-6.1-terra', 'gpt-6-sol']) };
+  const catalogs = { claude: providers.CLAUDE_MODELS, codex: providers.CODEX_DEFAULT_MODELS };
   for (const c of data.categories) assert.ok(m.validateCategory(c, catalogs).category, `catégorie ${c.id} invalide : ${m.validateCategory(c, catalogs).error}`);
   assert.ok(data.categories.length >= 8);
+});
+
+test('every Claude and GPT model has a complete card and a place in at least one category', () => {
+  const data = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'server', 'data', 'model-matrix.json'), 'utf8'));
+  const used = new Set(data.categories.flatMap((c) => c.picks.map((p) => `${p.provider}|${p.model}`)));
+  const all = [...providers.CLAUDE_MODELS.map((id) => `claude|${id}`), ...providers.CODEX_DEFAULT_MODELS.map((id) => `codex|${id}`)];
+  for (const key of all) {
+    const card = data.models.find((x) => `${x.provider}|${x.model}` === key);
+    assert.ok(card, `${key} n'a pas de fiche`);
+    assert.ok(card.cost != null && card.speed != null && card.context && card.summary, `${key} a une fiche incomplète`);
+    assert.ok(used.has(key), `${key} n'est dans aucune catégorie`);
+  }
 });
 
 test('mergeMatrix lets a local edit replace a category and add new ones', () => {

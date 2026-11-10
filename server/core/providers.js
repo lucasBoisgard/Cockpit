@@ -9,7 +9,7 @@ const HOOK_EVENTS_CODEX = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'Pe
 const CHAT_MAX_ITEMS = 400;
 
 const CLAUDE_MODELS = ['opus', 'opus[1m]', 'sonnet', 'sonnet[1m]', 'haiku', 'fable'];
-const CODEX_DEFAULT_MODELS = ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.5'];
+const CODEX_DEFAULT_MODELS = ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'];
 
 const PROVIDERS = {
   claude: {

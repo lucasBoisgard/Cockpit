@@ -20,7 +20,7 @@ function openMatrix() {
 
 const mxProvider = (p) => (p === 'codex' ? '<span class="mx-gpt">GPT</span>' : '<span class="mx-claude">Claude</span>');
 const mxDots = (n, max = 5) => `<span class="mx-dots" title="${n}/${max}">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
-const mxLevel = (n) => (n == null ? '—' : ['', 'bas', 'moyen', 'élevé'][n] || n);
+const mxLevel = (n) => (n == null ? '—' : ['', 'bas', 'moyen', 'élevé', 'très élevé'][n] || n);
 
 function mxRow(p, i) {
   const obs = p.observed ? `<span class="mx-obs ${p.observed.avg >= p.score ? 'up' : 'down'}" title="${esc(p.observed.notes.map((n) => `${n.score}/5 · ${n.note}`).join('\n'))}">${p.observed.avg}/5 <small>sur ${p.observed.n}</small></span>` : '<span class="mx-muted">—</span>';
