@@ -35,7 +35,9 @@ test('staleUploads only lists old image files', () => {
 });
 
 test('insertImagePaths separates paths with spaces around the cursor', () => {
-  assert.deepStrictEqual(insertImagePaths('', 0, 0, ['/a.png']), { value: '/a.png ', cursor: 7 });
+  assert.deepStrictEqual(insertImagePaths('', 0, 0, ['/a.png']), { value: 'Image : /a.png ', cursor: 15 });
+  assert.strictEqual(insertImagePaths('', 0, 0, ['/a.png', '/b.png']).value, 'Images : /a.png /b.png ');
+  assert.strictEqual(insertImagePaths('see', 3, 3, ['/my dir/a.png']).value, 'see "/my dir/a.png" ');
   assert.deepStrictEqual(insertImagePaths('look', 4, 4, ['/a.png', '/b.png']), { value: 'look /a.png /b.png ', cursor: 19 });
   assert.deepStrictEqual(insertImagePaths('see now', 4, 4, ['/a.png']), { value: 'see /a.png now', cursor: 11 });
   assert.strictEqual(insertImagePaths('abc def', 4, 7, ['/x.png']).value, 'abc /x.png ');

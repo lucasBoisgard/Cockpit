@@ -17,6 +17,7 @@ function saveImage(buffer) {
   const checked = checkImage(buffer);
   if (checked.error) return checked;
   fs.mkdirSync(UPLOAD_DIR, { recursive: true, mode: 0o700 });
+  fs.chmodSync(UPLOAD_DIR, 0o700);
   const now = Date.now();
   const file = path.join(UPLOAD_DIR, imageFileName(checked.ext, now, crypto.randomBytes(4).toString('hex')));
   fs.writeFileSync(file, buffer, { mode: 0o600 });

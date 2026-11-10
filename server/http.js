@@ -195,7 +195,10 @@ const terminalActions = {
 async function handleWrite(req, res, route) {
   if (!allowedWrite(req)) return json(res, 403, { error: 'Requête refusée.' });
   if (route === '/api/upload-image') {
-    const tooBig = () => json(res, 413, { error: 'Image trop lourde (10 Mo maximum).' });
+    const tooBig = () => {
+      res.on('finish', () => req.destroy());
+      json(res, 413, { error: 'Image trop lourde (10 Mo maximum).' });
+    };
     if (Number(req.headers['content-length']) > IMAGE_MAX_BYTES) return tooBig();
     let buffer;
     try { buffer = await readRaw(req, IMAGE_MAX_BYTES); } catch { return tooBig(); }

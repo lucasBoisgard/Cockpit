@@ -17,8 +17,7 @@ async function attachImages(files) {
     if (problem) toast(problem, 'error'); else valid.push(file);
   }
   if (!valid.length) return;
-  const start = input.selectionStart;
-  const end = input.selectionEnd;
+  const target = chatSession;
   composer.classList.add('composer-uploading');
   toast(valid.length > 1 ? `Envoi de ${valid.length} images…` : 'Envoi de l’image…');
   const results = await Promise.all(valid.map(uploadImage));
@@ -26,9 +25,8 @@ async function attachImages(files) {
   const paths = results.filter((r) => r.path).map((r) => r.path);
   results.filter((r) => r.error).forEach((r) => toast(r.error, 'error'));
   if (!paths.length) return;
-  const from = Math.min(start, input.value.length);
-  const to = Math.min(Math.max(end, from), input.value.length);
-  const next = insertImagePaths(input.value, from, to, paths);
+  if (chatSession !== target) { toast(`Session changée pendant l’envoi : image non insérée (${paths.join(', ')}).`, 'error'); return; }
+  const next = insertImagePaths(input.value, input.selectionStart, input.selectionEnd, paths);
   input.value = next.value;
   input.focus();
   input.setSelectionRange(next.cursor, next.cursor);
@@ -40,7 +38,7 @@ const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
 let dragDepth = 0;
 
 $('composer').addEventListener('dragenter', (e) => {
-  if (!hasFiles(e)) return;
+  if (!hasFiles(e) || $('composer-input').disabled) return;
   e.preventDefault();
   dragDepth++;
   $('composer').classList.add('composer-dragover');
@@ -62,7 +60,7 @@ $('composer').addEventListener('drop', (e) => {
 });
 $('composer-input').addEventListener('paste', (e) => {
   const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
-  if (!files.length) return;
+  if (!files.length || e.clipboardData.getData('text/plain')) return;
   e.preventDefault();
   attachImages(files);
 });
