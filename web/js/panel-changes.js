@@ -144,7 +144,7 @@ function renderDiff(editLine) {
     const editor = ln && ln === editLine ? `<div class="cm-edit"><textarea id="cm-text" placeholder="Ta remarque sur la ligne ${ln}"></textarea><div class="row-btn"><button class="btn primary" data-cm-save="${ln}">Ajouter</button><button class="btn" data-cm-cancel="1">Annuler</button></div></div>` : '';
     return `<div class="line ${cls}" ${ln ? `data-ln="${ln}"` : ''}>${ln ? `<button class="cm-add" data-comment="${ln}" title="Commenter la ligne ${ln}">+</button>` : ''}${esc(l) || ' '}</div>${notes}${editor}`;
   }).join('');
-  const bar = comments.length ? `<div class="review-bar">💬 ${comments.length} commentaire${comments.length > 1 ? 's' : ''} en attente<button class="btn primary" id="cm-send">Envoyer à Claude</button><button class="btn" id="cm-clear">Vider</button></div>` : '';
+  const bar = comments.length ? `<div class="review-bar">💬 ${comments.length} commentaire${comments.length > 1 ? 's' : ''} en attente<button class="btn primary" id="cm-send">Envoyer à la session</button><button class="btn" id="cm-clear">Vider</button></div>` : '';
   const files = orderedFiles();
   const pos = files.indexOf(selectedFile);
   const head = `<div class="diff-head">

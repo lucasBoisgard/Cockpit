@@ -12,6 +12,18 @@ const prompt = (now, text = 'do it') => [now, { hook_event_name: 'UserPromptSubm
 const tool = (now, tool_name = 'Bash', tool_input = { command: 'ls' }) => [now, { hook_event_name: 'PreToolUse', tool_name, tool_input }];
 const stop = (now, extra = {}) => [now, { hook_event_name: 'Stop', ...extra }];
 
+test('Codex questions enter needs_input and patch actions retain each file', () => {
+  const state = { actions: [] };
+  const opts = { now: 10, pane: '%1', fallbackCwd: '/repo', provider: 'codex' };
+  applyHookEvent(state, { session_id: 's', hook_event_name: 'PreToolUse', tool_name: 'request_user_input', tool_input: { questions: [{ question: 'Which?', options: [{ label: 'One' }, { label: 'Two' }] }] } }, opts);
+  assert.strictEqual(state.status, 'needs_input');
+  assert.deepStrictEqual(state.question.options, ['One', 'Two']);
+  applyHookEvent(state, { session_id: 's', hook_event_name: 'PostToolUse', tool_name: 'request_user_input' }, opts);
+  assert.strictEqual(state.status, 'working');
+  applyHookEvent(state, { session_id: 's', hook_event_name: 'PreToolUse', tool_name: 'apply_patch', tool_input: { input: '*** Update File: a.js\n*** Add File: b.js' } }, opts);
+  assert.deepStrictEqual(state.actions[0].files, ['a.js', 'b.js']);
+});
+
 test('a session starts idle, with its cwd, transcript and pane', () => {
   const state = replay([start]);
   assert.deepStrictEqual(state, { actions: [], sessionId: 's', cwd: '/repo', transcriptPath: '/t.jsonl', tmuxPaneSince: 1000, tmuxPane: '%1', startedAt: 1000, updatedAt: 1000, status: 'idle', statusSince: 1000 });
@@ -161,13 +173,21 @@ test('a subagent edit after the main turn keeps the session updatedAt and needs 
 
 const codexOpts = { now: 1000, pane: '%9', fallbackCwd: '/repo', provider: 'codex' };
 
+test('a resumed Codex session records the settings it was relaunched with', () => {
+  const state = { launch: { mode: 'auto' }, actions: [] };
+  applyHookEvent(state, { session_id: 'c1', hook_event_name: 'SessionStart', source: 'resume' }, { ...codexOpts, launch: { mode: 'plan' } });
+  assert.deepStrictEqual(state.launch, { mode: 'plan' });
+  applyHookEvent(state, { session_id: 'c1', hook_event_name: 'UserPromptSubmit', prompt: 'test' }, { ...codexOpts, launch: { mode: 'auto' } });
+  assert.deepStrictEqual(state.launch, { mode: 'plan' });
+});
+
 test('codex sessions are tagged and their apply_patch edits are tracked', () => {
   const state = { actions: [] };
   applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'SessionStart', source: 'startup' }, codexOpts);
   assert.strictEqual(state.provider, 'codex');
   applyHookEvent(state, { session_id: 'c1', cwd: '/repo', hook_event_name: 'PreToolUse', tool_name: 'apply_patch', tool_input: { command: '*** Begin Patch\n*** Update File: web/a.js\n@@\n-x\n+y\n*** End Patch' } }, { ...codexOpts, now: 2000 });
   assert.strictEqual(state.status, 'working');
-  assert.deepStrictEqual(state.actions[0], { tool: 'apply_patch', detail: 'web/a.js', at: 2000 });
+  assert.deepStrictEqual(state.actions[0], { tool: 'apply_patch', detail: 'web/a.js', files: ['web/a.js'], at: 2000 });
   assert.deepStrictEqual(state.editedDirs, ['/repo/web']);
 });
 

@@ -6,17 +6,32 @@ const { parseHistoryMeta, searchSnippet } = require('../core/transcript');
 const { usageWorktree } = require('../core/usage');
 const { invalidateSnapshot } = require('../cache');
 const { resumeIn } = require('./sessions');
+const { CODEX_SESSIONS_DIR } = require('./providers');
+const { jsonlFiles } = require('../io/files');
+const { codexHistoryMeta, inRepo } = require('../core/codex-history');
+const { parseCodexRollout } = require('../core/providers');
 
 const HISTORY_FILES_MAX = 400;
 const PROJECT_PREFIX = REPO.replace(/[^a-zA-Z0-9]/g, '-');
 const historyIndex = new Map();
+
+function allowedCwd(cwd) {
+  if (!inRepo(cwd, REPO)) return false;
+  try {
+    return inRepo(fs.realpathSync(cwd), fs.realpathSync(REPO));
+  } catch {
+    try {
+      return !fs.existsSync(cwd) && inRepo(fs.realpathSync(path.dirname(cwd)), fs.realpathSync(REPO));
+    } catch { return false; }
+  }
+}
 
 function historyFiles() {
   let dirs = [];
   try {
     dirs = fs.readdirSync(PROJECTS_DIR).filter((d) => d === PROJECT_PREFIX || d.startsWith(`${PROJECT_PREFIX}-`));
   } catch {}
-  return dirs
+  const claude = dirs
     .flatMap((d) => {
       try {
         return fs.readdirSync(path.join(PROJECTS_DIR, d)).filter((f) => f.endsWith('.jsonl')).map((f) => path.join(PROJECTS_DIR, d, f));
@@ -26,14 +41,17 @@ function historyFiles() {
     })
     .map((file) => ({ file, stat: fs.statSync(file, { throwIfNoEntry: false }) }))
     .filter((f) => f.stat)
-    .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs)
-    .slice(0, HISTORY_FILES_MAX);
+    .map((f) => ({ ...f, provider: 'claude' }));
+  const codex = jsonlFiles(CODEX_SESSIONS_DIR, 0).map(({ file }) => ({ file, stat: fs.statSync(file, { throwIfNoEntry: false }), provider: 'codex' })).filter((f) => f.stat);
+  return [...claude, ...codex].sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs).filter((f) => allowedCwd(historyMeta(f)?.cwd)).slice(0, HISTORY_FILES_MAX);
 }
 
-function historyMeta({ file, stat }) {
+function historyMeta({ file, stat, provider }) {
   const cached = historyIndex.get(file);
   if (cached && cached.mtimeMs === stat.mtimeMs) return cached.meta;
-  const meta = parseHistoryMeta(fs.readFileSync(file, 'utf8'), { sessionId: path.basename(file, '.jsonl'), file, mtimeMs: stat.mtimeMs });
+  const text = fs.readFileSync(file, 'utf8');
+  const meta = provider === 'codex' ? codexHistoryMeta(text, file, stat.mtimeMs) : parseHistoryMeta(text, { sessionId: path.basename(file, '.jsonl'), file, mtimeMs: stat.mtimeMs });
+  if (!meta) return null;
   const result = { ...meta, worktree: usageWorktree(meta.cwd, REPO), exists: !!meta.cwd && fs.existsSync(meta.cwd) };
   historyIndex.set(file, { mtimeMs: stat.mtimeMs, meta: result });
   return result;
@@ -44,7 +62,7 @@ function searchHistory(query, limit = 80) {
   const out = [];
   for (const f of historyFiles()) {
     const meta = historyMeta(f);
-    if (!meta.messages) continue;
+    if (!meta?.messages) continue;
     if (!q) {
       out.push(meta);
     } else {
@@ -59,7 +77,14 @@ function searchHistory(query, limit = 80) {
 }
 
 function historyFile(sessionId) {
-  return historyFiles().find((f) => path.basename(f.file, '.jsonl') === sessionId) || null;
+  return historyFiles().find((f) => {
+    const meta = historyMeta(f);
+    return meta?.sessionId === sessionId && allowedCwd(meta.cwd);
+  }) || null;
+}
+
+function historyChat(found, sessionId) {
+  return found.provider === 'codex' ? parseCodexRollout(fs.readFileSync(found.file, 'utf8'), sessionId) : require('./chat').readChatFile(found.file, sessionId);
 }
 
 async function resumeFromHistory({ session: sessionId }) {
@@ -67,7 +92,7 @@ async function resumeFromHistory({ session: sessionId }) {
   const found = historyFile(sessionId);
   if (!found) return { error: 'Session introuvable.' };
   const meta = historyMeta(found);
-  if (!meta.cwd) return { error: 'Dossier de la session inconnu.' };
+  if (!allowedCwd(meta?.cwd)) return { error: 'Dossier de la session inconnu.' };
   if (!fs.existsSync(meta.cwd)) {
     const inWorktrees = meta.cwd.startsWith(`${REPO}/.claude/worktrees/`);
     const hasBranch = meta.branch && (await run('git', ['-C', REPO, 'rev-parse', '--verify', '--quiet', `refs/heads/${meta.branch}`])).ok;
@@ -75,9 +100,9 @@ async function resumeFromHistory({ session: sessionId }) {
     const added = await run('git', ['-C', REPO, 'worktree', 'add', meta.cwd, meta.branch]);
     if (!added.ok) return { error: added.stderr.trim() };
   }
-  const result = await resumeIn(meta.cwd, sessionId);
+  const result = await resumeIn(meta.cwd, sessionId, found.provider);
   invalidateSnapshot();
   return result.ok ? { ok: true, worktree: usageWorktree(meta.cwd, REPO) } : { error: result.stderr.trim() };
 }
 
-module.exports = { searchHistory, historyFile, resumeFromHistory };
+module.exports = { searchHistory, historyFile, historyChat, resumeFromHistory };

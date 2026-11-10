@@ -23,11 +23,11 @@ async function openAutomations() {
   const notice = state.tick ? '' : '<div class="notice">Ce serveur tourne sans boucle de fond (lancé sans COCKPIT_TICK=1, comme une instance de test) : les automatisations ne se lancent pas toutes seules ici. « Lancer maintenant » fonctionne.</div>';
   $('auto-list').innerHTML = notice + (list.length ? list.map((a) => `<div class="row">
       <div class="top-line"><span class="grow">${esc(a.name)}</span><span class="auto-state ${runState(a)[0]}">${runState(a)[1]}</span></div>
-      <div class="meta-line">${esc(describeSchedule(a))} · worktree ${esc(a.worktree)}${a.newWorktree ? '-<date>' : ''}</div>
+      <div class="meta-line">${a.provider === 'codex' ? 'GPT' : 'Claude'} · ${esc(describeSchedule(a))} · worktree ${esc(a.worktree)}${a.newWorktree ? '-<date>' : ''}</div>
       <div class="meta-line">${a.nextRun ? `Prochain lancement : <b>${a.nextRun - Date.now() < 60000 ? (state.tick ? 'maintenant' : 'maintenant, mais la boucle de fond est désactivée ici') : esc(when(a.nextRun))}</b>` : 'Pas de prochain lancement'}${a.lastRun ? ` · dernier : ${esc(when(a.lastRun))} (${esc(a.lastResult || '')})` : ''}${sessionLine(a)}</div>
       <div class="meta-line">${esc(a.prompt.slice(0, 200))}</div>
       <div class="actions-line"><button class="btn" data-arun="${esc(a.id)}">Lancer maintenant</button><button class="btn" data-aedit="${esc(a.id)}">Modifier</button><button class="btn" data-atoggle="${esc(a.id)}">${a.enabled ? 'Mettre en pause' : 'Activer'}</button><button class="btn" data-adel="${esc(a.id)}">Supprimer</button></div>
-    </div>`).join('') : '<p class="text">Aucune automatisation. Une automatisation lance une session Claude avec un prompt, à heure fixe ou à intervalle régulier, même quand la page est fermée.</p>');
+    </div>`).join('') : '<p class="text">Aucune automatisation.</p>');
   $('auto-list').dataset.items = JSON.stringify(list);
 }
 
@@ -35,6 +35,7 @@ function fillAutomationForm(a) {
   editingAutomation = a?.id || null;
   $('auto-form-title').textContent = a ? `Modifier « ${a.name} »` : 'Nouvelle automatisation';
   $('auto-name').value = a?.name || '';
+  $('auto-provider').value = a?.provider || 'claude';
   $('auto-worktree').value = a?.worktree || '';
   $('auto-new').checked = !!a?.newWorktree;
   $('auto-prompt').value = a?.prompt || '';
@@ -60,6 +61,7 @@ $('auto-form').addEventListener('submit', async (e) => {
   const item = {
     id: editingAutomation,
     name: $('auto-name').value,
+    provider: $('auto-provider').value,
     worktree: $('auto-worktree').value.trim(),
     newWorktree: $('auto-new').checked,
     prompt: $('auto-prompt').value,

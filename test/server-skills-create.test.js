@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-skills-'));
 process.env.HOME = home;
-const { createSkill } = require('../server/features/skills');
+const { createSkill, listSkills } = require('../server/features/skills');
 
 test.after(() => fs.rmSync(home, { recursive: true, force: true }));
 
@@ -24,4 +24,12 @@ test('createSkill refuses unknown targets, bad names and invalid content', () =>
   assert.match(createSkill({ target: 'local', name: '../escape', content }).error, /Nom invalide/);
   assert.match(createSkill({ target: 'local', name: 'nometa', content: '# no frontmatter' }).error, /en-tête/);
   assert.strictEqual(fs.existsSync(path.join(home, '.claude', 'skills', 'nometa')), false);
+});
+
+test('GPT skills are created in the shared agent directory and listed separately', async () => {
+  const created = createSkill({ target: 'codexLocal', name: 'hello', content });
+  assert.strictEqual(created.path, path.join(home, '.agents', 'skills', 'hello', 'SKILL.md'));
+  assert.match(createSkill({ target: 'codexLocal', name: 'hello', content }).error, /existe déjà/);
+  const result = await listSkills();
+  assert.ok(result.tree.find((group) => group.source === 'codexLocal')?.items.some((item) => item.path === created.path));
 });

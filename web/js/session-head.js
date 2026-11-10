@@ -16,6 +16,7 @@ function headStateActions(wt, s, st) {
   const key = (k, label, cls = '') => `<button class="btn shead-btn ${cls}" data-head-op="${esc(JSON.stringify(typeof k === 'object' ? k : { literal: String(k) }))}" data-session="${id}">${label}</button>`;
   const keys = keysOf(s);
   if (st === 'needs_input' && s.live) {
+    if (s.provider === 'codex') return '<button class="btn shead-btn shead-main" data-head-ask>Répondre</button>';
     if (s.ask || s.codexScreen) return '<button class="btn shead-btn shead-main" data-head-ask>Répondre</button>';
     if (s.question?.options?.length) return s.question.options.slice(0, 4).map((o, i) => key(i + 1, `${i + 1}. ${esc(oneLineText(o, 40))}`, i ? '' : 'shead-main')).join('');
     if (s.permission) return `${key(keys.allow, 'Autoriser <kbd>a</kbd>', 'shead-main')}${key(keys.always, 'Toujours')}${key(keys.deny, 'Refuser')}`;
@@ -98,7 +99,7 @@ $('panel-head').addEventListener('click', (e) => {
   const k = t.closest('[data-head-op]');
   if (k) { headKey(k.dataset.session, [JSON.parse(k.dataset.headOp)], 'Réponse envoyée.'); return; }
   const stop = t.closest('[data-head-interrupt]');
-  if (stop) { headKey(stop.dataset.headInterrupt, [{ key: 'Escape' }], 'Échap envoyé : Claude s’interrompt.'); return; }
+  if (stop) { headKey(stop.dataset.headInterrupt, [{ key: 'Escape' }], 'Interruption envoyée.'); return; }
   const tabBtn = t.closest('[data-head-tab]');
   if (tabBtn) { closeMenu(); document.querySelector(`#tabs [data-tab="${tabBtn.dataset.headTab}"]`)?.click(); if (tabBtn.dataset.headTab === 'chat') $('composer-input').focus(); return; }
   const read = t.closest('[data-head-read]');

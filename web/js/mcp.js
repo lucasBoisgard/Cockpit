@@ -34,10 +34,12 @@ function mcpRow(s) {
   const both = s.inClaude && s.inCodex ? '<span class="mcp-both" title="Disponible pour Claude et pour GPT">Claude + GPT</span>' : '';
   const where = s.source === 'repo' ? `<span class="mcp-chip">${esc(s.repo)} · ${s.scope === 'project' ? '.mcp.json' : 'local'}</span>` : '';
   const actions = [
-    s.health === 'auth' ? `<button class="btn" data-mcp-login="${esc(s.name)}" data-provider="${s.provider}">Se connecter</button>` : '',
+    (s.health === 'auth' || (s.provider === 'codex' && s.transport === 'http')) ? `<button class="btn" data-mcp-login="${esc(s.name)}" data-provider="${s.provider}">Se connecter</button>` : '',
     s.source === 'user' && !s.inCodex && data?.codexInstalled ? `<button class="btn" data-mcp-share="${esc(s.name)}" data-to="codex">Aussi pour GPT</button>` : '',
+    s.source === 'claude.ai' && !s.inCodex && data?.codexInstalled && /^https?:\/\//.test(s.target) ? `<button class="btn" data-mcp-share="${esc(s.name)}" data-from="claude.ai" data-to="codex">Connecter à GPT</button>` : '',
     s.source === 'codex' && !s.inClaude ? `<button class="btn" data-mcp-share="${esc(s.name)}" data-to="claude">Aussi pour Claude</button>` : '',
     s.source === 'repo' ? `<button class="btn" data-mcp-global="${esc(s.name)}" data-repo="${esc(s.repoPath)}" data-scope="${esc(s.scope)}">Rendre global</button>` : '',
+    s.source === 'repo' && !s.inCodex && data?.codexInstalled ? `<button class="btn" data-mcp-share="${esc(s.name)}" data-from="repo" data-to="codex" data-repo="${esc(s.repoPath)}" data-scope="${esc(s.scope)}">Aussi pour GPT</button>` : '',
     s.removable ? `<button class="btn mcp-remove" data-mcp-remove="${esc(s.name)}" data-provider="${s.provider}" data-scope="${esc(s.scope || '')}" data-repo="${esc(s.repoPath || '')}">Retirer</button>` : '',
   ].join('');
   return `<div class="mcp-row"><span class="mcp-dot mcp-h-${s.health}" title="${esc(s.healthText || MCP_HEALTH[s.health])}"></span>
@@ -115,7 +117,7 @@ $('mcp-page').addEventListener('click', async (e) => {
     return;
   }
   const share = t.closest('[data-mcp-share]');
-  if (share) { mcpAction('/api/mcp/share', { name: share.dataset.mcpShare, to: share.dataset.to }, `${share.dataset.mcpShare} ajouté pour ${share.dataset.to === 'codex' ? 'GPT' : 'Claude'}.`); return; }
+  if (share) { mcpAction('/api/mcp/share', { name: share.dataset.mcpShare, from: share.dataset.from, to: share.dataset.to, repoPath: share.dataset.repo, scope: share.dataset.scope }, `${share.dataset.mcpShare} ajouté pour ${share.dataset.to === 'codex' ? 'GPT' : 'Claude'}. Authentifie-le si nécessaire.`); return; }
   const global = t.closest('[data-mcp-global]');
   if (global) {
     if (!confirm(`Rendre ${global.dataset.mcpGlobal} global ? Il sera disponible dans toutes les sessions Claude${global.dataset.scope === 'local' ? ', et retiré de la portée locale du dépôt' : ''}.`)) return;

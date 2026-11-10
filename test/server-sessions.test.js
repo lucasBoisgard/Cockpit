@@ -1,6 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, sessionOverlap, primarySession, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt } = require('../server/core/sessions');
+const { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, sessionOverlap, primarySession, paneOf, ownerOf, shouldQueue, sessionEvent, validName, validPrRef, tmuxSessionName, reviewPrompt, codexReviewPrompt } = require('../server/core/sessions');
+
+test('Codex review instructions name local skill files and the report destination', () => {
+  const prompt = codexReviewPrompt(['/repo/skills/review-context/SKILL.md', '/cockpit/skills/review-report/SKILL.md'], '/reports/review-2.report.json');
+  assert.match(prompt, /review-context\/SKILL\.md/);
+  assert.match(prompt, /review-report\/SKILL\.md/);
+  assert.match(prompt, /\/reports\/review-2\.report\.json/);
+  assert.match(prompt, /Never post/);
+  assert.doesNotMatch(prompt, /Skill tool/);
+});
 
 function panesWith(entries, { bySession = [], claudeStatus = [] } = {}) {
   const panes = new Map(entries);
@@ -121,6 +130,14 @@ test('sessionOverlap resolves paths against each session cwd and ignores old edi
   ];
   assert.deepStrictEqual(sessionOverlap(sessions, at).map((o) => o.file), ['/repo/src/x.js']);
   assert.deepStrictEqual(sessionOverlap([{ ...sessions[0], cwd: '/a' }, { ...sessions[1], cwd: '/b' }], at), []);
+});
+
+test('sessionOverlap detects every file edited by a Codex patch', () => {
+  const sessions = [
+    { sessionId: 'gpt', cwd: '/repo', actions: [{ tool: 'apply_patch', files: ['src/a.js', 'src/b.js'] }] },
+    { sessionId: 'claude', cwd: '/repo', actions: [{ tool: 'Edit', detail: 'src/b.js' }] },
+  ];
+  assert.deepStrictEqual(sessionOverlap(sessions), [{ file: '/repo/src/b.js', sessions: ['gpt', 'claude'] }]);
 });
 
 test('primarySession prefers live sessions, then needs_input, then working, then the most recent', () => {

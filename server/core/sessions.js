@@ -33,10 +33,13 @@ function sessionOverlap(sessions, now = Date.now()) {
   const editors = new Map();
   for (const session of sessions) {
     for (const action of session.actions || []) {
-      if (!EDITING_TOOLS.includes(action.tool) || !action.detail || (action.at && now - action.at > OVERLAP_WINDOW_MS)) continue;
-      const file = path.resolve(session.cwd || '/', action.detail);
-      if (!editors.has(file)) editors.set(file, new Set());
-      editors.get(file).add(session.sessionId);
+      if (action.at && now - action.at > OVERLAP_WINDOW_MS) continue;
+      const files = action.tool === 'apply_patch' ? (action.files || []) : EDITING_TOOLS.includes(action.tool) && action.detail ? [action.detail] : [];
+      for (const name of files) {
+        const file = path.resolve(session.cwd || '/', name);
+        if (!editors.has(file)) editors.set(file, new Set());
+        editors.get(file).add(session.sessionId);
+      }
     }
   }
   return [...editors].filter(([, ids]) => ids.size > 1).map(([file, ids]) => ({ file, sessions: [...ids] })).sort((a, b) => a.file.localeCompare(b.file));
@@ -97,4 +100,13 @@ function reviewPrompt(prRef, prompt) {
   return `Review the pull request ${prRef}.${prompt && String(prompt).trim() ? `\n\n${String(prompt).trim()}` : ''}`;
 }
 
-module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, primarySession, sessionOverlap, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt };
+function codexReviewPrompt(skills, reportFile) {
+  return [
+    'This session is a pull request review started from the Cockpit.',
+    `Read these available review skill instructions when relevant: ${skills.join(', ')}. Begin with review-context when available, including the linked ticket and discussions. If access or a skill is unavailable, report the limitation.`,
+    'Check findings against the code. Never post comments, approve or request changes on the pull request.',
+    `Read the review-report skill and write the final report atomically to ${reportFile}; then summarize it in the conversation.`,
+  ].join('\n');
+}
+
+module.exports = { STALE_MS, withClaudeStatus, effectiveStatus, turnStatus, primarySession, sessionOverlap, paneOf, ownerOf, shouldQueue, sessionEvent, delegatedDoneText, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, codexReviewPrompt, reviewPrompt };

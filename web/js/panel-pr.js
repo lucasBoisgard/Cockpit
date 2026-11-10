@@ -30,7 +30,7 @@ async function loadChecks() {
     ${open ? `<div class="ready ${blockers.length ? 'no' : ''}">${blockers.length ? `Pas encore prête : ${esc(blockers.join(' · '))}` : 'Prête à merger'}</div>` : ''}
     ${currentWt()?.ahead ? `<div class="card-actions"><button class="btn" data-push="${esc(wt.path)}">Pousser ${currentWt().ahead} commit${currentWt().ahead > 1 ? 's' : ''} non poussé${currentWt().ahead > 1 ? 's' : ''}</button></div>` : ''}
     <section><h3 class="sub-title">Checks (${data.checks.length})</h3>
-      ${checks.map((c) => `<div class="check-row"><span class="state ${c.state}">${CHECK_LABEL[c.state]}</span><span class="grow">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${duration(c)}</span>${c.state === 'failing' ? `<button class="btn" data-sendcheck="${esc(c.name)}">Envoyer l'échec à Claude</button>` : ''}</div>`).join('') || '<p class="hint">Aucun check.</p>'}
+      ${checks.map((c) => `<div class="check-row"><span class="state ${c.state}">${CHECK_LABEL[c.state]}</span><span class="grow">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${duration(c)}</span>${c.state === 'failing' ? `<button class="btn" data-sendcheck="${esc(c.name)}">Envoyer l'échec à la session</button>` : ''}</div>`).join('') || '<p class="hint">Aucun check.</p>'}
     </section>
     ${data.reviews?.length ? `<section><h3 class="sub-title">Reviews</h3>${data.reviews.map((r) => `<div class="check-row"><span class="state ${r.state === 'APPROVED' ? 'passing' : r.state === 'CHANGES_REQUESTED' ? 'failing' : 'pending'}">${esc(r.state)}</span><span class="grow"><b>${esc(r.author)}</b> ${esc(r.body)}</span></div>`).join('')}</section>` : ''}`;
 }

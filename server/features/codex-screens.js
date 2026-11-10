@@ -1,9 +1,9 @@
 const path = require('node:path');
 const { REPO, TMUX_SIZE, TMUX_PATH } = require('../config');
 const { tmux, sleep } = require('../io/exec');
-const { loadStore, saveStore, readSessions } = require('../io/store');
-const { parseCodexPrompt, choiceKeys } = require('../core/codex-screen');
-const { sendOps } = require('./terminal');
+const { loadStore, saveStore, readSessions, readSession } = require('../io/store');
+const { parseCodexPrompt, choiceKeys, activeChoiceKeys, permissionChoiceKeys } = require('../core/codex-screen');
+const { sendOps, resolveTarget } = require('./terminal');
 
 // Codex asks some questions before its hooks run (trust this folder, review the hooks): until then the
 // cockpit has no state for the session. It remembers the Codex sessions it launches, reads the screen of
@@ -51,16 +51,55 @@ async function pendingScreens() {
   return out;
 }
 
-async function answerScreen({ tmux: tmuxName, option }) {
-  const launch = loadStore(STORE, []).find((l) => l.tmux === String(tmuxName || ''));
-  if (!launch) return { error: 'Session GPT inconnue.' };
-  const prompt = parseCodexPrompt(await screenOf(launch.tmux));
+async function answerScreen({ tmux: tmuxName, session, option, label }) {
+  let target;
+  if (session) {
+    const state = readSession(String(session));
+    if (!state || state.provider !== 'codex' || state.status !== 'needs_input') return { error: 'Session GPT sans question en attente.' };
+    const expected = state.question?.options?.[Number(option) - 1];
+    if (!expected || expected !== label) return { error: 'La question a changé : réponds dans le terminal.' };
+    target = await resolveTarget(session);
+  } else {
+    const launch = loadStore(STORE, []).find((l) => l.tmux === String(tmuxName || ''));
+    if (!launch) return { error: 'Session GPT inconnue.' };
+    target = `${launch.tmux}:`;
+  }
+  if (!target) return { error: 'Terminal GPT indisponible.' };
+  const screen = await tmux(['capture-pane', '-p', '-J', '-t', target]);
+  const prompt = parseCodexPrompt(screen.ok ? screen.stdout : '');
   if (!prompt) return { error: 'Codex n’attend plus de choix sur cet écran.' };
-  const keys = choiceKeys(prompt, option);
-  if (!keys) return { error: 'Choix inconnu.' };
-  await sendOps(`${launch.tmux}:`, keys);
-  await sleep(800);
-  return { ok: true, next: parseCodexPrompt(await screenOf(launch.tmux)) };
+  const keys = session ? activeChoiceKeys(screen.stdout, option, label) : choiceKeys(prompt, option);
+  if (!keys) return { error: 'Le choix affiché est illisible ou a changé : réponds dans le terminal.' };
+  const sent = await sendOps(target, keys);
+  if (sent.error) return sent;
+  for (let i = 0; i < 8; i++) {
+    await sleep(250);
+    const next = await tmux(['capture-pane', '-p', '-J', '-t', target]);
+    if (!next.ok) return { error: next.stderr || 'Impossible de vérifier la réponse dans le terminal.' };
+    const current = parseCodexPrompt(next.stdout);
+    if (!current || current.text !== prompt.text || current.options.map((o) => o.label).join('\n') !== prompt.options.map((o) => o.label).join('\n')) return { ok: true };
+  }
+  return { error: 'Codex affiche toujours la même question : la réponse n’est pas confirmée. Vérifie le terminal avant de réessayer.' };
+}
+
+async function answerPermission({ session, decision }) {
+  const state = readSession(String(session || ''));
+  if (!state || state.provider !== 'codex' || state.status !== 'needs_input' || !state.permission) return { error: 'Aucune permission GPT en attente.' };
+  const target = await resolveTarget(session);
+  if (!target) return { error: 'Terminal GPT indisponible.' };
+  const captured = await tmux(['capture-pane', '-p', '-J', '-t', target]);
+  if (!captured.ok) return { error: captured.stderr || 'Lecture du terminal impossible.' };
+  const keys = permissionChoiceKeys(captured.stdout, decision);
+  if (!keys) return { error: 'Choix de permission illisible ou ambigu : réponds dans le terminal.' };
+  const sent = await sendOps(target, keys);
+  if (sent.error) return sent;
+  for (let i = 0; i < 8; i++) {
+    await sleep(250);
+    const next = await tmux(['capture-pane', '-p', '-J', '-t', target]);
+    if (!next.ok) return { error: next.stderr || 'Impossible de vérifier la permission dans le terminal.' };
+    if (!permissionChoiceKeys(next.stdout, decision)) return { ok: true };
+  }
+  return { error: 'Codex affiche toujours la même permission : la réponse n’est pas confirmée. Vérifie le terminal avant de réessayer.' };
 }
 
 // "Autoriser GPT sur ce dépôt": a bare Codex session in the repository, so that Codex shows its trust
@@ -101,11 +140,13 @@ async function openHooks({ tmux: tmuxName }) {
   const launch = loadStore(STORE, []).find((l) => l.tmux === String(tmuxName || ''));
   if (!launch) return { error: 'Session GPT inconnue.' };
   if (parseCodexPrompt(await screenOf(launch.tmux))) return { error: 'Codex attend déjà un choix : réponds-y d’abord.' };
-  await sendOps(`${launch.tmux}:`, [{ literal: '/hooks' }]);
+  const typed = await sendOps(`${launch.tmux}:`, [{ literal: '/hooks' }]);
+  if (typed.error) return typed;
   await sleep(300);
-  await sendOps(`${launch.tmux}:`, [{ key: 'Enter' }]);
+  const sent = await sendOps(`${launch.tmux}:`, [{ key: 'Enter' }]);
+  if (sent.error) return sent;
   await sleep(1000);
   return { ok: true, prompt: parseCodexPrompt(await screenOf(launch.tmux)), screen: (await screenOf(launch.tmux)).trim().split('\n').slice(-25).join('\n') };
 }
 
-module.exports = { openHooks, registerCodexLaunch, pendingScreens, answerScreen, setupRepo, setupState, endSetup, REPO };
+module.exports = { openHooks, registerCodexLaunch, pendingScreens, answerScreen, answerPermission, setupRepo, setupState, endSetup, REPO };

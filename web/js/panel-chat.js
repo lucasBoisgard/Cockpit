@@ -20,10 +20,10 @@ function renderComposer(s) {
   $('composer-send').disabled = !live;
   $('queue-list').innerHTML = (s?.queue || []).map((q) => `<div class="queue-item"><span title="${esc(q.text)}">⏳ En file : ${esc(q.text)}</span><button data-dequeue="${esc(q.id)}" title="Retirer de la file">✕</button></div>`).join('');
   const parallel = currentWt() ? liveSessions(currentWt()).length : 0;
-  if (live && parallel > 1) $('composer-note').textContent = `${parallel} sessions Claude travaillent dans ce worktree : évite qu'elles modifient les mêmes fichiers.`;
+  if (live && parallel > 1) $('composer-note').textContent = `${parallel} sessions travaillent dans ce worktree : évite qu'elles modifient les mêmes fichiers.`;
   else if (live) $('composer-note').innerHTML = '';
   else if (s) $('composer-note').innerHTML = `Cette session ne tourne pas dans tmux : lecture seule. <button class="btn" id="resume-btn">Reprendre dans le cockpit</button>`;
-  else $('composer-note').innerHTML = 'Lance une session avec « Nouvelle session » pour écrire à Claude depuis ici.';
+  else $('composer-note').innerHTML = 'Lance une session avec « Nouvelle session » pour écrire ici.';
 }
 
 let modeBusy = false;
@@ -130,7 +130,7 @@ async function loadChat(force) {
     setHtml(box, '<div class="placeholder">Cette session GPT n’a pas encore commencé : Codex attend une décision, ci-dessous.</div>');
     return;
   }
-  if (!chatSession) { box.innerHTML = '<div class="placeholder">Les conversations apparaissent ici dès qu\'une session Claude démarre dans ce worktree.</div>'; chatSignature = null; return; }
+  if (!chatSession) { box.innerHTML = '<div class="placeholder">Les conversations apparaissent ici dès qu\'une session démarre dans ce worktree.</div>'; chatSignature = null; return; }
   let chat;
   try {
     const res = await api(`/api/chat?session=${encodeURIComponent(chatSession)}`);
@@ -139,7 +139,7 @@ async function loadChat(force) {
   } catch { return; }
   const last = chat.items[chat.items.length - 1];
   const session = currentSession();
-  const awaiting = session?.status === 'needs_input' && !(typeof promptAnswered === 'function' && promptAnswered(session)) ? session.message || 'Claude attend ta réponse' : null;
+  const awaiting = session?.status === 'needs_input' && !(typeof promptAnswered === 'function' && promptAnswered(session)) ? session.message || 'La session attend ta réponse' : null;
   const lane = chat.totals?.agents > 0 ? chatLane : 'conversation';
   const signature = `${chat.sessionId}|${lane}|${chat.agentTurns}|${seenAgentTurns(chatSession)}|${chat.total}|${last ? (last.result || last.text || '').length : 0}|${awaiting}`;
   if (!force && signature === chatSignature) return;
@@ -167,7 +167,7 @@ async function loadChat(force) {
 // One send, like the CLI: the server delivers the message to the session (taken into account during its
 // turn), holds it while Claude waits on a question, or starts a parallel session for an independent task.
 const SENT_NOTE = {
-  queued: 'Claude attend ta réponse à sa question : ton message part juste après.',
+  queued: 'La session attend ta réponse : ton message part juste après.',
   parallel: 'Tâche indépendante : lancée dans une nouvelle session de ce worktree.',
 };
 
@@ -188,7 +188,7 @@ async function sendMessage() {
   }
   const { route, reason, during } = result.data;
   if (route === 'parallel' && wt) pendingParallel = { path: wt.path, known, at: Date.now() };
-  const note = route === 'session' ? (during ? 'Envoyé : Claude en tient compte pendant son tour.' : null) : SENT_NOTE[route];
+  const note = route === 'session' ? (during ? 'Message envoyé pendant le tour.' : null) : SENT_NOTE[route];
   if (note) toast(reason && route === 'parallel' ? `${note} (${reason})` : note);
   setTimeout(() => { loadChat(true); refresh(); }, route === 'parallel' ? 2500 : 900);
 }

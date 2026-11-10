@@ -82,7 +82,7 @@ function reportBlock(b, i) {
   const draft = b.comment ? `<div class="rb-draft"><div class="row"><h5>Brouillon de commentaire</h5><button class="btn" data-draft="${drafts.push(String(b.comment)) - 1}">Copier</button></div>${md(String(b.comment))}</div>` : '';
   const index = reportBlocks.push(b) - 1;
   const actions = ['blocking', 'fix', 'suggestion'].includes(k) || b.file
-    ? `<div class="rb-actions">${['blocking', 'fix', 'suggestion'].includes(k) ? `<button class="btn" data-fixblock="${index}">Faire corriger par Claude</button>` : ''}${b.file ? `<button class="btn" data-showdiff="${index}">Voir dans le diff</button>` : ''}</div>`
+    ? `<div class="rb-actions">${['blocking', 'fix', 'suggestion'].includes(k) ? `<button class="btn" data-fixblock="${index}">Faire corriger</button>` : ''}${b.file ? `<button class="btn" data-showdiff="${index}">Voir dans le diff</button>` : ''}</div>`
     : '';
   return `<article class="rb ${k}" id="r-b-${i}">
     <div class="rb-head"><span class="rb-tag">${KINDS[k].label}</span><span class="rb-title">${esc(b.title)}</span>${loc}</div>

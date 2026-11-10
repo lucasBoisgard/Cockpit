@@ -5,7 +5,7 @@ const { REPO, CONFIG, CLAUDE_BIN, REVIEWS_DIR, TMUX_SIZE, TMUX_PATH } = require(
 const { run, git, tmux, sleep } = require('../io/exec');
 const { claudeLockAlive } = require('../io/proc');
 const { loadStore, saveStore, readSession, writeSessionOverride, sessionsIn } = require('../io/store');
-const { paneOf, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, reviewPrompt } = require('../core/sessions');
+const { paneOf, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, codexReviewPrompt, reviewPrompt } = require('../core/sessions');
 const { usageWorktree } = require('../core/usage');
 const { invalidateSnapshot } = require('../cache');
 const { listWorktrees, worktreeName, isMainCheckout, livePanes, hasTranscript } = require('./worktrees');
@@ -43,7 +43,7 @@ async function addWorktree(name) {
   return added.ok ? { path: dir } : { error: added.stderr.trim() };
 }
 
-async function startCodexSession({ name, existing, prompt, model, effort, mode, parent }) {
+async function startCodexSession({ name, existing, prompt, model, effort, mode, parent, pr }) {
   const info = await codexInfo();
   if (!info.installed) return { error: 'Codex CLI n’est pas installé (npm install -g @openai/codex).' };
   if (!info.loggedIn) return { error: 'Codex n’est pas connecté : lance « codex login » dans un terminal.' };
@@ -52,8 +52,19 @@ async function startCodexSession({ name, existing, prompt, model, effort, mode, 
   const target = existing ? { path: existing.path } : await addWorktree(name);
   if (target.error) return target;
   const session = tmuxSessionName(name, Date.now());
-  const launch = { model: settings.model, effort: settings.effort, mode: settings.mode || 'acceptEdits' };
-  const args = providerCore.launchArgs('codex', { hookCommand: codexHookCommand(), ...launch, prompt: String(prompt || '').trim() });
+  const launch = { model: settings.model, effort: settings.effort, mode: settings.mode || 'acceptEdits', ...(pr ? { review: true } : {}) };
+  let rules;
+  if (pr) {
+    fs.mkdirSync(REVIEWS_DIR, { recursive: true });
+    const reportFile = path.join(REVIEWS_DIR, `${name}.report.json`);
+    fs.rmSync(reportFile, { force: true });
+    fs.writeFileSync(path.join(REVIEWS_DIR, `${name}.json`), JSON.stringify({ kind: 'review', pr, startedAt: Date.now() }));
+    const names = [...new Set(['review-context', ...reviewSkills(target.path), 'review-report'])];
+    const skills = names.flatMap((skill) => [path.join(target.path, '.claude', 'skills', skill, 'SKILL.md'), path.join(os.homedir(), '.claude', 'skills', skill, 'SKILL.md'), path.join(__dirname, '..', '..', 'skills', skill, 'SKILL.md')].filter((file) => fs.existsSync(file)));
+    rules = codexReviewPrompt(skills, reportFile);
+    prompt = reviewPrompt(pr, prompt);
+  }
+  const args = providerCore.launchArgs('codex', { hookCommand: codexHookCommand(), ...launch, addDirs: pr ? [REVIEWS_DIR] : [], rules, prompt: String(prompt || '').trim() });
   const result = await launchProcess(session, target.path, binOf('codex'), args, [`COCKPIT_LAUNCH=${JSON.stringify({ provider: 'codex', ...launch })}`]);
   if (!result.ok) return { error: result.stderr.trim() };
   registerCodexLaunch(session, target.path);
@@ -73,9 +84,11 @@ async function startSession({ worktree, prompt, kind, pr, parent, provider, mode
   const name = String(worktree || '').trim();
   if (!validName(name)) return { error: 'Nom de worktree invalide (lettres, chiffres, . _ -).' };
   if (provider === 'codex') {
-    if (kind === 'review') return { error: 'Les reviews tournent avec Claude.' };
+    const prRef = kind === 'review' ? String(pr || '').trim() : null;
+    if (kind === 'review' && !validPrRef(prRef)) return { error: 'PR invalide : un lien GitHub de pull request ou un numéro.' };
+    if (kind === 'review' && mode === 'plan') return { error: 'La review GPT doit pouvoir écrire son rapport : choisis un mode autre que Plan.' };
     const found = (await listWorktrees()).find((wt) => worktreeName(wt.path) === name);
-    return startCodexSession({ name, existing: found, prompt, model, effort, mode, parent });
+    return startCodexSession({ name, existing: found, prompt, model, effort, mode, parent, pr: prRef });
   }
   const chosen = model || effort || mode ? providerCore.validateSettings('claude', { model, effort, mode }) : {};
   if (chosen.error) return chosen;
@@ -115,20 +128,20 @@ async function resumeSession({ session: sessionId }) {
 
 // Resumes a session with its own provider. A Codex session gets back the settings it was launched with;
 // when they are unknown it comes back read-only rather than with more rights than it had.
-function resumeProcess(name, cwd, sessionId) {
+function resumeProcess(name, cwd, sessionId, provider) {
   const session = readSession(sessionId);
-  if (session?.provider !== 'codex') {
+  if ((session ? session.provider || 'claude' : provider) !== 'codex') {
     const disallow = require('./orchestration').masterResumeDisallowed(sessionId);
     return launchClaude(name, cwd, [...(disallow.length ? ['--disallowedTools', ...disallow] : []), '--resume', sessionId]);
   }
-  const launch = session.launch || { mode: 'plan' };
-  const args = providerCore.launchArgs('codex', { resume: true, sessionId, hookCommand: codexHookCommand(), model: launch.model, effort: launch.effort, mode: launch.mode || 'plan' });
+  const launch = session?.launch || { mode: 'plan' };
+  const args = providerCore.launchArgs('codex', { resume: true, sessionId, hookCommand: codexHookCommand(), model: launch.model, effort: launch.effort, mode: launch.mode || 'plan', addDirs: launch.review ? [REVIEWS_DIR] : [] });
   registerCodexLaunch(name, cwd);
   return launchProcess(name, cwd, binOf('codex'), args, [`COCKPIT_LAUNCH=${JSON.stringify({ provider: 'codex', ...launch })}`]);
 }
 
-async function resumeIn(cwd, sessionId) {
-  return resumeProcess(tmuxSessionName(path.basename(cwd), Date.now()), cwd, sessionId);
+async function resumeIn(cwd, sessionId, provider) {
+  return resumeProcess(tmuxSessionName(path.basename(cwd), Date.now()), cwd, sessionId, provider);
 }
 
 async function removeWorktree(wt, force) {

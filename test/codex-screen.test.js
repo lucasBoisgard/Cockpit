@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseCodexPrompt, choiceKeys } = require('../server/core/codex-screen');
+const { parseCodexPrompt, choiceKeys, activeChoiceKeys, permissionChoiceKeys } = require('../server/core/codex-screen');
 
 const FOLDER = `  Folder access
   /root/.claude/worktree-dashboard-worktrees/orch-demo
@@ -12,6 +12,22 @@ const FOLDER = `  Folder access
   2. Quit
   enter continue · esc quit
 `;
+
+test('active Codex choices require a visible selection and matching label', () => {
+  assert.deepStrictEqual(activeChoiceKeys(FOLDER, 2, 'Quit'), [{ key: 'Down' }, { key: 'Enter' }]);
+  assert.strictEqual(activeChoiceKeys(FOLDER, 2, 'Different'), null);
+  assert.strictEqual(activeChoiceKeys(FOLDER.replace('› 1.', '  1.'), 2, 'Quit'), null);
+});
+
+test('permission choices follow visible labels and refuse ambiguity', () => {
+  const screen = 'Approve command?\n› 1. Yes, proceed\n  2. Yes, and do not ask again for this session\n  3. No, cancel\n';
+  assert.deepStrictEqual(permissionChoiceKeys(screen, 'allow'), [{ key: 'Enter' }]);
+  assert.deepStrictEqual(permissionChoiceKeys(screen, 'always'), [{ key: 'Down' }, { key: 'Enter' }]);
+  assert.deepStrictEqual(permissionChoiceKeys(screen, 'deny'), [{ key: 'Down' }, { key: 'Down' }, { key: 'Enter' }]);
+  assert.strictEqual(permissionChoiceKeys(screen.replace('› 1.', '  1.'), 'allow'), null);
+  assert.strictEqual(permissionChoiceKeys(screen.replace('3. No, cancel', '3. Yes, proceed'), 'allow'), null);
+  assert.strictEqual(permissionChoiceKeys(screen, 'unknown'), null);
+});
 
 test('parseCodexPrompt reads the folder trust screen of Codex', () => {
   const p = parseCodexPrompt(FOLDER);

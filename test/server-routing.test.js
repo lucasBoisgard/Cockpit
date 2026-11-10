@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { quickRoute, routePrompt, parseRoute } = require('../server/core/routing');
+const { quickRoute, routePrompt, parseRoute, parallelSettings } = require('../server/core/routing');
+
+test('parallel GPT sessions retain their provider and launch settings', () => {
+  assert.deepStrictEqual(parallelSettings({ provider: 'codex', launch: { model: 'gpt-6-sol', effort: 'high', mode: 'default' } }), { provider: 'codex', model: 'gpt-6-sol', effort: 'high', mode: 'default' });
+  assert.deepStrictEqual(parallelSettings({ provider: 'codex' }), { provider: 'codex', model: null, effort: null, mode: 'plan' });
+  assert.deepStrictEqual(parallelSettings({ provider: 'claude' }), {});
+});
 
 test('quickRoute holds a message while Claude waits on a question, sends it when the session is free', () => {
   assert.strictEqual(quickRoute('needs_input', 'Refais tout le module de paiement avec Stripe et ajoute les tests'), 'queue');

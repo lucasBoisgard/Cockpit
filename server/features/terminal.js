@@ -30,21 +30,30 @@ async function resolveTarget(target) {
 
 async function pasteText(target, text) {
   const buffer = `cw-${process.pid}-${Date.now()}`;
-  await tmux(['load-buffer', '-b', buffer, '-'], text);
-  await tmux(['paste-buffer', '-p', '-d', '-b', buffer, '-t', target]);
+  const loaded = await tmux(['load-buffer', '-b', buffer, '-'], text);
+  if (!loaded.ok) return { error: loaded.stderr || 'Texte non chargé dans le terminal.' };
+  const pasted = await tmux(['paste-buffer', '-p', '-d', '-b', buffer, '-t', target]);
+  if (!pasted.ok) return { error: pasted.stderr || 'Texte non collé dans le terminal.' };
+  return { ok: true };
 }
 
 async function submitText(target, text) {
-  await pasteText(target, text);
+  const pasted = await pasteText(target, text);
+  if (pasted.error) return pasted;
   await sleep(150);
-  await tmux(['send-keys', '-t', target, 'Enter']);
+  const sent = await tmux(['send-keys', '-t', target, 'Enter']);
+  return sent.ok ? { ok: true } : { error: sent.stderr || 'Entrée non envoyée au terminal.' };
 }
 
 async function sendOps(target, ops) {
   for (const op of ops) {
-    if (typeof op.literal === 'string' && op.literal) await tmux(['send-keys', '-t', target, '-l', op.literal]);
-    else if (NAMED_KEYS.has(op.key)) await tmux(['send-keys', '-t', target, op.key]);
+    let result;
+    if (typeof op.literal === 'string' && op.literal) result = await tmux(['send-keys', '-t', target, '-l', op.literal]);
+    else if (NAMED_KEYS.has(op.key)) result = await tmux(['send-keys', '-t', target, op.key]);
+    else return { error: 'Touche invalide.' };
+    if (!result.ok) return { error: result.stderr || 'Envoi au terminal impossible.' };
   }
+  return { ok: true };
 }
 
 async function screen(target) {

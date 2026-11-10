@@ -1,6 +1,6 @@
 const { parseFrontmatter } = require('./commands');
 
-const SOURCE_ORDER = ['local', 'cockpit', 'repo', 'synced', 'plugin'];
+const SOURCE_ORDER = ['local', 'cockpit', 'repo', 'codexLocal', 'codexRepo', 'codexLegacy', 'synced', 'plugin'];
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 function skillTree(entries) {
@@ -30,7 +30,7 @@ function validateSkill(name, content) {
   const text = String(content || '');
   if (!/^---\r?\n[\s\S]*?\r?\n---/.test(text)) return { error: 'Le SKILL.md doit commencer par un en-tête YAML entre deux lignes ---.' };
   const meta = parseFrontmatter(text);
-  if (!meta.description) return { error: "L'en-tête doit contenir une description : c'est elle qui décide quand Claude charge le skill." };
+  if (!meta.description) return { error: "L'en-tête doit contenir une description : elle indique quand charger le skill." };
   if (meta.name && meta.name !== name) return { error: `Le nom de l'en-tête (${meta.name}) ne correspond pas au nom du skill (${name}).` };
   if (!text.replace(/^---[\s\S]*?\n---/, '').trim()) return { error: "Le skill n'a pas de contenu sous l'en-tête." };
   return { meta };

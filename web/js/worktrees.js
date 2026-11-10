@@ -54,7 +54,7 @@ function syncNewKind() {
   const review = newKind() === 'review';
   const master = newKind() === 'master';
   $('orch-new').hidden = !master;
-  $('provider-new').hidden = newKind() !== 'session';
+  $('provider-new').hidden = master;
   $('new-prompt').required = master;
   $('new-prompt-label').textContent = master ? 'Objectif' : 'Premier message (optionnel)';
   $('new-pr-label').hidden = !review;
@@ -90,7 +90,7 @@ $('new-form').addEventListener('submit', async (e) => {
   }
   const started = [];
   for (const name of names) {
-    const chosen = newKind() === 'session' ? { provider: $('new-provider').value, model: $('new-model').value || undefined, effort: $('new-effort').value || undefined, mode: $('new-mode').value || undefined } : {};
+    const chosen = { provider: $('new-provider').value, model: $('new-model').value || undefined, effort: $('new-effort').value || undefined, mode: $('new-mode').value || undefined };
     const result = await post('/api/start', { worktree: name, prompt: $('new-prompt').value, kind: newKind(), pr: $('new-pr').value, parent, ...chosen });
     if (!result.ok) { toast(`${name} : ${result.data.error || 'lancement impossible'}`, 'error'); break; }
     started.push(name);

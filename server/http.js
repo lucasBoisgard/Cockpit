@@ -17,8 +17,8 @@ const { startSession, resumeSession, closeWorktree, archiveWorktree, unarchiveWo
 const { appState, startApp, stopApp, serveWorktree, unserveWorktree } = require('./features/app');
 const { prDetails, sendCheckFailure, pushBranch, prDraft, createPr } = require('./features/pr');
 const { changesSince, ticketCommits, diff } = require('./features/changes');
-const { searchHistory, historyFile, resumeFromHistory } = require('./features/history');
-const { readChat, readChatFile } = require('./features/chat');
+const { searchHistory, historyFile, historyChat, resumeFromHistory } = require('./features/history');
+const { readChat } = require('./features/chat');
 const { agentsOf } = require('./features/agents');
 const { listSkills, readSkill, createSkill, assistSkill } = require('./features/skills');
 const { usageHistory } = require('./features/usage');
@@ -153,6 +153,7 @@ const writeActions = {
   '/api/connect/claude/code': (body) => connections.claudeCode(body),
   '/api/connect/cancel': (body) => connections.cancelLogin(body),
   '/api/codex/screen': (body) => codexScreens.answerScreen(body),
+  '/api/codex/permission': (body) => codexScreens.answerPermission(body),
   '/api/codex/hooks': (body) => codexScreens.openHooks(body),
   '/api/connect/codex/setup': async (body) => {
     const repos = new Set([REPO, ...(await listWorktrees()).map((w) => w.repo).filter(Boolean)]);
@@ -185,7 +186,8 @@ const terminalActions = {
     return json(res, 200, { ok: true });
   },
   '/api/keys': async (res, target, body) => {
-    await sendOps(target, Array.isArray(body.ops) ? body.ops.slice(0, 200) : []);
+    const sent = await sendOps(target, Array.isArray(body.ops) ? body.ops.slice(0, 200) : []);
+    if (sent.error) return json(res, 409, sent);
     if (!body.withScreen) return json(res, 200, { ok: true });
     await sleep(40);
     const text = await screen(target);
@@ -288,7 +290,7 @@ const readRoutes = {
   '/api/history/chat': (res, q) => {
     const sessionId = q.get('session') || '';
     const found = /^[\w-]+$/.test(sessionId) ? historyFile(sessionId) : null;
-    return found ? json(res, 200, readChatFile(found.file, sessionId)) : send(res, 404, 'text/plain', 'session not found');
+    return found ? json(res, 200, historyChat(found, sessionId)) : send(res, 404, 'text/plain', 'session not found');
   },
   '/api/automations': (res) => json(res, 200, listAutomations()),
   '/api/state': async (res) => json(res, 200, { ...(await snapshot()), startedAt: STARTED_AT }),

@@ -49,4 +49,10 @@ function parseRoute(text) {
   }
 }
 
-module.exports = { quickRoute, routePrompt, parseRoute };
+function parallelSettings(session) {
+  if (session.provider !== 'codex') return {};
+  const launch = session.launch || {};
+  return { provider: 'codex', model: launch.model || null, effort: launch.effort || null, mode: launch.mode || 'plan' };
+}
+
+module.exports = { quickRoute, routePrompt, parseRoute, parallelSettings };

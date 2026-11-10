@@ -2,6 +2,9 @@ const SKILL_SOURCES = {
   local: ['Local', 'Tes skills perso, dans ~/.claude'],
   cockpit: ['Cockpit', 'Installés par le cockpit (liens vers son repo)'],
   repo: ['Projet', 'Versionnés dans le repo'],
+  codexLocal: ['GPT · local', 'Skills dans ~/.agents/skills'],
+  codexRepo: ['GPT · projet', 'Skills dans .agents/skills'],
+  codexLegacy: ['GPT · Codex', 'Skills dans le dossier Codex'],
   synced: ['Claude.ai', 'Synchronisés depuis ton compte claude.ai'],
   plugin: ['Plugin', 'Fournis par un plugin installé'],
 };
@@ -71,7 +74,7 @@ async function loadSkills() {
   $('skills-count').textContent = skillsData ? `${skillsData.count} skills et commandes` : 'Liste indisponible';
   if (skillsData) {
     const target = $('skills-target').value || 'local';
-    $('skills-target').innerHTML = `<option value="local">Local · ${esc(skillsData.targets.local)}</option><option value="repo">Projet · ${esc(skillsData.targets.repo)} (checkout principal, à commiter)</option>`;
+    $('skills-target').innerHTML = `<option value="local">Claude · local · ${esc(skillsData.targets.local)}</option><option value="repo">Claude · projet · ${esc(skillsData.targets.repo)}</option><option value="codexLocal">GPT · local · ${esc(skillsData.targets.codexLocal)}</option><option value="codexRepo">GPT · projet · ${esc(skillsData.targets.codexRepo)}</option>`;
     $('skills-target').value = target;
   }
   renderSkillsTree();
@@ -164,7 +167,7 @@ async function createSkillFromEditor() {
   const result = await post('/api/skills/create', { target, name, content });
   $('skills-create').disabled = false;
   if (!result.ok) { toast(result.data.error || 'Création impossible.', 'error'); return; }
-  toast(`Skill « ${name} » créé. Les nouvelles sessions Claude le verront.`);
+  toast(`Skill « ${name} » créé pour ${target.startsWith('codex') ? 'GPT' : 'Claude'}.`);
   $('skills-content').value = '';
   $('skills-name').value = '';
   delete $('skills-name').dataset.touched;

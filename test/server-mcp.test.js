@@ -92,3 +92,11 @@ test('a Claude config converts to add-json and to codex mcp add, or says why Cod
   assert.match(mcp.codexArgsFromConfig('h', { type: 'http', url: 'https://x', headers: { Authorization: 'Bearer k' } }).error, /en-têtes/);
   assert.ok(mcp.codexArgsFromConfig('bad name', { command: 'x' }).error);
 });
+
+test('Claude connectors use their listed URL and a Codex-compatible name', () => {
+  const list = mcp.parseClaudeList(LIST);
+  assert.deepStrictEqual(mcp.connectorForCodex('claude.ai Slack', list), { name: 'Slack', args: ['mcp', 'add', 'Slack', '--url', 'https://mcp.slack.com/mcp'] });
+  assert.ok(mcp.connectorForCodex('claude.ai missing', list).error);
+  assert.ok(mcp.connectorForCodex('knip', list).error);
+  assert.strictEqual(mcp.markShared([{ name: 'claude.ai Slack', source: 'claude.ai', provider: 'claude' }, { name: 'Slack', source: 'codex', provider: 'codex' }])[0].inCodex, true);
+});

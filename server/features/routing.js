@@ -48,7 +48,7 @@ async function sendMessage({ target, text }) {
   const decision = quick === 'session' ? { route: 'session', reason: null } : await decide(session, message);
   if (decision.route === 'parallel') {
     const owner = ownerOf(session.cwd, await listWorktrees());
-    const started = owner ? await startSession({ worktree: worktreeName(owner.path), prompt: message }) : { error: 'Worktree introuvable.' };
+    const started = owner ? await startSession({ worktree: worktreeName(owner.path), prompt: message, ...core.parallelSettings(session) }) : { error: 'Worktree introuvable.' };
     if (!started.error) return { route: 'parallel', reason: decision.reason, session: started.session };
   }
   if (!(await sendToSession(session.sessionId, message))) return { error: 'Cette session ne tourne pas dans tmux, le cockpit ne peut pas lui écrire.' };

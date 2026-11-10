@@ -42,10 +42,15 @@ function keyCard(s) {
   const keys = keysOf(s);
   const op = (k) => esc(JSON.stringify(k));
   if (s.permission) {
+    if (s.provider === 'codex') return `<div class="ask-title"><span class="ask-dot"></span>${esc(s.message || 'Permission demandée')}</div>
+      <div class="ask-buttons"><button class="btn ask-send" data-codex-permission="allow">Autoriser</button><button class="btn" data-codex-permission="always">Toujours autoriser</button><button class="btn" data-codex-permission="deny">Refuser</button></div>`;
     return `<div class="ask-title"><span class="ask-dot"></span>${esc(s.message || 'Permission demandée')}</div>
       <div class="ask-buttons"><button class="btn ask-send" data-ask-key="${op(keys.allow)}">Autoriser</button><button class="btn" data-ask-key="${op(keys.always)}">Toujours autoriser</button><button class="btn" data-ask-key="${op(keys.deny)}">Refuser</button></div>`;
   }
   const q = s.question;
+  if (s.provider === 'codex') return `<div class="ask-title"><span class="ask-dot"></span>${esc(q.text)}</div>
+    <div class="ask-options">${q.options.map((o, i) => `<button type="button" class="ask-option" data-codex-option="${i + 1}" data-codex-label="${esc(o)}"><span class="ask-mark">${i + 1}</span><span><b>${esc(o)}</b></span></button>`).join('')}</div>
+    <p class="ask-note">Pour une réponse libre ou plusieurs questions, utilise le terminal.</p>`;
   return `<div class="ask-title"><span class="ask-dot"></span>${esc(q.text)}</div>
     <div class="ask-options">${q.options.map((o, i) => `<button type="button" class="ask-option" data-ask-key="${op({ literal: String(i + 1) })}"><span class="ask-mark">${i + 1}</span><span><b>${esc(o)}</b></span></button>`).join('')}</div>
     <p class="ask-note">Session lancée hors du cockpit : le choix est tapé dans son terminal. Pour une réponse libre, utilise l’onglet Terminal.</p>`;
@@ -134,9 +139,7 @@ $('ask-card').addEventListener('click', (e) => {
   if (!s) return;
   const screenOption = e.target.closest('[data-screen-option]');
   if (screenOption) {
-    const answered = askShown;
-    markAnswered();
-    post('/api/codex/screen', { tmux: screenOption.dataset.tmux, option: Number(screenOption.dataset.screenOption) }).then((r) => { if (!r.ok) unmarkAnswered(answered); toast(r.ok ? 'Choix envoyé à Codex.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 600); });
+    post('/api/codex/screen', { tmux: screenOption.dataset.tmux, option: Number(screenOption.dataset.screenOption) }).then((r) => { toast(r.ok ? 'Codex a accepté le choix.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); refresh(); });
     return;
   }
   const hooks = e.target.closest('[data-screen-hooks]');
@@ -145,6 +148,16 @@ $('ask-card').addEventListener('click', (e) => {
       if (!r.ok) { toast(r.data.error || 'Ouverture impossible.', 'error'); return; }
       openCodexTerminal(hooks.dataset.screenHooks);
     });
+    return;
+  }
+  const codexOption = e.target.closest('[data-codex-option]');
+  if (codexOption) {
+    post('/api/codex/screen', { session: s.sessionId, option: Number(codexOption.dataset.codexOption), label: codexOption.dataset.codexLabel }).then((r) => { toast(r.ok ? 'Codex a accepté le choix.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); refresh(); });
+    return;
+  }
+  const codexPermission = e.target.closest('[data-codex-permission]');
+  if (codexPermission) {
+    post('/api/codex/permission', { session: s.sessionId, decision: codexPermission.dataset.codexPermission }).then((r) => { toast(r.ok ? 'Codex a accepté la réponse.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); refresh(); });
     return;
   }
   const key = e.target.closest('[data-ask-key]');

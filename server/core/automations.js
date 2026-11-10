@@ -6,6 +6,8 @@ function normalizeAutomation(item, list, newId, now) {
   const prompt = String(item?.prompt || '').trim();
   const schedule = item?.schedule || {};
   if (!name || !prompt) return { error: 'Nom et prompt obligatoires.' };
+  const provider = item.provider || 'claude';
+  if (!['claude', 'codex'].includes(provider)) return { error: 'Fournisseur inconnu.' };
   if (!validName(worktree)) return { error: 'Nom de worktree invalide.' };
   if (schedule.type === 'daily' && !/^\d{2}:\d{2}$/.test(String(schedule.time))) return { error: 'Heure invalide (HH:MM).' };
   if (schedule.type === 'interval' && !(Number(schedule.minutes) >= 10)) return { error: 'Intervalle de 10 minutes minimum.' };
@@ -16,6 +18,7 @@ function normalizeAutomation(item, list, newId, now) {
     automation: {
       id,
       name,
+      provider,
       worktree,
       newWorktree: !!item.newWorktree,
       prompt,

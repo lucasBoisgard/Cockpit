@@ -22,8 +22,8 @@ function writeState(file, state) {
 // How the cockpit launched this session (provider settings), so a resume keeps them.
 function launchOf(value) {
   try {
-    const { model, effort, mode } = JSON.parse(value || 'null') || {};
-    return model || effort || mode ? { model: model || null, effort: effort || null, mode: mode || null } : null;
+    const { model, effort, mode, review } = JSON.parse(value || 'null') || {};
+    return model || effort || mode ? { model: model || null, effort: effort || null, mode: mode || null, ...(review === true ? { review: true } : {}) } : null;
   } catch {
     return null;
   }

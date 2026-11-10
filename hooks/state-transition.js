@@ -61,7 +61,7 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd, provider, launch
   state.sessionId = input.session_id;
   if (provider && provider !== 'claude') state.provider = provider;
   if (input.model) state.model = String(input.model);
-  if (launch && !state.launch) state.launch = launch;
+  if (launch && (!state.launch || input.hook_event_name === 'SessionStart')) state.launch = launch;
   state.cwd = cwd;
   state.transcriptPath = input.transcript_path || state.transcriptPath;
   if (input.hook_event_name === 'SessionStart' || (pane && pane !== state.tmuxPane)) {
@@ -96,12 +96,13 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd, provider, launch
         }
         break;
       }
-      state.actions = [{ tool: input.tool_name, detail: describeTool(input.tool_name, input.tool_input, cwd), at: now }, ...(state.actions || [])].slice(0, MAX_ACTIONS);
-      if (input.tool_name === 'AskUserQuestion') {
+      const files = input.tool_name === 'apply_patch' ? patchFiles(input.tool_input?.command || input.tool_input?.input) : [];
+      state.actions = [{ tool: input.tool_name, detail: describeTool(input.tool_name, input.tool_input, cwd), ...(files.length ? { files } : {}), at: now }, ...(state.actions || [])].slice(0, MAX_ACTIONS);
+      if (input.tool_name === 'AskUserQuestion' || (provider === 'codex' && input.tool_name === 'request_user_input')) {
         state.question = questionOf(input.tool_input);
         state.questions = questionsOf(input.tool_input);
         state.status = 'needs_input';
-        state.message = state.question?.text || 'Claude pose une question';
+        state.message = state.question?.text || (provider === 'codex' ? 'GPT pose une question' : 'Claude pose une question');
       } else {
         state.status = 'working';
         state.message = null;

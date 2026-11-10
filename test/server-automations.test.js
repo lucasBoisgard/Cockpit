@@ -60,6 +60,7 @@ test('normalizeAutomation creates with defaults and keeps run history on update'
   assert.deepStrictEqual(normalizeAutomation(item, [], 'new', 42).automation, {
     id: 'new',
     name: 'n',
+    provider: 'claude',
     worktree: 'wt',
     newWorktree: false,
     prompt: 'p',
@@ -76,5 +77,7 @@ test('normalizeAutomation creates with defaults and keeps run history on update'
   const updated = normalizeAutomation({ ...item, id: 'old', enabled: false }, [existing], 'new', 42).automation;
   assert.deepStrictEqual([updated.id, updated.enabled, updated.createdAt, updated.lastRun, updated.lastOk, updated.lastResult], ['old', false, 7, 8, false, 'r']);
   assert.strictEqual(normalizeAutomation({ ...item, id: 'unknown' }, [existing], 'new', 42).automation.id, 'new');
+  assert.strictEqual(normalizeAutomation({ ...item, provider: 'codex' }, [], 'new', 42).automation.provider, 'codex');
+  assert.ok(normalizeAutomation({ ...item, provider: 'unknown' }, [], 'new', 42).error);
   assert.deepStrictEqual(normalizeAutomation({ ...item, schedule: { type: 'daily', time: '07:30' } }, [], 'new', 42).automation.schedule.days, [1, 2, 3, 4, 5]);
 });

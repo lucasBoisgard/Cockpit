@@ -10,7 +10,7 @@ const { skillTree, validateSkill, draftFrom, bodyOf } = require('../core/skills'
 
 const USER_DIR = path.join(os.homedir(), '.claude');
 const ASSIST_TIMEOUT_MS = 5 * 60 * 1000;
-const TARGETS = { local: path.join(USER_DIR, 'skills'), repo: path.join(REPO, '.claude', 'skills') };
+const TARGETS = { local: path.join(USER_DIR, 'skills'), repo: path.join(REPO, '.claude', 'skills'), codexLocal: path.join(os.homedir(), '.agents', 'skills'), codexRepo: path.join(REPO, '.agents', 'skills') };
 const ASSIST_PROMPT = [
   'You help the user write a Claude Code skill (a SKILL.md file) from a web page of the Cockpit.',
   'If the anthropic-skills:skill-creator skill is available, load it first and follow its guidance on structure, description and progressive disclosure.',
@@ -86,6 +86,9 @@ async function skillEntries() {
     ...commandsIn(path.join(USER_DIR, 'commands'), { source: 'local' }),
     ...skillsIn(path.join(REPO, '.claude', 'skills'), { source: 'repo', root: REPO }),
     ...commandsIn(path.join(REPO, '.claude', 'commands'), { source: 'repo', root: REPO }),
+    ...skillsIn(TARGETS.codexLocal, { source: 'codexLocal', root: TARGETS.codexLocal }),
+    ...skillsIn(TARGETS.codexRepo, { source: 'codexRepo', root: REPO }),
+    ...skillsIn(path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'skills'), { source: 'codexLegacy' }),
     ...(await nestedRepoSkills()),
     ...subdirs(synced).flatMap((bucket) => skillsIn(path.join(synced, bucket), { source: 'synced', prefix: 'anthropic-skills:' })),
     ...pluginSkills(),
@@ -94,7 +97,7 @@ async function skillEntries() {
 
 async function listSkills() {
   const entries = await skillEntries();
-  return { tree: skillTree(entries), count: entries.length, targets: { local: TARGETS.local, repo: TARGETS.repo } };
+  return { tree: skillTree(entries), count: entries.length, targets: TARGETS };
 }
 
 async function readSkill(file) {

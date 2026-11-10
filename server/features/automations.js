@@ -32,7 +32,7 @@ async function runAutomation(id) {
   const a = list.find((x) => x.id === id);
   if (!a) return { error: 'Automatisation inconnue.' };
   const worktree = automationWorktree(a, Date.now());
-  const result = await startSession({ worktree, prompt: a.prompt });
+  const result = await startSession({ worktree, prompt: a.prompt, provider: a.provider || 'claude' });
   a.lastRun = Date.now();
   a.lastWorktree = result.error ? null : worktree;
   a.lastOk = !result.error;

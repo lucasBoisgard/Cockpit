@@ -36,4 +36,26 @@ function choiceKeys(prompt, n) {
   return [...Array(Math.abs(move)).fill({ key: move > 0 ? 'Down' : 'Up' }), { key: 'Enter' }];
 }
 
-module.exports = { parseCodexPrompt, choiceKeys };
+function activeChoiceKeys(screen, n, label) {
+  const prompt = parseCodexPrompt(screen);
+  if (!prompt || !/^\s*[›>❯]\s*\d{1,2}\.\s+/m.test(screen)) return null;
+  if (!label || !prompt.options.some((o) => o.n === Number(n) && o.label.trim().startsWith(String(label).trim()))) return null;
+  return choiceKeys(prompt, n);
+}
+
+function permissionChoiceKeys(screen, decision) {
+  const prompt = parseCodexPrompt(screen);
+  if (!prompt || !/^\s*[›>❯]\s*\d{1,2}\.\s+/m.test(screen)) return null;
+  const matches = prompt.options.filter((o) => {
+    const text = o.label.trim().toLowerCase();
+    const yes = /^(yes|allow|approve)\b/.test(text);
+    const always = /always|don't ask|do not ask|remember|for (?:the )?(?:session|future)/.test(text);
+    if (decision === 'allow') return /^(?:yes(?:,? (?:proceed|allow once|approve once))?|allow once|approve once)[.!]?$/.test(text);
+    if (decision === 'always') return yes && always;
+    if (decision === 'deny') return /^(no|deny|reject|cancel)\b/.test(text);
+    return false;
+  });
+  return matches.length === 1 ? choiceKeys(prompt, matches[0].n) : null;
+}
+
+module.exports = { parseCodexPrompt, choiceKeys, activeChoiceKeys, permissionChoiceKeys };

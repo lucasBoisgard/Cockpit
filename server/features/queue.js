@@ -12,8 +12,7 @@ const loadQueues = () => loadStore('worktree-queue.json', {});
 async function sendToSession(sessionId, text) {
   const pane = paneOf(readSession(String(sessionId || '')), await livePanes());
   if (!pane) return false;
-  await submitText(pane, text);
-  return true;
+  return (await submitText(pane, text)).ok === true;
 }
 
 function enqueue(sessionId, text) {

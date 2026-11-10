@@ -254,6 +254,7 @@
       <h2 id="auto-form-title">Nouvelle automatisation</h2>
       <div class="form-grid">
         <label for="auto-name">Nom<input type="text" id="auto-name" required placeholder="Stand-up quotidien"></label>
+        <label for="auto-provider">Fournisseur<select id="auto-provider"><option value="claude">Claude</option><option value="codex">GPT</option></select></label>
         <label for="auto-worktree">Worktree<input type="text" id="auto-worktree" required pattern="[A-Za-z0-9][A-Za-z0-9._\-]{0,60}" placeholder="auto-standup" list="worktree-names"></label>
         <label class="check" for="auto-new"><input type="checkbox" id="auto-new"> Nouveau worktree daté à chaque lancement</label>
       </div>

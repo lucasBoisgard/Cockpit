@@ -123,7 +123,7 @@ function repoServers(repoName, { project = {}, local = {} }, list = null) {
 function markShared(servers) {
   const claude = new Set(servers.filter((s) => s.provider === 'claude' && ['user', 'plugin', 'claude.ai'].includes(s.source)).map((s) => s.name));
   const codex = new Set(servers.filter((s) => s.provider === 'codex').map((s) => s.name));
-  return servers.map((s) => ({ ...s, inClaude: claude.has(s.name), inCodex: codex.has(s.name) }));
+  return servers.map((s) => ({ ...s, inClaude: claude.has(s.name), inCodex: codex.has(s.source === 'claude.ai' ? connectorName(s.name) : s.name) }));
 }
 
 // A Claude server config as `claude mcp add-json` takes it.
@@ -146,4 +146,16 @@ function codexArgsFromConfig(name, cfg = {}) {
   return { args: ['mcp', 'add', name, '--url', json.url] };
 }
 
-module.exports = { repoServers, markShared, claudeJson, codexArgsFromConfig, CLAUDE_SCOPES, TRANSPORTS, healthOf, parseClaudeList, describe, claudeServers, codexServers, splitCommand, validateAdd, claudeAddArgs, codexAddArgs, removeArgs };
+function connectorName(name) {
+  return String(name).slice('claude.ai '.length).trim().replace(/[^A-Za-z0-9_.@-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '').slice(0, 64);
+}
+
+function connectorForCodex(name, list = []) {
+  if (!String(name).startsWith('claude.ai ')) return { error: 'Connecteur Claude inconnu.' };
+  const connector = list.find((s) => s.name === name);
+  const codexName = connectorName(name);
+  if (!NAME_RE.test(codexName) || !/^https?:\/\/\S+$/.test(connector?.target || '')) return { error: 'Adresse ou nom du connecteur incompatible avec Codex.' };
+  return { name: codexName, args: ['mcp', 'add', codexName, '--url', connector.target] };
+}
+
+module.exports = { repoServers, markShared, claudeJson, codexArgsFromConfig, connectorForCodex, CLAUDE_SCOPES, TRANSPORTS, healthOf, parseClaudeList, describe, claudeServers, codexServers, splitCommand, validateAdd, claudeAddArgs, codexAddArgs, removeArgs };

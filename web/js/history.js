@@ -14,7 +14,7 @@ async function searchHistory() {
   if ($('history-q').value.trim() !== q) return;
   $('history-list').innerHTML = list.length ? list.map((h) => `<div class="row clickable" data-history="${esc(h.sessionId)}">
       <div class="top-line"><span class="grow">${esc(h.title || '(sans prompt)')}</span><span class="meta-line">${new Date(h.lastAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span></div>
-      <div class="meta-line">${esc(h.worktree)} · ⎇ ${esc(h.branch || '?')} · ${h.messages} messages${h.exists ? '' : ' · dossier supprimé'}${h.files.length ? ` · ${esc(h.files.slice(0, 3).join(', '))}${h.files.length > 3 ? '…' : ''}` : ''}</div>
+      <div class="meta-line">${h.provider === 'codex' ? 'GPT · ' : ''}${esc(h.worktree)} · ⎇ ${esc(h.branch || '?')} · ${h.messages} messages${h.exists ? '' : ' · dossier supprimé'}${h.files.length ? ` · ${esc(h.files.slice(0, 3).join(', '))}${h.files.length > 3 ? '…' : ''}` : ''}</div>
       ${h.snippet ? `<div class="snippet">… ${esc(h.snippet)} …</div>` : ''}
     </div>`).join('') : '<div class="placeholder">Aucune session trouvée.</div>';
 }

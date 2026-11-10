@@ -93,10 +93,24 @@ async function removeMcp({ provider, name, scope, repoPath }) {
 // values and headers never go through the page.
 async function shareMcp({ name, to, from, repoPath, scope }) {
   const user = claudeUserConfig();
+  if (from === 'claude.ai' && to === 'codex') {
+    const built = core.connectorForCodex(name, health.list || []);
+    if (built.error) return built;
+    const added = await exec(CODEX_BIN, built.args);
+    return added.ok ? { ok: true, name: built.name } : { error: added.stderr || 'Ajout refusé.' };
+  }
   if (from === 'repo') {
     if (!(await knownRepos()).includes(repoPath)) return { error: 'Dépôt inconnu.' };
+    if (!['local', 'project'].includes(scope)) return { error: 'Portée inconnue.' };
     const cfg = scope === 'local' ? user.projects?.[repoPath]?.mcpServers?.[name] : readJson(path.join(repoPath, '.mcp.json'))?.mcpServers?.[name];
     if (!cfg) return { error: 'Serveur introuvable dans ce dépôt.' };
+    if (to === 'codex') {
+      const built = core.codexArgsFromConfig(name, cfg);
+      if (built.error) return built;
+      const added = await exec(CODEX_BIN, built.args);
+      return added.ok ? { ok: true } : { error: added.stderr || 'Ajout refusé.' };
+    }
+    if (to && to !== 'claude') return { error: 'Destination inconnue.' };
     const added = await exec(CLAUDE_BIN, ['mcp', 'add-json', name, JSON.stringify(core.claudeJson(cfg)), '-s', 'user']);
     if (!added.ok) return { error: added.stderr || 'Ajout refusé.' };
     if (scope === 'local') await exec(CLAUDE_BIN, ['mcp', 'remove', name, '-s', 'local'], 30000, repoPath);
