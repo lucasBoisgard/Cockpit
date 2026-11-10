@@ -30,7 +30,6 @@ function updateComposerPill() {
 
 function autosizeComposer() {
   const input = $('composer-input');
-  if (!isWorkstation()) { input.style.height = ''; return; }
   input.style.height = 'auto';
   input.style.height = `${Math.min(220, Math.max(40, input.scrollHeight + 2))}px`;
 }

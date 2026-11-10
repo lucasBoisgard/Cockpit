@@ -22,7 +22,7 @@ async function refresh() {
   ensureSelection();
   if (currentWt()) dropLostRepo();
   if (currentWt()) markRead(currentWt());
-  renderCounters(); renderGrid(); renderPanel();
+  renderCounters(); renderBoard(); renderPanel();
   updateTitle();
   checkEvents();
   if (selected === USAGE) loadUsage();
@@ -55,7 +55,7 @@ $('tools-menu').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tool]');
   if (!b) return;
   $('tools-menu').open = false;
-  ({ history: openHistory, cleanup: openCleanup, automations: () => { fillAutomationForm(null); openAutomations(); }, select: startSelecting, palette: openPalette, layout: () => setLayout(isWorkstation() ? 'cards' : 'workstation'), skills: openSkills, mcp: openMcp, matrix: openMatrix, help: () => $('help-dialog').showModal() })[b.dataset.tool]?.();
+  ({ history: openHistory, cleanup: openCleanup, automations: () => { fillAutomationForm(null); openAutomations(); }, select: startSelecting, palette: openPalette, skills: openSkills, mcp: openMcp, matrix: openMatrix, help: () => $('help-dialog').showModal() })[b.dataset.tool]?.();
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('#tools-menu')) $('tools-menu').open = false; });
 

@@ -35,26 +35,18 @@
 <link rel="stylesheet" href="/web/css/ask.css">
 <link rel="stylesheet" href="/web/css/matrix.css">
 </head>
-<body>
+<body class="ws">
 <header>
   <h1 id="repo-title">Worktrees</h1>
   <div class="counters" id="counters"></div>
   <div class="notes" id="notes" aria-live="polite"></div>
   <div class="topbar-tools" id="topbar-tools"></div>
   <div class="actions">
-    <div class="filters" id="filters">
-      <button class="btn" data-filter="active">Actifs</button>
-      <button class="btn" data-filter="all">Tous</button>
-    </div>
     <button class="btn" id="finished-toggle" data-finished-toggle hidden></button>
-    <div class="seg" id="order-seg" title="Ordre des cartes">
-      <button data-order="fixed">Ordre fixe</button>
-      <button data-order="state">Tableau par état</button>
-    </div>
     <details class="menu" id="tools-menu">
       <summary class="btn">Outils ▾</summary>
       <div class="menu-list">
-        <button data-tool="skills" class="ws-only">Skills <kbd>s</kbd></button>
+        <button data-tool="skills">Skills <kbd>s</kbd></button>
         <button data-tool="matrix">Matrice des modèles</button>
         <button data-tool="mcp">Connexions : IA et MCP</button>
         <button data-tool="history">Historique des sessions <kbd>H</kbd></button>
@@ -63,7 +55,6 @@
         <button data-tool="select">Écrire à plusieurs sessions</button>
         <button data-tool="palette">Palette de commandes <kbd>Ctrl K</kbd></button>
         <button data-tool="help">Raccourcis clavier <kbd>?</kbd></button>
-        <button data-tool="layout" id="layout-toggle">Ancienne vue en cartes</button>
         <div class="theme-choice" role="group" aria-label="Thème"><button type="button" data-theme-choice="system">Système</button><button type="button" data-theme-choice="light">Clair</button><button type="button" data-theme-choice="dark">Sombre</button></div>
         <button id="restart-btn" title="Relance start.sh : recharge server.js, index.html et la config">Recharger le cockpit</button>
       </div>
@@ -74,7 +65,6 @@
   <span class="updated" id="updated"></span>
 </header>
 <nav id="queue" aria-label="Sessions"></nav>
-<main id="grid"></main>
 
 <aside id="panel">
   <div class="panel-head" id="panel-head"></div>
@@ -325,11 +315,8 @@
     <h2 style="margin: 0; font-size: 16px;">Raccourcis clavier</h2>
     <div class="help">
       <kbd>Ctrl K</kbd><span>Palette de commandes</span>
-      <kbd>j</kbd> <span>Carte suivante</span>
-      <kbd>k</kbd><span>Carte précédente</span>
+      <kbd>j / k</kbd><span>Session suivante ou précédente, dans la file</span>
       <kbd>j / k</kbd><span>Fichier suivant ou précédent, dans l'onglet Changements</span>
-      <kbd>Entrée</kbd><span>Ouvrir la carte sélectionnée</span>
-      <kbd>Espace</kbd><span>Déplier le dernier message de la carte</span>
       <kbd>a</kbd><span>Autoriser la permission en attente (touche 1)</span>
       <kbd>1-9</kbd><span>Changer d'onglet dans le panneau ouvert</span>
       <kbd>l</kbd><span>Lire la dernière réponse de Claude dans le lecteur</span>

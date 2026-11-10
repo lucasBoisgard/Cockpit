@@ -11,13 +11,13 @@ function openBroadcast() {
 function startSelecting() {
   selecting = true;
   picked.clear();
-  renderGrid();
+  renderBoard();
 }
 
 function stopSelecting() {
   selecting = false;
   picked.clear();
-  renderGrid();
+  renderBoard();
 }
 
 $('broadcast-form').addEventListener('submit', async (e) => {
@@ -37,5 +37,5 @@ $('select-write').addEventListener('click', openBroadcast);
 $('select-cancel').addEventListener('click', stopSelecting);
 $('select-idle').addEventListener('click', () => {
   for (const w of state.worktrees) if (liveSession(w) && ['done', 'idle'].includes(liveSession(w).status)) picked.add(w.path);
-  renderGrid();
+  renderBoard();
 });

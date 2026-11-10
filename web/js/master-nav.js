@@ -62,7 +62,7 @@ document.addEventListener('click', (e) => {
     const path = fold.dataset.agentsFold;
     if (boardAgentsOpen.has(path)) boardAgentsOpen.delete(path); else boardAgentsOpen.add(path);
     boardOpenVersion++;
-    renderGrid();
+    renderBoard();
     return;
   }
   const master = e.target.closest('[data-open-master]');

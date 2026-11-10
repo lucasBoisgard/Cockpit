@@ -17,7 +17,6 @@ const USAGE = 'usage';
 const APP = 'app';
 
 let state = null;
-let filter = localGet('filter') || 'active';
 let tab = localGet('tab') || 'chat';
 let selected = null;
 let selectedFile = null;
@@ -36,7 +35,6 @@ let screenLoading = false;
 let screenKey = '';
 let screenLast = '';
 let flushTimer = null;
-let order = localGet('order') || 'fixed';
 const pins = new Set(parseJson(localGet('pins'), []));
 let seenTurns = parseJson(localGet('seen-turns'), {});
 const turnRead = (wt) => isTurnRead(primarySession(wt), seenTurns);
@@ -61,11 +59,10 @@ function markRead(wt) {
 function markReadAfterDwell(wt) {
   clearTimeout(readTimer);
   selectedSince = Date.now();
-  if (wt) readTimer = setTimeout(() => { if (markRead(wt)) { renderCounters(); renderGrid(); renderPanel(); } }, READ_DWELL_MS);
+  if (wt) readTimer = setTimeout(() => { if (markRead(wt)) { renderCounters(); renderBoard(); renderPanel(); } }, READ_DWELL_MS);
 }
 let selecting = false;
 const picked = new Set();
-let focusIndex = -1;
 let lastSeenEvent = Number(localGet('lastSeenEvent') || 0);
 let eventsBootstrapped = false;
 let since = null;
@@ -82,8 +79,6 @@ let editingAutomation = null;
 let paletteItems = [];
 let paletteIndex = 0;
 let checksLoadedAt = 0;
-let archivesOpen = false;
-const openPeeks = new Set();
 let chatItems = [];
 let chatLane = 'conversation';
 let chatAgentsOpen = false;

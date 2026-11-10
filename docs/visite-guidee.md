@@ -135,7 +135,7 @@ Pour chaque type de tâche (explorer, implémenter, déboguer, relire…), la ma
 
 ## 10. Pour finir
 
-Le thème clair (ou celui du système), le mode focus (`f` masque la file) et l'ancienne vue en cartes sont dans le menu ⋯.
+Le thème clair (ou celui du système) et le mode focus (`f` masque la file) sont dans le menu ⋯.
 
 ![Le thème clair](screenshots/13-clair.png)
 

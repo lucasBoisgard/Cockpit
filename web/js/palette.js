@@ -15,7 +15,6 @@ function buildPalette() {
     { label: 'Nettoyage des worktrees', kind: 'action', run: openCleanup },
     { label: 'Automatisations', kind: 'action', run: openAutomations },
     { label: 'Écrire à plusieurs sessions', kind: 'action', run: startSelecting },
-    { label: order === 'state' ? 'Ordre fixe' : 'Grouper par état', kind: 'affichage', run: () => setOrder(order === 'state' ? 'fixed' : 'state') },
     { label: 'Terminal', kind: 'outil', run: () => select(SHELL) },
     { label: 'Tokens', kind: 'outil', run: () => select(USAGE) },
     { label: 'Raccourcis clavier', kind: 'aide', run: () => $('help-dialog').showModal() },

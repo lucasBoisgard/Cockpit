@@ -106,7 +106,7 @@ $('panel-head').addEventListener('click', (e) => {
   const delegateBtn = t.closest('[data-head-delegate]');
   if (delegateBtn) { closeMenu(); renderPanel(); openNewSession({ parent: currentWt()?.sessions.find((x) => x.sessionId === delegateBtn.dataset.headDelegate) || null }); return; }
   const pin = t.closest('[data-head-pin]');
-  if (pin) { closeMenu(); pins.has(pin.dataset.headPin) ? pins.delete(pin.dataset.headPin) : pins.add(pin.dataset.headPin); localSet('pins', JSON.stringify([...pins])); renderGrid(); renderPanel(); return; }
+  if (pin) { closeMenu(); pins.has(pin.dataset.headPin) ? pins.delete(pin.dataset.headPin) : pins.add(pin.dataset.headPin); localSet('pins', JSON.stringify([...pins])); renderBoard(); renderPanel(); return; }
   const pause = t.closest('[data-head-pause]');
   if (pause) { post('/api/orch/pause', { master: pause.dataset.master, paused: pause.dataset.headPause === '1' }).then((r) => { toast(r.ok ? (pause.dataset.headPause === '1' ? 'Maître en pause.' : 'Maître relancé.') : r.data.error || 'Action impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 500); }); return; }
   const promote = t.closest('[data-head-promote]');

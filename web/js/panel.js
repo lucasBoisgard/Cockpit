@@ -52,13 +52,7 @@ function renderPanelBody() {
   if (!chatSession || !wt.sessions.some((x) => x.sessionId === chatSession)) chatSession = defaultSessionId(wt.sessions, state.orchestrations, primarySession(wt)?.sessionId);
   const st = sessionStatus(wt);
   const s = currentSession();
-  if (isWorkstation()) setHtml($('panel-head'), sessionHead(wt, st));
-  else {
-    $('panel-head').innerHTML = `
-    <div><div class="name">${esc(wt.label || wt.name)}</div><div class="branch-row"><span class="repo-chip" title="${esc(wt.repo || 'Repo')}">${esc(wt.repoName || state.repoName)}</span>${branchChip(wt)}${prChip(wt.pr)}<span class="branch">${esc(wt.path)}</span></div>${extChips(wt) ? `<div class="branch-row">${extChips(wt)}</div>` : ''}</div>
-    ${headEnd(`<span class="badge ${st}"><span class="dot"></span>${primarySession(wt) ? statusLabel(primarySession(wt), st, STATUS) : STATUS[st].label}</span>`)}`;
-    delete $('panel-head').dataset.html;
-  }
+  setHtml($('panel-head'), sessionHead(wt, st));
   renderReport(wt);
   renderChatBar(wt);
   renderComposer(s);
@@ -106,14 +100,14 @@ function select(target) {
   if (target === USAGE) tab = 'usage';
   if (currentWt()?.review?.report) tab = 'report';
   if (currentWt() && orchestrationOf(currentWt())) tab = 'chat';
-  renderGrid(); renderPanel();
+  renderBoard(); renderPanel();
   if (tab === 'app') loadScreen();
   if (target === USAGE) loadUsage();
   else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'checks') loadChecks(); if (tab === 'changes') openChanges(); if (tab === 'agents') loadAgents(); }
   if (tab === 'term') { loadScreen(); $('screen').focus(); }
 }
 
-function closePanel() { selected = null; selectedFile = null; renderGrid(); renderPanel(); }
+function closePanel() { selected = null; selectedFile = null; renderBoard(); renderPanel(); }
 
 $('panel').addEventListener('change', (e) => {
   if (e.target.id === 'mode-select') { setMode(e.target.value); return; }

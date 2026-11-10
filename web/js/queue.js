@@ -68,7 +68,7 @@ function queueFinished() {
 
 function renderQueue() {
   const nav = $('queue');
-  if (!nav || !state || !isWorkstation()) return;
+  if (!nav || !state) return;
   const groups = queueGroups(queueItems());
   const flat = queueFlat(groups);
   const todo = flat.filter((i) => ['needs', 'review'].includes(queueGroupOf(i.status, i.read))).length;
@@ -84,9 +84,9 @@ function renderQueue() {
   if (box) box.scrollTop = scroll;
 }
 
-// Workstation: something is always open; j/k walk the queue.
+// Something is always open; j/k walk the queue.
 function ensureSelection() {
-  if (!isWorkstation() || selected || !state?.worktrees.length) return;
+  if (selected || !state?.worktrees.length) return;
   const first = queueOrdered()[0];
   if (first) select(first);
 }
@@ -110,7 +110,7 @@ $('queue').addEventListener('click', (e) => {
   if (selecting && row && row.dataset.queuePath !== SHELL && row.dataset.queuePath !== USAGE) {
     const key = row.dataset.queuePath;
     if (pick ? pick.checked : !picked.has(key)) picked.add(key); else picked.delete(key);
-    renderGrid();
+    renderBoard();
     return;
   }
   if (row) select(row.dataset.queuePath);
