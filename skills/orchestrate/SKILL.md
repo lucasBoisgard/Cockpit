@@ -155,7 +155,7 @@ Depth is limited by the cockpit setting `maxDepth` (default 2, ceiling 4) and th
 
 ## Writing a brief
 
-An agent knows nothing but its brief. Use the brief template of `agent-protocol` (section "Briefing a child"), and tell every agent to load `agent-protocol` (it reads `~/.claude/house-rules.md`). Allow sub-agents only when the task truly needs them ("Tu peux lancer des sous-agents pour …").
+An agent knows nothing but its brief. Use the brief template of `agent-protocol` (section "Briefing a child"), and tell every agent to load `agent-protocol` (it reads `~/.claude/house-rules.md` and `~/.claude/house-rules.local.md`). Allow sub-agents only when the task truly needs them ("Tu peux lancer des sous-agents pour …").
 
 Roles: when the request has no verifiable success criteria, launch `role-framer` first, then `role-dispatcher` to choose the agents (alone when the request is already framed). Other role skills: `role-challenger` (refute before anything is acted on), `role-sub-orchestrator`, `pr-reviewer`, `pr-ci-keeper`. At the end of a long job, write the report with `run-report`.
 
