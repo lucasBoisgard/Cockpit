@@ -50,6 +50,14 @@
             "command": "/root/.claude/cockpit/ensure.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /root/.claude/cockpit/hooks/worktree-context.js"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -58,6 +66,15 @@
           {
             "type": "command",
             "command": "node /root/.claude/cockpit/hooks/worktree-state.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /root/.claude/cockpit/hooks/worktree-gate.js"
           }
         ]
       }

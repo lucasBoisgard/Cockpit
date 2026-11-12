@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# ctx: opens a Claude Code session in a new worktree of the configured repo, named after a ticket, a PR or a free name.
+# usage: ctx [--dry-run] [TICKET-123 | "#5678" | name] [first prompt...]
+set -euo pipefail
+dir="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd -P)"
+repo="$(node -e 'const r = require(process.argv[1]).loadConfig(process.argv[2]).repo; process.stdout.write(typeof r === "string" ? r : "")' "$dir/hooks/worktree-rules.js" "$dir/cockpit.config.json")"
+if [[ -z "$repo" ]]; then
+  common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+  [[ -n "$common" ]] && repo="$(dirname "$common")"
+fi
+[[ -z "$repo" ]] && { echo "ctx: no repo (set \"repo\" in $dir/cockpit.config.json or run it inside a repo)" >&2; exit 1; }
+dry=0; [[ "${1:-}" == "--dry-run" ]] && { dry=1; shift; }
+raw="${1:-}"; [[ $# -gt 0 ]] && shift
+if   [[ -z "$raw" ]];     then cmd=(claude --worktree)
+elif [[ "$raw" == \#* ]]; then cmd=(claude --worktree "$raw")
+else
+  name=$(printf '%s' "$raw" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '-' | sed 's/-*$//; s/^-*//')
+  [[ -z "$name" ]] && { echo "ctx: \"$raw\" gives an empty worktree name" >&2; exit 1; }
+  cmd=(claude --worktree "$name")
+fi
+cmd+=("$@")
+cd "$repo"
+(( dry )) && { printf '%q ' "${cmd[@]}"; echo; exit 0; }
+exec "${cmd[@]}"

@@ -136,6 +136,46 @@ function ensureToken() {
   console.log('access token generated');
 }
 
+// Writes the repo's `.worktreeinclude` (files Claude Code copies into a new worktree, such as `.env`) from
+// `worktrees.include`, and keeps it out of git; a `.worktreeinclude` the repo versions itself is left alone.
+function installWorktreeInclude() {
+  const { loadConfig, settingsOf, includeText, ownsInclude } = require('./hooks/worktree-rules');
+  const config = loadConfig(path.join(DIR, 'cockpit.config.json'));
+  const text = includeText(settingsOf(config));
+  const repo = config.repo && path.isAbsolute(config.repo) ? config.repo : null;
+  if (IS_CANONICAL && repo && fs.existsSync(path.join(repo, '.claude', 'skills', 'worktree-session'))) {
+    console.log(`${repo}/.claude/skills/worktree-session shadows the cockpit's worktree-session skill: remove it, with any project hook injecting worktree rules`);
+  }
+  if (!IS_CANONICAL || !repo || !text || !fs.existsSync(repo)) return;
+  const gitIn = (...args) => require('node:child_process').execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  let exclude;
+  try {
+    exclude = gitIn('rev-parse', '--path-format=absolute', '--git-path', 'info/exclude');
+  } catch {
+    return;
+  }
+  try {
+    gitIn('ls-files', '--error-unmatch', '.worktreeinclude');
+    return;
+  } catch {}
+  const file = path.join(repo, '.worktreeinclude');
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  if (!ownsInclude(current)) {
+    console.log(`${file} was written by hand: left untouched (move its entries to worktrees.include, then delete it)`);
+    return;
+  }
+  if (current !== text) {
+    fs.writeFileSync(file, text);
+    console.log(`${file} written`);
+  }
+  const excluded = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8') : '';
+  if (!excluded.split('\n').includes('.worktreeinclude')) {
+    fs.mkdirSync(path.dirname(exclude), { recursive: true });
+    fs.appendFileSync(exclude, `${excluded && !excluded.endsWith('\n') ? '\n' : ''}.worktreeinclude\n`);
+  }
+}
+
 mergeSettings();
 linkSkills();
 ensureToken();
+installWorktreeInclude();

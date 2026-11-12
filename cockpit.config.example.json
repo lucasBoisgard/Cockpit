@@ -10,6 +10,12 @@
     "url": "http://localhost:3000",
     "recoveryDoc": ""
   },
+  "worktrees": {
+    "include": ["**/.env", "**/.env.*"],
+    "setup": [{ "missing": "node_modules", "hint": "run `npm install` before the tests." }],
+    "rules": ["The database is shared with the other sessions: tests that roll back are fine, never reset or migrate it."],
+    "forbidden": [{ "pattern": "\\bnpm\\s+run\\s+dev\\b", "label": "npm run dev" }]
+  },
   "pr": {
     "base": "master",
     "labels": [],

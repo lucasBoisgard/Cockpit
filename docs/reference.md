@@ -14,6 +14,16 @@ When an app is configured, every side panel also carries an app button and an Ap
 
 A "Tokens utilisés" card shows how much of the account's usage limits is used (5-hour and 7-day windows, spend limit when there is one) with their reset time. It turns amber at 80 % used and red at 95 %, and the header then shows the limit as an alert. Worktree cards show a "Contexte" chip when 20 % or less of their session's context window is left. The card opens a Tokens tab with the used and remaining share of each limit, each session's remaining context and estimated cost, the tokens processed per day over 7 days and the usage per worktree. Limits, context and cost come from what Claude Code sends to the status line: `statusline.js` writes one snapshot per session in `~/.claude/worktree-usage/`, so the limits shown are those of the last Claude answer. The daily history is read from the transcripts in `~/.claude/projects/` (subagents included).
 
+### Parallel worktrees
+
+Each session works in its own worktree (`<repo>/.claude/worktrees/<name>`, created by `claude --worktree`, the cockpit or `bin/ctx`), next to the others, on resources they share (databases, the running app). The `worktrees` section of `cockpit.config.json` describes what that means for the repo, and the cockpit applies it:
+
+- `include`: files Claude Code copies into a new worktree (typically `.env`). `install.js` writes them to the repo's `.worktreeinclude` (with a first comment line marking it as the cockpit's) and adds it to `.git/info/exclude`; a `.worktreeinclude` the repo versions, or one written by hand, is left alone (move its entries to `worktrees.include` and delete it to hand it over).
+- `rules`, `setup`: at session start in a worktree, the `worktree-context.js` hook tells the session to load the `worktree-session` skill (generic rules), lists the repo's rules, and says which setup is missing (for example `node_modules`).
+- `forbidden`: the `worktree-gate.js` hook refuses the matching Bash commands in a worktree (regular expressions, case-insensitive), with the label as the reason.
+
+Both hooks only act in worktrees of the configured `repo` (of any repo when `repo` is not set). A repo that already has its own worktree hooks or a project `worktree-session` skill should drop them: the project skill would shadow the cockpit's, and both hooks would inject their context (`install.js` warns about the skill). `bin/ctx [TICKET-123 | "#5678" | name] [prompt]` opens a session in a new worktree of that repo from a terminal.
+
 ### Workstation layout
 
 The page is a workstation for a full working day. On the left, the **attention queue** lists every worktree grouped by what you are expected to do: *À toi* (a permission or a question, oldest first), *À relire* (a finished turn), *En cours*, *Au repos*; each row says why. `j`/`k` walk it, `[` folds it to coloured dots. The selected session fills the centre: a one-line header (state, reason, the actions that state calls for, `d` for the details, ⋯ for every worktree action), its tabs and a compact composer whose `⚙ model · effort · mode` pill opens the session settings. The Changements tab shows the uncommitted lines added and removed (`+N −M`), and `f` hides the queue (focus mode). The top bar holds clickable state pills, the terminal, the token limits, `Ctrl K` and a ⋯ menu (tools, theme). History, cleanup, automations and skills open as pages in the centre, with their own address.
@@ -114,6 +124,10 @@ No npm dependency and no build step: Node, git and tmux only (`gh` for the PR fe
 | `app.recoveryDoc` | none | Troubleshooting doc, relative to the repo, shown on KO and read by the `run-app` skill |
 | `app.migrations.paths` | none | Migration folders, relative to the repo. When their content at `HEAD` changed since the last successful run (a pull), the migrations run: after `app.command` on the next start, or right away when the app is already running |
 | `app.migrations.command` | none | Command that applies the migrations, run in the main checkout; it must be idempotent |
+| `worktrees.include` | none | Files copied into a new worktree, written to the repo's `.worktreeinclude` |
+| `worktrees.setup` | none | `{ "missing": "<path in the worktree>", "hint": "<what to do>" }` entries checked at session start |
+| `worktrees.rules` | none | Repo-specific rules given to every worktree session at start |
+| `worktrees.forbidden` | none | `{ "pattern": "<regex>", "label": "<name>" }` Bash commands refused in a worktree |
 | `pr.base` | `master` | Base branch for PRs, merged checks and cleanup |
 | `pr.labels` | `[]` | Labels pre-filled in "Pousser et ouvrir la PR" |
 | `pr.assignee` | none | Assignee pre-filled in "Pousser et ouvrir la PR" |
@@ -147,6 +161,9 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 | `install.js` | Idempotent install: hooks and status line in `~/.claude/settings.json`, skill links, access token |
 | `ensure.sh` | `SessionStart` hook: starts the server when it is not running |
 | `cockpit.config.example.json` | Configuration template |
+| `hooks/worktree-context.js`, `hooks/worktree-gate.js`, `hooks/worktree-rules.js` | Claude Code hooks applying the `worktrees` configuration: context at session start, refused commands |
+| `skills/worktree-session/SKILL.md` | Claude Code skill: generic rules for a session in a worktree |
+| `bin/ctx` | Opens a Claude Code session in a new worktree of the configured repo |
 | `hooks/worktree-state.js` | Claude Code hook writing one JSON state file per session in `~/.claude/worktree-state/` |
 | `hooks/ask-relay.js` | Claude Code hook that holds a question of a cockpit session until it is answered in the conversation |
 | `statusline.js` | Claude Code status line: worktree, branch, dirty files, unpushed commits; also writes the session's usage snapshot to `~/.claude/worktree-usage/` |
@@ -174,6 +191,6 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 ## Uninstall
 
 1. Remove the cockpit entries from `~/.claude/settings.json` (the `statusLine` and the hooks pointing to this directory), or restore the `settings.json.bak-cockpit-*` backup written by the install.
-2. Remove the skill links: `for s in ~/.claude/cockpit/skills/*; do rm ~/.claude/skills/"$(basename "$s")"; done`.
+2. Remove the skill links: `for s in ~/.claude/cockpit/skills/*; do rm ~/.claude/skills/"$(basename "$s")"; done`, and the repo's `.worktreeinclude` if the install wrote it.
 3. Stop the server (`kill "$(cat ~/.claude/cockpit/server.pid)"`) and delete `~/.claude/cockpit`. `~/.claude/worktree-state/`, `~/.claude/worktree-reviews/`, `~/.claude/worktree-usage/` and the `~/.claude/worktree-*.json` data files can be deleted too.
 - Claude Code auto mode refuses edits to `~/.claude/settings.json` and to the tmux driving code: switch to the default permission mode first.
