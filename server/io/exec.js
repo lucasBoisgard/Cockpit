@@ -1,8 +1,8 @@
 const { execFile, execFileSync } = require('node:child_process');
 
-function run(cmd, args, input) {
+function run(cmd, args, input, env) {
   return new Promise((resolve) => {
-    const child = execFile(cmd, args, { maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) =>
+    const child = execFile(cmd, args, { maxBuffer: 20 * 1024 * 1024, ...(env ? { env: { ...process.env, ...env } } : {}) }, (error, stdout, stderr) =>
       resolve({ ok: !error, stdout: stdout || '', stderr: stderr || (error ? error.message : '') }),
     );
     if (input !== undefined) child.stdin.end(input);

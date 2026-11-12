@@ -12,6 +12,7 @@ const { prRefreshDue, refreshPrs } = require('./pr');
 const { runDueAutomations } = require('./automations');
 const { onSessionEvent, checkLostAgents } = require('./orchestration');
 const { cutArenaIfOverLimit } = require('./arena-breaker');
+const { publishMatrixIfDue } = require('./matrix-publish');
 
 const AUTOMATION_CHECK_MS = 30000;
 const lastStatus = new Map();
@@ -56,6 +57,7 @@ async function tick() {
     await flushQueues(snap, (sessionId) => lastStatus.set(sessionId, 'working'));
     migrateIfPulled(snap.app).catch((error) => console.error('migrations failed', error));
     if (prRefreshDue()) refreshPrs(await listWorktrees()).catch(() => {});
+    publishMatrixIfDue().catch((error) => console.error('matrix publish check failed', error));
     if (Date.now() - lastAutomationCheck > AUTOMATION_CHECK_MS) {
       lastAutomationCheck = Date.now();
       await runDueAutomations();

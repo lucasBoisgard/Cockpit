@@ -1,0 +1,126 @@
+{
+  "categories": {
+    "explore": {
+      "id": "explore",
+      "label": "Explorer, chercher",
+      "description": "Repérer des usages, lister des fichiers, cartographier un module.",
+      "picks": [
+        {
+          "provider": "claude",
+          "model": "haiku",
+          "effort": "low",
+          "score": 4,
+          "why": "Arène B (extraction multi-outils Jira/Outlook/Slack/git, 2026-11-10) : s'arrête à 2 min avec 2 thèmes sur 5 non faits et une affirmation fausse sur l'outil Jira ; reste bon pour chercher et lister du"
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6-luna",
+          "effort": "low",
+          "score": 4,
+          "why": "Équivalent rapide côté GPT."
+        },
+        {
+          "provider": "claude",
+          "model": "sonnet",
+          "effort": "low",
+          "score": 3,
+          "why": "Quand la recherche demande d'interpréter le code."
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-5.6-luna",
+          "effort": "low",
+          "score": 2,
+          "why": "Ancien modèle rapide : repli si Luna 6 est indisponible."
+        },
+        {
+          "provider": "claude",
+          "model": "sonnet",
+          "effort": "medium",
+          "score": 4,
+          "why": "Hors matrice, gagne l'Arène A (recherche web sourcée) devant haiku·low et sonnet·low : 13 URL ouvertes par le juge, 0 erreur ; 3 notes observées 5/5/4. Entrée prudente à 4 : une seule compétition, tâc"
+        },
+        {
+          "provider": "claude",
+          "model": "opus",
+          "effort": "medium",
+          "score": 4,
+          "why": "Hors matrice, gagne l'Arène G3 (recherche web + Jira, COSMIC) devant sonnet·medium et haiku·low : seul à ouvrir les PDF primaires, 17 chiffres recoupés sans écart. Entrée prudente à 4 : une seule comp"
+        }
+      ],
+      "editedAt": 1794319044903
+    },
+    "large-context": {
+      "id": "large-context",
+      "label": "Très gros contexte",
+      "description": "Beaucoup de fichiers ou des fichiers très longs à garder en tête.",
+      "picks": [
+        {
+          "provider": "claude",
+          "model": "sonnet[1m]",
+          "effort": "medium",
+          "score": 4,
+          "why": "Observé 4/5 deux fois (arènes C et G1) : exact et riche, mais messages contradictoires en C, conventions non signalées et écarts inexpliqués en G1 ; battu deux fois par fable·medium."
+        },
+        {
+          "provider": "claude",
+          "model": "opus[1m]",
+          "effort": "high",
+          "score": 4,
+          "why": "Quand le raisonnement sur tout le contexte compte."
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6.1-terra",
+          "effort": "medium",
+          "score": 3,
+          "why": "Observé 3/5 deux fois (arènes C et G1) : rapide, aucun chiffre faux, mais incomplet face au brief dans les deux cas."
+        },
+        {
+          "provider": "claude",
+          "model": "fable",
+          "effort": "medium",
+          "score": 5,
+          "why": "Deux arènes à l'aveugle gagnées (C et G1, 2026-11-10) contre sonnet[1m]·medium, opus[1m]·high et GPT terra·medium : exactitude égale ou supérieure, seul à réconcilier tous les chiffres en G1 ; observé"
+        }
+      ],
+      "editedAt": 1794318943597
+    },
+    "frontend": {
+      "id": "frontend",
+      "label": "Interface, front",
+      "description": "Composants, styles, accessibilité, interactions.",
+      "picks": [
+        {
+          "provider": "claude",
+          "model": "sonnet",
+          "effort": "medium",
+          "score": 5,
+          "why": "Composants et styles suivant l'existant ; la vérification visuelle sert d'oracle."
+        },
+        {
+          "provider": "claude",
+          "model": "opus",
+          "effort": "high",
+          "score": 4,
+          "why": "Refonte d'écran ou interactions complexes sans maquette précise."
+        },
+        {
+          "provider": "codex",
+          "model": "gpt-6.1-sol",
+          "effort": "medium",
+          "score": 4,
+          "why": "Variante GPT à comparer."
+        },
+        {
+          "provider": "claude",
+          "model": "fable",
+          "effort": "medium",
+          "score": 4,
+          "why": "Deux decks Slides jugés (Arènes D et D2) : 4/5 puis 5/5, gagnant en D2 avec 0 défaut de format, de rendu et de chiffres ; entre dans la catégorie."
+        }
+      ],
+      "editedAt": 1794319419868
+    }
+  }
+}

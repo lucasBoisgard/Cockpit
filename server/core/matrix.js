@@ -1,5 +1,5 @@
 // Relevance matrix of providers × models × efforts per kind of task, without I/O. The versioned default
-// (server/data/model-matrix.json) is overlaid by the user's local edits; masters rate their agents, and the
+// (server/data/model-matrix.json) is overlaid by the maintainer's published edits, then by the user's local edits; masters rate their agents, and the
 // observed average weighs on the ranking as ratings accumulate.
 const providers = require('./providers');
 
@@ -13,10 +13,32 @@ const OFF_MATRIX_PRIOR = 3;
 const keyOf = (category, p) => `${category}|${p.provider}|${p.model}|${p.effort || ''}`;
 const clip = (text, max) => String(text ?? '').trim().slice(0, max);
 
-// Local edits replace a category's label, description and picks; a local category with a new id is added.
+// The maintainer's published edits replace a category of the hand-written default, or add one, before any local edit.
+function applyEdits(defaults = {}, edits = {}) {
+  const changed = edits.categories || {};
+  const categories = (defaults.categories || []).map((c) => (changed[c.id] ? { ...c, ...changed[c.id], id: c.id, source: 'published' } : c));
+  for (const [id, c] of Object.entries(changed)) if (!categories.some((x) => x.id === id)) categories.push({ ...c, id, source: 'published' });
+  return { ...defaults, categories };
+}
+
+const list = (value) => (Array.isArray(value) ? value : []);
+const ratingKey = (r) => [r.at, r.master, r.agent, r.category, r.provider, r.model, r.effort].join('|');
+
+// Published ratings and this machine's own, without duplicates (a machine that held a rating before it was
+// published must not count it twice), oldest first.
+function combineRatings(shared, local) {
+  const byKey = new Map();
+  for (const r of [...list(shared), ...list(local)]) byKey.set(ratingKey(r), r);
+  return [...byKey.values()].sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-RATINGS_MAX);
+}
+
+const sameContent = (a, b) => JSON.stringify([a.label, a.description || '', a.picks || []]) === JSON.stringify([b.label, b.description || '', b.picks || []]);
+
+// Local edits replace a category's label, description and picks; a local category with a new id is added. A local
+// edit equal to the category it replaces is ignored, so that it does not hide later published changes.
 function mergeMatrix(defaults = {}, overrides = {}) {
   const local = overrides.categories || {};
-  const categories = (defaults.categories || []).map((c) => (local[c.id] ? { ...c, ...local[c.id], id: c.id, source: 'local' } : { ...c, source: 'default' }));
+  const categories = (defaults.categories || []).map((c) => (local[c.id] && !sameContent(local[c.id], c) ? { ...c, ...local[c.id], id: c.id, source: 'local' } : { ...c, source: c.source || 'default' }));
   for (const [id, c] of Object.entries(local)) if (!categories.some((x) => x.id === id)) categories.push({ ...c, id, source: 'local' });
   return { version: defaults.version || 1, note: defaults.note || '', models: defaults.models || [], categories };
 }
@@ -114,4 +136,4 @@ function rescorePicks(picks = [], target = {}) {
   return { picks: [...picks, entry] };
 }
 
-module.exports = { calibrationCoverage, rescorePicks, PRIOR_WEIGHT, OFF_MATRIX_MIN, OFF_MATRIX_PRIOR, keyOf, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };
+module.exports = { calibrationCoverage, rescorePicks, PRIOR_WEIGHT, OFF_MATRIX_MIN, OFF_MATRIX_PRIOR, keyOf, ratingKey, applyEdits, combineRatings, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };

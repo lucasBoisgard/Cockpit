@@ -114,3 +114,31 @@ test('rescorePicks updates a listed pick, adds a missing one and refuses a full 
   const full = Array.from({ length: 8 }, (_, i) => ({ provider: 'claude', model: `m${i}`, effort: null, score: 3, why: '' }));
   assert.ok(m.rescorePicks(full, { provider: 'claude', model: 'z', effort: null, score: 3, why: 'x' }).error);
 });
+
+test('applyEdits lets the published edits replace a category and add new ones, under the local edits', () => {
+  const edited = m.applyEdits(defaults, { categories: { review: { label: 'Revue croisée', picks: [] }, perf: { label: 'Performance', picks: [] } } });
+  assert.deepStrictEqual(edited.categories.map((c) => [c.id, c.label, c.source]), [['explore', 'Explorer', undefined], ['review', 'Revue croisée', 'published'], ['perf', 'Performance', 'published']]);
+  const merged = m.mergeMatrix(edited, { categories: { perf: { label: 'Perf locale', picks: [] } } });
+  assert.deepStrictEqual(merged.categories.map((c) => [c.id, c.label, c.source]), [['explore', 'Explorer', 'default'], ['review', 'Revue croisée', 'published'], ['perf', 'Perf locale', 'local']]);
+});
+
+test('a local edit equal to the category it replaces is ignored', () => {
+  const merged = m.mergeMatrix(defaults, { categories: { review: { label: 'Revue', picks: defaults.categories[1].picks, editedAt: 5 } } });
+  assert.strictEqual(merged.categories.find((c) => c.id === 'review').source, 'default');
+});
+
+test('combineRatings keeps the published ratings and the local ones once each, oldest first', () => {
+  const r = (at, agent = 'w') => ({ at, agent, master: 'm', category: 'review', provider: 'claude', model: 'opus', score: 4 });
+  const all = m.combineRatings([r(3), r(1)], [r(2), r(1)]);
+  assert.deepStrictEqual(all.map((x) => x.at), [1, 2, 3]);
+  assert.deepStrictEqual(m.combineRatings(undefined, {}), []);
+});
+
+test('the published edits and ratings are valid', () => {
+  const read = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'server', 'data', name), 'utf8'));
+  const catalogs = { claude: providers.CLAUDE_MODELS, codex: providers.CODEX_DEFAULT_MODELS };
+  for (const c of Object.values(read('model-matrix-edits.json').categories || {})) assert.ok(m.validateCategory(c, catalogs).category, `catégorie ${c.id} invalide : ${m.validateCategory(c, catalogs).error}`);
+  const ratings = read('model-ratings.json');
+  assert.ok(Array.isArray(ratings));
+  for (const r of ratings) assert.ok(r.category && r.provider && r.model && Number.isInteger(r.score), `note invalide : ${JSON.stringify(r)}`);
+});

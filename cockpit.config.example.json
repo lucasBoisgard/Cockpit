@@ -18,6 +18,9 @@
   "arena": {
     "maxUsagePercent": 75
   },
+  "matrix": {
+    "maintainer": false
+  },
   "notify": {
     "ntfyUrl": ""
   }

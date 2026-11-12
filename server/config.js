@@ -55,6 +55,7 @@ module.exports = {
   APP_SESSION: 'cw-app',
   APP,
   ARENA_LIMIT_PERCENT,
+  MATRIX_MAINTAINER: CONFIG.matrix?.maintainer === true,
   USE_PM2: APP?.processManager === 'pm2',
   PM2_BIN: APP?.pm2Bin || (fs.existsSync(path.join(REPO, 'node_modules', '.bin', 'pm2')) ? path.join(REPO, 'node_modules', '.bin', 'pm2') : 'pm2'),
   PM2_PID_FILE: path.join(os.homedir(), '.pm2', 'pm2.pid'),
