@@ -147,6 +147,7 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 | `statusline.js` | Claude Code status line: worktree, branch, dirty files, unpushed commits; also writes the session's usage snapshot to `~/.claude/worktree-usage/` |
 | `skills/run-app/SKILL.md` | Claude Code skill: start, stop and check the app from any session through the cockpit API |
 | `skills/review-report/SKILL.md` | Claude Code skill: the JSON format of a review report rendered by the cockpit |
+| `skills/agent-protocol/`, `skills/role-*/`, `skills/pick-agent-model/`, `skills/pr-reviewer/`, `skills/pr-ci-keeper/`, `skills/run-report/`, `skills/review-context/` | Claude Code skills of an orchestration: the contract every agent follows, the roles a master launches, model choice from the relevance matrix, review, CI upkeep and the final report; a `learnings.md` next to a skill holds the lessons it records |
 | `settings.snippet.json` | The `statusLine` and `hooks` entries merged by `install.js` |
 
 ## Security
@@ -168,6 +169,6 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 ## Uninstall
 
 1. Remove the cockpit entries from `~/.claude/settings.json` (the `statusLine` and the hooks pointing to this directory), or restore the `settings.json.bak-cockpit-*` backup written by the install.
-2. Remove the skill links: `rm ~/.claude/skills/run-app ~/.claude/skills/review-report`.
+2. Remove the skill links: `for s in ~/.claude/cockpit/skills/*; do rm ~/.claude/skills/"$(basename "$s")"; done`.
 3. Stop the server (`kill "$(cat ~/.claude/cockpit/server.pid)"`) and delete `~/.claude/cockpit`. `~/.claude/worktree-state/`, `~/.claude/worktree-reviews/`, `~/.claude/worktree-usage/` and the `~/.claude/worktree-*.json` data files can be deleted too.
 - Claude Code auto mode refuses edits to `~/.claude/settings.json` and to the tmux driving code: switch to the default permission mode first.
