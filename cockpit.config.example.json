@@ -1,5 +1,8 @@
 {
   "repo": "/path/to/your/repo",
+  "user": {
+    "name": ""
+  },
   "repos": [],
   "container": "",
   "hosts": [],

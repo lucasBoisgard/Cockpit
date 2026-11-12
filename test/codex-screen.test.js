@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const { parseCodexPrompt, choiceKeys, activeChoiceKeys, permissionChoiceKeys } = require('../server/core/codex-screen');
 
 const FOLDER = `  Folder access
-  /root/.claude/worktree-dashboard-worktrees/orch-demo
+  /home/dev/.claude/cockpit-worktrees/orch-demo
   Note: You’re in a subdirectory of a Git project. Trusting will apply to the repository root:
-  /root/.claude/worktree-dashboard
+  /home/dev/.claude/cockpit
   Trust this folder? Codex can read, edit, and run files here, subject to your permission settings. Folder settings can run code automatically, even without a model request. Continue only if you
   trust these files. Your trust decision will be saved.
 › 1. Trust and continue
@@ -33,7 +33,7 @@ test('parseCodexPrompt reads the folder trust screen of Codex', () => {
   const p = parseCodexPrompt(FOLDER);
   assert.strictEqual(p.kind, 'folder');
   assert.strictEqual(p.title, 'Folder access');
-  assert.match(p.text, /Trusting will apply to the repository root:\n\/root\/\.claude\/worktree-dashboard/);
+  assert.match(p.text, /Trusting will apply to the repository root:\n\/home\/dev\/\.claude\/cockpit/);
   assert.deepStrictEqual(p.options, [{ n: 1, label: 'Trust and continue' }, { n: 2, label: 'Quit' }]);
   assert.strictEqual(p.selected, 1);
 });

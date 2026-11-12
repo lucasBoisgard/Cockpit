@@ -72,8 +72,8 @@ test('add and remove arguments put the name before the variadic options', () => 
 });
 
 test('repository servers are kept apart, and shared servers are marked for both providers', () => {
-  const rows = mcp.repoServers('skillup', { project: { knip: { command: 'npx', args: ['-y', '@knip/mcp'] } }, local: { db: { command: 'db' } } });
-  assert.deepStrictEqual(rows.map((r) => [r.name, r.source, r.scope, r.repo, r.removable]), [['knip', 'repo', 'project', 'skillup', false], ['db', 'repo', 'local', 'skillup', true]]);
+  const rows = mcp.repoServers('acme', { project: { knip: { command: 'npx', args: ['-y', '@knip/mcp'] } }, local: { db: { command: 'db' } } });
+  assert.deepStrictEqual(rows.map((r) => [r.name, r.source, r.scope, r.repo, r.removable]), [['knip', 'repo', 'project', 'acme', false], ['db', 'repo', 'local', 'acme', true]]);
   const marked = mcp.markShared([
     { provider: 'claude', source: 'user', name: 'docs' },
     { provider: 'codex', source: 'codex', name: 'docs' },

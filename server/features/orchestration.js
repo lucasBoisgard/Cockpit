@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { ROOT, REPO, PORT } = require('../config');
+const { ROOT, REPO, PORT, USER_NAME } = require('../config');
 const { run, git, tmux } = require('../io/exec');
 const { loadStore, saveStore, readSession, readSessions, writeSessionOverride } = require('../io/store');
 const { paneOf, validName, tmuxSessionName, turnStatus, effectiveStatus } = require('../core/sessions');
@@ -647,7 +647,7 @@ async function updateSettings({ master, reason, ...input }) {
     const autonomy = `autonomie ${normalized.settings.autonomy}${notified === null ? '' : ` (${notifiedText(notified)})`}`;
     core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : `désactivé${reason ? ` automatiquement : ${reason}` : ''}`}` : ''}` }, Date.now());
   });
-  const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : `reviens au fonctionnement normal, un seul agent par tâche${reason ? `. Le cockpit l'a coupé lui-même (${reason}) pour éviter de toucher la limite d'utilisation : ne le réactive pas, seul Lucas peut le refaire` : ''}`}.` : '';
+  const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : `reviens au fonctionnement normal, un seul agent par tâche${reason ? `. Le cockpit l'a coupé lui-même (${reason}) pour éviter de toucher la limite d'utilisation : ne le réactive pas, seul ${USER_NAME || 'l’utilisateur'} peut le refaire` : ''}`}.` : '';
   const strictNote = normalized.settings.strictMaster !== false !== (orch.settings.strictMaster !== false) ? `\nMaître strict ${normalized.settings.strictMaster ? 'activé' : 'désactivé'} : les outils de cette session ne changent pas, seule la consigne compte ; le cockpit applique le réglage au prochain lancement d'un maître et à la prochaine reprise de cette session.` : '';
   const modeNote = modeText ? `\nPermissions de tous les agents, et les tiennes : ${modeText}. Le cockpit l'applique lui-même, ne relance pas tes agents pour ça.` : '';
   const autonomyNote = notified === null ? '' : `\nNouveau niveau d'autonomie : le cockpit le transmet à tes agents (${notifiedText(notified)}), n'envoie rien de plus pour ça.`;
@@ -741,7 +741,7 @@ async function arenaState({ caller }) {
 async function setArena({ caller, on }) {
   const found = resolveCaller(load(), caller);
   if (found.error) return found;
-  if (found.agent) return { error: 'Seul le maître ou Lucas change le mode Arène.' };
+  if (found.agent) return { error: `Seul le maître ou ${USER_NAME || 'l’utilisateur'} change le mode Arène.` };
   if (!!found.orch.settings.arena === (on === true)) return arenaState({ caller });
   const result = await updateSettings({ master: found.orch.masterSessionId, arena: on === true });
   return result.error ? result : arenaState({ caller });

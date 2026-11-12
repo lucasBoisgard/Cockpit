@@ -34,7 +34,7 @@ function* entriesOf(text) {
   }
 }
 
-function parseChat(text, sessionId) {
+function parseChat(text, sessionId, { names = [] } = {}) {
   const items = [];
   const tools = new Map();
   for (const entry of entriesOf(text)) {
@@ -69,7 +69,7 @@ function parseChat(text, sessionId) {
       }
     }
   }
-  return { sessionId, total: items.length, ...limitByLane(assignLanes(items), CHAT_MAX_ITEMS) };
+  return { sessionId, total: items.length, ...limitByLane(assignLanes(items, { names }), CHAT_MAX_ITEMS) };
 }
 
 function parseHistoryMeta(text, { sessionId, file, mtimeMs }) {

@@ -5,7 +5,7 @@ description: Write the final report of an orchestration or any long piece of wor
 
 # Run report
 
-Produce one short Artifact that tells Lucas, in under two minutes, what happened and what he must do next. He rejects long, ugly, dense pages: brevity is the feature, not a style choice. Content shown to him is in French; this file and `learnings.md` stay in English.
+Produce one short Artifact that tells the user, in under two minutes, what happened and what they must do next. Long, ugly, dense pages get rejected: brevity is the feature, not a style choice. Content shown to the user is in their language (the examples below are in French); this file and `learnings.md` stay in English.
 
 ## 1. Load the learnings first
 
@@ -16,7 +16,7 @@ Read `~/.claude/skills/run-report/learnings.md` before anything else. Apply ever
 Condense by **aggregating**, not by paraphrasing away meaning: group items of the same kind, count them, keep one line per group. Never drop a disagreement between agents, a failed check or an unresolved risk to make the page shorter; those are the most useful lines.
 
 Orchestration sources, in this order:
-- agent reports: `node /root/.claude/cockpit/bin/orchestrate.js read <agent>` and the files in the run folder;
+- agent reports: `node ~/.claude/cockpit/bin/orchestrate.js read <agent>` and the files in the run folder;
 - notes and state: `orchestrate status`;
 - the work itself: `git log`/`git diff --stat` on the worktree, and the skill or file paths touched.
 
@@ -32,13 +32,13 @@ Verify each claim you put on the page against a source (a file exists, a command
 | Changed | Skills created or modified, code, branches. One row each: path or link + one-line what | 8 items, 120 chars each |
 | Decisions | Key choices and reasoning, one line each, with the why | 6 items, 140 chars each |
 | Verified | What was checked and how (command, test, read-back) | 5 items, 100 chars each |
-| Left / waiting on you | Open items, risks, decisions Lucas must take, each with a recommendation | 5 items, 120 chars each |
+| Left / waiting on you | Open items, risks, decisions the user must take, each with a recommendation | 5 items, 120 chars each |
 | Raw reports | Links or paths to the full agent reports and logs | links only |
 
 Rules:
 - Anything beyond a cap goes behind a link to the raw report, never in the page. If a section has nothing, drop it rather than write "none".
 - Total target: one or two screens. No section intro sentences, no recap of the request.
-- "Left / waiting on you" comes right after the verdict when it contains a blocker or a decision for Lucas (move it up; say so nowhere, just do it).
+- "Left / waiting on you" comes right after the verdict when it contains a blocker or a decision for the user (move it up; say so nowhere, just do it).
 - Each Changed row names a real path or URL. No path, no row.
 
 ## 4. Visual treatment
@@ -66,22 +66,22 @@ Minimal skeleton to adapt:
   <section><h2>Changé</h2><div class="row"><code>chemin</code><span>une ligne</span></div></section>
   <section><h2>Décisions</h2>…</section>
   <section><h2>Vérifié</h2>…</section>
-  <section><h2>Reste / attend Lucas</h2>…</section>
+  <section><h2>Reste / t'attend</h2>…</section>
   <section><h2>Rapports bruts</h2>…liens…</section>
 </main>
 ```
 
 ## 5. Before publishing
 
-Check against the caps and the learnings: count items, trim over-long lines, remove anything Lucas has said he does not care about. Publish with the Artifact tool, give him the link, and in the chat message add at most 3 lines. Then ask nothing more than: "Dis-moi ce qui était trop long ou inutile, je l'ajoute au skill."
+Check against the caps and the learnings: count items, trim over-long lines, remove anything the user has said they do not care about. Publish with the Artifact tool, give them the link, and in the chat message add at most 3 lines. Then ask nothing more than: "Dis-moi ce qui était trop long ou inutile, je l'ajoute au skill."
 
 ## Learning loop
 
-The skill improves only through Lucas's reactions to real reports.
+The skill improves only through the user's reactions to real reports.
 
 - **When**: any reaction to a report, positive or negative ("trop long", "ça je m'en fiche", "mets X en tête", "parfait comme ça").
 - **How**: extract the underlying rule, not the raw comment. Ask: "what would I do differently on the next report?" Add it to the right section of `learnings.md` as `- [YYYY-MM-DD] rule — why/feedback: "short original quote"`.
 - **Conflicts**: do not stack contradicting lines. Rewrite or delete the older rule; the newest feedback wins. A rule repeated by a second feedback becomes firmer; note `(x2)`.
-- **Caps tuning**: if Lucas says a section is too long or too short, change its cap in `learnings.md` (a rule overriding the table above) rather than editing this file.
-- **Hygiene**: keep under ~40 rules; merge duplicates, drop obsolete ones. Tell Lucas in one line what you recorded. If he says to forget a rule, delete it at once.
-- If you cannot write the file, print the entry in a code block for him to save.
+- **Caps tuning**: if the user says a section is too long or too short, change its cap in `learnings.md` (a rule overriding the table above) rather than editing this file.
+- **Hygiene**: keep under ~40 rules; merge duplicates, drop obsolete ones. Tell the user in one line what you recorded. If they say to forget a rule, delete it at once.
+- If you cannot write the file, print the entry in a code block for them to save.

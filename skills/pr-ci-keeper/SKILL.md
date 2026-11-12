@@ -1,6 +1,6 @@
 ---
 name: pr-ci-keeper
-description: Keep a PR or a stack of PRs deliverable - up to date with its base, conflicts resolved, size checked, form compliant, CI green on the reviewed SHA. Use when a push, commit or PR grant is given, after any push, when a base branch moves or a parent PR merges, when CI is red, or when Lucas says "mets la stack à jour", "fix la CI", "conflicts". Trigger it even for a clean merge - a clean merge does not prove compatibility. It is the only agent touching Git in the worktree during its steps.
+description: Keep a PR or a stack of PRs deliverable - up to date with its base, conflicts resolved, size checked, form compliant, CI green on the reviewed SHA. Use when a push, commit or PR grant is given, after any push, when a base branch moves or a parent PR merges, when CI is red, or when the user says "mets la stack à jour", "fix la CI", "conflicts". Trigger it even for a clean merge - a clean merge does not prove compatibility. It is the only agent touching Git in the worktree during its steps.
 ---
 
 # PR and CI keeper
@@ -46,7 +46,7 @@ H4 ("do not merge" PRs excepted): CI green after every push, watch it and fix re
 
 ## Outside an orchestration
 
-No brief: the parent is Lucas. No run dir, and no grant beyond his words; without a push, commit or PR word, `update-base` and CI reading only. Keep the output short and give it in the conversation, in French, verdict first (H8).
+No brief: the parent is the user. No run dir, and no grant beyond their words; without a push, commit or PR word, `update-base` and CI reading only. Keep the output short and give it in the conversation, in the user's language, verdict first (H8).
 
 ## Forbidden
 

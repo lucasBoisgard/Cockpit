@@ -26,16 +26,30 @@ test('a settings change notice goes to agents', () => {
 });
 
 test('a milestone in an agents turn moves to the conversation without its marker', () => {
-  const out = assignLanes([reply('ok'), user('[cockpit] w3 a fini.'), reply('reçu'), reply('@Lucas : phase 1 terminée.')]);
+  const out = assignLanes([reply('ok'), user('[cockpit] w3 a fini.'), reply('reçu'), reply('@user : phase 1 terminée.')]);
   assert.deepStrictEqual(out.map((i) => i.lane), ['conversation', 'agents', 'agents', 'conversation']);
   assert.strictEqual(out[3].text, 'phase 1 terminée.');
   assert.strictEqual(out[3].milestone, true);
 });
 
 test('the milestone marker is only read at the start of the message', () => {
-  assert.strictEqual(milestoneBody('Je préviens @Lucas demain'), null);
-  assert.strictEqual(milestoneBody('@lucas décision à prendre'), 'décision à prendre');
-  assert.strictEqual(milestoneBody('@Lucasfoo'), null);
+  assert.strictEqual(milestoneBody('Je préviens @user demain'), null);
+  assert.strictEqual(milestoneBody('@User décision à prendre'), 'décision à prendre');
+  assert.strictEqual(milestoneBody('@userfoo'), null);
+  assert.strictEqual(milestoneBody('@Ana : fini'), null, 'a name counts only when configured');
+  assert.strictEqual(milestoneBody('@Ana : fini', ['Ana']), 'fini');
+  assert.strictEqual(milestoneBody('@Anaïs fini', ['Ana']), null);
+  assert.strictEqual(milestoneBody('@a.b fini', ['a.b']), 'fini');
+  assert.strictEqual(assignLanes([user('[cockpit] w'), reply('@Ana : ok')], { names: ['Ana'] })[1].milestone, true);
+  assert.strictEqual(milestoneBody('@Ana-Maria fini', ['Ana']), null);
+  assert.strictEqual(milestoneBody('@Ana - fini', ['Ana']), 'fini');
+  assert.strictEqual(milestoneBody('@ZOÉ : ok', ['Zoé']), 'ok');
+  assert.strictEqual(milestoneBody('@Zoé : ok', ['Zoé']), 'ok', 'decomposed accents match');
+  assert.strictEqual(milestoneBody('@Jean Paul : ok', ['Jean Paul']), 'ok');
+  assert.strictEqual(milestoneBody('@a+b ok', ['a+b']), 'ok');
+  assert.strictEqual(milestoneBody('@aab ok', ['a+b']), null);
+  assert.strictEqual(milestoneBody('@user : ok', ['Ana']), 'ok', '@user still works with a name');
+  assert.strictEqual(milestoneBody('@Ana ok', ['@Ana']), 'ok', 'a leading @ in the configured name is ignored');
 });
 
 test('a user message typed while the master works on a wake takes over the turn', () => {
@@ -53,7 +67,7 @@ test('detects cockpit messages', () => {
   assert.strictEqual(isCockpitMessage('salut [cockpit]'), false);
 });
 
-test('a wake arriving mid-turn is never a Lucas bubble and does not change the turn', () => {
+test('a wake arriving mid-turn is never a user bubble and does not change the turn', () => {
   const out = assignLanes([user('hi'), tool(), user('[cockpit] w'), reply('réponse')]);
   assert.strictEqual(out[2].lane, 'agents');
   assert.strictEqual(out[3].lane, 'conversation');

@@ -10,7 +10,7 @@ task to an **agent** (a separate Claude Code session in tmux, visible in the coc
 agents, unblock them, check their work, integrate it and report to the user. The user watches the
 whole tree in the cockpit and may talk to any agent directly.
 
-Vocabulary for the user: "agents", never "ouvriers" or "workers". Talk to the user in French.
+Vocabulary for the user: "agents", never "ouvriers" or "workers". Talk to the user in their language.
 
 ## Your role: orchestrate, never work
 
@@ -122,12 +122,12 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 
 ## Arène mode
 
-Lucas turns the Arène mode on or off per orchestration (at creation or in the session's Réglages); it is slower and costlier, so never assume it. Run `orchestrate calibration` at the start of every job and again when the cockpit tells you the mode changed. While it says **Arène : active**, Lucas wants every model compared instead of the best one picked:
+The user turns the Arène mode on or off per orchestration (at creation or in the session's Réglages); it is slower and costlier, so never assume it. Run `orchestrate calibration` at the start of every job and again when the cockpit tells you the mode changed. While it says **Arène : active**, the user wants every model compared instead of the best one picked:
 - **Every task that needs a model** (anything you would give one agent) goes to a judge instead: launch one `role-model-judge` sub-orchestrator with `--kind review --provider claude --model fable --effort high` (fallback `opus`/`high`), `--skill role-model-judge` (no `--mode`: it inherits the session's mode, and the cockpit refuses a looser one), the task brief exactly as you would give one agent, its category, whether it writes files, a budget, and "at most 4 competitors". It runs the competition, rates every competitor and hands you the winner's result. Integrate that result as if one agent had produced it; for a writing task, integrate the winner's branch and delete the others.
 - **Never duplicated**: actions with effects outside the repo (push, PR, PR comment, message, prod query, deploy) and the framing step (`role-framer`) and the dispatch step (`role-dispatcher`). Those keep one agent.
 - **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors). Run one competition at a time unless the user's agent limit allows more, and keep tasks sequential rather than shrinking the competitor count below 2.
 - You do not rate the competitors yourself; the judge does. Rate the judge (category `review`) on how well it judged: evidence, blindness, a usable winner.
-- When `orchestrate calibration` says coverage is complete, tell Lucas in one `@Lucas` line and suggest turning the Arène mode off for this session; do not turn it off yourself. When it is inactive, pick one model per task as below.
+- When `orchestrate calibration` says coverage is complete, tell the user in one `@user` line and suggest turning the Arène mode off for this session; do not turn it off yourself. When it is inactive, pick one model per task as below.
 
 ## Sub-orchestrators (depth)
 
@@ -178,7 +178,7 @@ answers to them). The user follows the first one.
 
 - Answer an agent wake in one or two lines. No recap of the report; the user reads it in « Agents ».
 - News that is for the user (a phase done, a decision to make, a question) goes in a text message that
-  **starts with `@Lucas`** (for example `@Lucas : phase 1 terminée, 3 agents ont livré, je passe à la review.`).
+  **starts with `@user`** (for example `@user : phase 1 terminée, 3 agents ont livré, je passe à la review.`); `@<name>` also works when `user.name` is set in the cockpit configuration.
   The cockpit moves that message to « Conversation » and strips the marker. Only the start of a message
   counts, and each message needs its own marker.
 - At most one such message per phase or decision. Never use it to relay a wake or for progress chatter.

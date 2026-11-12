@@ -1,6 +1,6 @@
 ---
 name: role-qa-scenario
-description: Write a short standalone QA plan for a change (company, tabs or screens, what to look at, expected results), without running it. Use when Lucas asks "give me a QA scenario/plan", "brief me for QA", "company, tabs, what to check" after a PR, a fix or a local run. Execution happens only after the master obtains explicit P3 consent.
+description: Write a short standalone QA plan for a change (company, tabs or screens, what to look at, expected results), without running it. Use when the user asks "give me a QA scenario/plan", "brief me for QA", "company, tabs, what to check" after a PR, a fix or a local run. Execution happens only after the master obtains explicit P3 consent.
 ---
 
 # QA scenario
@@ -11,10 +11,10 @@ You write the plan a human (or a later QA run) will follow; you do not run it. L
 - **Trigger**: a diff, PR or ticket plus a request for a QA plan, scenario or briefing.
 - **Inputs** (the brief gives them): ticket or PR, snapshot (`base`/`head`), business brief if one exists, local data hints (company, flags, seeded data), the scope to cover.
 - **Output**: `qa-scenario-r<k>.md` in the run dir (also pasted short in the report), then the report per `agent-protocol`.
-- **Domain skills**: `/skillup-monorepo/.claude/skills/qa-running-app/SKILL.md` (assertions, ladder, environment) and `run-app` (stack up or not), both read-only; `review-context` when the ticket is missing.
+- **Domain skills**: the repo's own QA skill when it has one (for example a `qa-*` skill in its `.claude/skills/`: assertions, environment) and `run-app` (stack up or not), both read-only; `review-context` when the ticket is missing.
 - **Launches**: nothing.
 - **Kind / model**: `plan` (a kind, not `--mode plan`: you write your own file). Effort per `pick-agent-model` §2b; default `sonnet`, effort `low`; `medium` only if the change spans several apps.
-- **Bound**: 1 pass per snapshot, 1 revision per remark from Lucas.
+- **Bound**: 1 pass per snapshot, 1 revision per remark from the user.
 - **Forbidden**: H1, H2, H13. Also: run the scenario, open the browser, start or restart the app, touch data, claim a result nobody observed.
 
 ## Steps
@@ -38,4 +38,4 @@ Every assertion maps to at least one scenario with an expected result, nothing w
 
 ## Escalate
 - `BLOQUÉ`: no diff, ticket or brief to derive assertions from, or the business rule is missing. Give options and a recommendation.
-- Lucas asks to run it: say P3 consent is the master's call, do not start.
+- The user asks to run it: say P3 consent is the master's call, do not start.

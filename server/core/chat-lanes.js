@@ -1,22 +1,33 @@
 const COCKPIT_PREFIX = '[cockpit]';
-const MILESTONE = /^@lucas\b[\s:,\-–—]*/i;
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const patterns = new Map();
+
+// A milestone the master writes for the user starts with `@user`, or `@<name>` when `user.name` is configured.
+// The handle must end there: `@userfoo` or `@Ana-Maria` (for `Ana`) are not milestones.
+function milestonePattern(names = []) {
+  const handles = ['user', ...names.map((n) => String(n || '').trim().replace(/^@+/, '').normalize('NFC')).filter(Boolean).map(escapeRegex)];
+  const key = handles.join('\0');
+  if (!patterns.has(key)) patterns.set(key, new RegExp(`^@(?:${handles.join('|')})(?![\\p{L}\\p{M}\\p{N}_]|-[\\p{L}\\p{N}])[\\s:,\\-–—]*`, 'iu'));
+  return patterns.get(key);
+}
 
 function isCockpitMessage(text) {
   return String(text || '').trimStart().startsWith(COCKPIT_PREFIX);
 }
 
-function milestoneBody(text) {
-  const trimmed = String(text || '').trimStart();
-  const match = trimmed.match(MILESTONE);
+function milestoneBody(text, names = []) {
+  const trimmed = String(text || '').trimStart().normalize('NFC');
+  const match = trimmed.match(milestonePattern(names));
   return match ? trimmed.slice(match[0].length) : null;
 }
 
 const LANES = ['conversation', 'agents'];
 
-// A turn belongs to the lane of the message that started it. A [cockpit] message is never a Lucas
-// bubble: mid-turn it stays in the agents lane without taking the turn over. A message from Lucas
+// A turn belongs to the lane of the message that started it. A [cockpit] message is never a user
+// bubble: mid-turn it stays in the agents lane without taking the turn over. A message from the user
 // always takes the turn over. A question asked to the user stays visible in the conversation.
-function assignLanes(items) {
+function assignLanes(items, { names = [] } = {}) {
   let segment = 'conversation';
   let previous = null;
   return items.map((item) => {
@@ -31,7 +42,7 @@ function assignLanes(items) {
       return { ...item, lane: 'agents' };
     }
     if (item.kind === 'assistant' && segment === 'agents') {
-      const body = milestoneBody(item.text);
+      const body = milestoneBody(item.text, names);
       if (body !== null) return { ...item, text: body, lane: 'conversation', milestone: true };
     }
     if (item.kind === 'tool' && item.tool === 'AskUserQuestion' && segment === 'agents') return { ...item, lane: segment, forUser: true };

@@ -8,7 +8,7 @@ description: Shared contract for every agent in a Cockpit orchestration tree - r
 Role skills (`role-*`) say *what* a role does; this file says *how every agent talks to its parent*. Role skills point here instead of repeating it.
 
 ## First steps
-1. Read `~/.claude/house-rules.md`, then `~/.claude/house-rules.local.md` (rules for this machine only, never versioned), each if it exists. Rules are cited by ID (H1...); obey them, never ask to relax one.
+1. Read `~/.claude/house-rules.md`, then `~/.claude/house-rules.local.md` (rules for this machine only, never versioned), each if it exists (a template ships with the cockpit: `~/.claude/cockpit/house-rules.example.md`). Rules are cited by ID (H1...); obey them, never ask to relax one.
 2. Read your brief's `Inherited settings`. They bind you: never soften the permission mode, never act outside your grants.
 3. Load the domain skills the brief names, plus your role skill's `learnings.md` if present.
 

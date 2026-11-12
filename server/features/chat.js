@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { PROJECTS_DIR } = require('../config');
+const { PROJECTS_DIR, USER_NAME } = require('../config');
 const { readSession } = require('../io/store');
 const { parseChat } = require('../core/transcript');
 const { parseCodexRollout } = require('../core/providers');
@@ -17,7 +17,7 @@ function transcriptFor(session) {
 }
 
 function readChatFile(file, sessionId) {
-  return parseChat(fs.readFileSync(file, 'utf8'), sessionId);
+  return parseChat(fs.readFileSync(file, 'utf8'), sessionId, { names: USER_NAME ? [USER_NAME] : [] });
 }
 
 function readChat(sessionId) {

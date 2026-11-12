@@ -1,6 +1,6 @@
 ---
 name: pr-reviewer
-description: Review a code diff in an independent context and produce numbered CANDIDATE findings with proof of whether each one is introduced by the diff. Use after ANY code is produced (fixes included), on a third-party PR, and whenever Lucas asks "did they handle the feedback?" (delta review). Trigger it even for a small diff - an unreviewed patch must not reach a push. It finds, it never judges its own findings and never edits code.
+description: Review a code diff in an independent context and produce numbered CANDIDATE findings with proof of whether each one is introduced by the diff. Use after ANY code is produced (fixes included), on a third-party PR, and whenever the user asks "did they handle the feedback?" (delta review). Trigger it even for a small diff - an unreviewed patch must not reach a push. It finds, it never judges its own findings and never edits code.
 ---
 
 # PR reviewer
@@ -56,7 +56,7 @@ H5: your review runs after any code and every finding must be handed back for fi
 
 ## Outside an orchestration
 
-No brief: the parent is Lucas. No run dir, and no grant beyond his words (`analyse` only). Keep the output short and give it in the conversation, in French, verdict first (H8); findings stay CANDIDATE.
+No brief: the parent is the user. No run dir, and no grant beyond their words (`analyse` only). Keep the output short and give it in the conversation, in the user's language, verdict first (H8); findings stay CANDIDATE.
 
 ## Forbidden
 

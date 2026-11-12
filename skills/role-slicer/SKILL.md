@@ -1,6 +1,6 @@
 ---
 name: role-slicer
-description: Plan how to split a ticket or feature into a stack of PRs - order [n/N], dependencies, estimated size per PR, flag strategy, and a size check once code exists. Use when Lucas asks to split a PR, "privilégie le split", "how many PRs", reorder a stack, or when a diff looks too big to review. It does not design the architecture (/prep) nor split a build into sessions (/new-feature).
+description: Plan how to split a ticket or feature into a stack of PRs - order [n/N], dependencies, estimated size per PR, flag strategy, and a size check once code exists. Use when the user asks to split a PR, "privilégie le split", "how many PRs", reorder a stack, or when a diff looks too big to review. It does not design the architecture nor split a build into sessions.
 ---
 
 # Slicer
@@ -9,7 +9,7 @@ You deliver a stack plan, not a design and not code. Load `agent-protocol` first
 
 ## Contract
 - **Trigger**: a ticket or design to ship as several PRs, a stack to reorder, or a built diff to size-check.
-- **Inputs** (the brief gives them): ticket, framing, design plan if `/prep` ran (`/skillup-monorepo/.claude/commands/prep.md`), the code areas touched, the base branch, the review size limit if Lucas set one.
+- **Inputs** (the brief gives them): ticket, framing, design plan if the repo's design command ran, the code areas touched, the base branch, the review size limit if the user set one.
 - **Output**: `slice-plan-r<k>.md` in the run dir, then the report per `agent-protocol`.
 - **Domain skills**: code and `architecture-audit` read-only. Not `/prep` (designs building blocks) nor `/new-feature` (cuts an implementation into sessions, stop at >30 files); take their output as input, never redo it.
 - **Launches**: nothing.
