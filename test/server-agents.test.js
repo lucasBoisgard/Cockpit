@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { emptyActivity, applyText, agentActivity, workflowProgress, agentTree, countRunning } = require('../server/core/agents');
+const { emptyActivity, applyText, agentActivity, workflowProgress, agentTree, countRunning, orchestrationNodes, descendantsOf } = require('../server/core/agents');
 
 const line = (entry) => JSON.stringify(entry);
 const ts = (ms) => new Date(ms).toISOString();
@@ -137,4 +137,53 @@ test('the incremental reader keeps accented characters split across reads', (t) 
   assert.strictEqual(read().prompt, null);
   fs.appendFileSync(file, bytes.subarray(split));
   assert.strictEqual(read().prompt, 'réécris é');
+});
+
+const launched = (id, status, extra = {}) => ({ id, name: `agent ${id}`, status, provider: 'claude', model: 'sonnet', effort: 'low', skills: [], phase: 0, parentId: null, ...extra });
+
+test('orchestration agents are nested by parent and keep their phase, model and effort', () => {
+  const [root] = orchestrationNodes({
+    agents: [launched('w1', 'working'), launched('w2', 'done', { parentId: 'w1', phase: 1, provider: 'codex', model: 'gpt-5' })],
+    phases: ['Explorer', 'Vérifier'],
+    live: {},
+  });
+  assert.deepStrictEqual([root.label, root.type, root.phase, root.state], ['w1 · agent w1', 'sonnet · low', 'Explorer', 'running']);
+  assert.deepStrictEqual(root.children.map((c) => [c.id, c.type, c.phase, c.state]), [['orch:w2', 'GPT · gpt-5 · low', 'Vérifier', 'done']]);
+});
+
+test('an orchestration agent shows the skills of its brief and the ones it loaded, only loaded ones shine while it runs', () => {
+  const [node] = orchestrationNodes({
+    agents: [launched('w1', 'working', { skills: ['agent-protocol', 'pr-reviewer'] })],
+    phases: [],
+    live: { w1: { acting: true, action: { tool: 'Read', detail: '/a' }, skills: [{ name: 'agent-protocol' }, { name: 'review-report' }], children: [] } },
+  });
+  assert.deepStrictEqual(node.skills.map((s) => [s.label, s.state, s.declared, s.used]), [
+    ['agent-protocol', 'running', true, true],
+    ['pr-reviewer', 'done', true, false],
+    ['review-report', 'running', false, true],
+  ]);
+  assert.deepStrictEqual([node.acting, node.action], [true, { tool: 'Read', detail: '/a' }]);
+});
+
+test('a finished or waiting orchestration agent neither acts nor shines', () => {
+  const [done, waiting, lost] = orchestrationNodes({
+    agents: [launched('w1', 'stopped', { skills: ['agent-protocol'] }), launched('w2', 'needs'), launched('w3', 'stopped', { lostAt: 5 })],
+    phases: [],
+    live: { w1: { acting: true, action: { tool: 'Bash' }, skills: [{ name: 'agent-protocol' }], children: [] } },
+  });
+  assert.deepStrictEqual([done.state, done.acting, done.action, done.skills[0].state], ['done', false, null, 'done']);
+  assert.deepStrictEqual([waiting.state, waiting.acting], ['waiting', false]);
+  assert.strictEqual(lost.state, 'lost');
+});
+
+test('a sub-orchestrator sees its descendants only, whatever their order in the store', () => {
+  const agents = [launched('w3', 'working', { parentId: 'w2' }), launched('w1', 'done'), launched('w2', 'working', { parentId: 'w1' }), launched('w4', 'done')];
+  assert.deepStrictEqual(descendantsOf(agents, 'w1').map((a) => a.id), ['w3', 'w2']);
+  assert.strictEqual(descendantsOf(agents, null), agents);
+});
+
+test('a self-parented or cyclic agent becomes a root instead of looping', () => {
+  const roots = orchestrationNodes({ agents: [launched('w1', 'done', { parentId: 'w1' }), launched('w2', 'done', { parentId: 'w3' }), launched('w3', 'done', { parentId: 'w2' })], phases: [], live: {} });
+  assert.deepStrictEqual(roots.map((r) => r.id), ['orch:w1', 'orch:w2', 'orch:w3']);
+  assert.doesNotThrow(() => JSON.stringify(roots));
 });

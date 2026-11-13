@@ -305,8 +305,9 @@ const readRoutes = {
     const skill = await readSkill(q.get('path') || '');
     return skill ? json(res, 200, skill) : send(res, 404, 'text/plain', 'skill not found');
   },
-  '/api/agents': (res, q) => {
-    const agents = agentsOf(q.get('session') || '');
+  '/api/agents': async (res, q) => {
+    const sessionId = q.get('session') || '';
+    const agents = agentsOf(sessionId, Date.now(), await orchestration.launchedAgents(sessionId));
     return agents === null ? send(res, 404, 'text/plain', 'transcript not found') : json(res, 200, agents);
   },
   '/api/screen': async (res, q) => {

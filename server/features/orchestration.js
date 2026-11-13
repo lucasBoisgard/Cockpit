@@ -7,6 +7,7 @@ const { loadStore, saveStore, readSession, readSessions, writeSessionOverride } 
 const { paneOf, validName, tmuxSessionName, turnStatus, effectiveStatus } = require('../core/sessions');
 const core = require('../core/orchestration');
 const { invalidateSnapshot } = require('../cache');
+const { descendantsOf } = require('../core/agents');
 const { listWorktrees, worktreeName, livePanes } = require('./worktrees');
 const { readChat } = require('./chat');
 const { deliver, enqueueMerged, dropQueued } = require('./queue');
@@ -428,6 +429,22 @@ async function status({ caller }) {
   return found.error ? found : view(found.orch, await livePanes());
 }
 
+// The agents a master (or a sub-orchestrator agent) launched in its current job, all descendants included, with their live status.
+async function launchedAgents(sessionId) {
+  const found = core.findBySession(load(), String(sessionId || ''));
+  if (!found) return null;
+  const { orch, agent: self } = found;
+  const agents = descendantsOf(orch.agents, self?.id || null);
+  if (!agents.length) return null;
+  const { statuses, sessions } = liveStatuses(orch, await livePanes());
+  return {
+    role: self ? 'sub' : 'master',
+    goal: self ? null : orch.goal,
+    phases: orch.phases,
+    agents: agents.map((a) => ({ ...a, status: statuses[a.id], session: sessions[a.id] || null })),
+  };
+}
+
 // Active orchestrations as full views, and ended ones (kept for a while) as slim refs, from one read of the store.
 async function orchestrationViews(givenPanes) {
   const panes = givenPanes || (await livePanes());
@@ -814,7 +831,7 @@ function activeAgentsBySession(views) {
 
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
-  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews,
+  startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews, launchedAgents,
   setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree, readStore: load, masterResumeDisallowed,
 };

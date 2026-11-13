@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readJson, readSession } = require('../io/store');
 const { readTail, subdirs } = require('../io/files');
-const { emptyActivity, applyText, emptyProgress, applyJournal, agentTree, countRunning, countActive } = require('../core/agents');
+const { emptyActivity, applyText, emptyProgress, applyJournal, agentTree, countRunning, countActive, orchestrationNodes } = require('../core/agents');
 const { effectiveStatus } = require('../core/sessions');
 const { transcriptFor } = require('./chat');
 const { builtinCommandNames } = require('./commands');
@@ -83,8 +83,7 @@ function agentsRunning(session, now = Date.now()) {
   return countActive(agentTree({ main: { status: session.status, activity: null }, agents, workflows, now }), session.updatedAt, now);
 }
 
-function agentsOf(sessionId, now = Date.now()) {
-  const session = readSession(String(sessionId || ''));
+function sessionTree(session, now) {
   const transcript = session?.provider === 'codex' ? null : transcriptFor(session);
   if (!transcript) return null;
   const { agents, workflows } = subagentsOf(transcript, now);
@@ -93,8 +92,27 @@ function agentsOf(sessionId, now = Date.now()) {
   const stat = fs.statSync(transcript, { throwIfNoEntry: false });
   const activity = stat ? activityOf(transcript, stat, MAIN_WINDOW, now) : null;
   const main = { task: activity?.prompt || session.task, status, action: last ? { tool: last.tool, detail: last.detail } : null, activity };
+  return agentTree({ main, agents, workflows, now });
+}
+
+function launchedInfo(agent, now) {
+  const tree = agent.session ? sessionTree(agent.session, now) : null;
+  if (!tree) return { acting: false, action: null, skills: [], children: [] };
+  return { acting: tree.acting, action: tree.action, skills: tree.skills.map((s) => ({ name: s.label })), children: tree.children };
+}
+
+function agentsOf(sessionId, now = Date.now(), launched = null) {
+  const session = readSession(String(sessionId || ''));
+  const tree = sessionTree(session, now) || (launched && { id: 'main', kind: 'main', label: session?.task || 'Session', state: 'idle', acting: false, action: null, skills: [], children: [] });
+  if (!tree) return null;
+  if (launched) {
+    const live = Object.fromEntries(launched.agents.map((a) => [a.id, launchedInfo(a, now)]));
+    tree.children.push(...orchestrationNodes({ agents: launched.agents, phases: launched.phases, live }));
+    tree.orchestrated = launched.agents.length;
+    tree.role = launched.role;
+    if (launched.goal) tree.label = launched.goal;
+  }
   forgetOld(now);
-  const tree = agentTree({ main, agents, workflows, now });
   return { tree, running: countRunning(tree) };
 }
 

@@ -162,4 +162,64 @@ function countRunning(node) {
   return node.children.reduce((n, child) => n + (child.kind === 'agent' && child.state === 'running' ? 1 : 0) + countRunning(child), 0);
 }
 
-module.exports = { emptyActivity, applyText, agentActivity, emptyProgress, applyJournal, workflowProgress, agentTree, countRunning, countActive };
+const ORCH_STATE = { starting: 'running', working: 'running', needs: 'waiting', done: 'done', stopped: 'done' };
+
+const orchState = (agent) => (agent.status === 'stopped' && agent.lostAt ? 'lost' : ORCH_STATE[agent.status] || 'done');
+
+function orchestrationSkills(declared, used, running) {
+  const usedNames = new Set(used.map((s) => s.name));
+  const names = [...new Set([...declared, ...used.map((s) => s.name)])];
+  return names.map((name) => ({ id: `skill:${name}`, kind: 'skill', label: name, state: running && usedNames.has(name) ? 'running' : 'done', declared: declared.includes(name), used: usedNames.has(name) }));
+}
+
+function descendsFrom(agents, id, ancestorId) {
+  const byId = new Map(agents.map((a) => [a.id, a]));
+  const seen = new Set();
+  for (let current = byId.get(id); current && !seen.has(current.id); current = byId.get(current.parentId)) {
+    if (current.id === ancestorId) return true;
+    seen.add(current.id);
+  }
+  return false;
+}
+
+// Descendants of an agent (all agents for a master), whatever their order in the store.
+function descendantsOf(agents, rootId) {
+  if (!rootId) return agents;
+  const below = new Set([rootId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const a of agents) if (a.parentId && a.parentId !== a.id && below.has(a.parentId) && !below.has(a.id)) grew = !!below.add(a.id);
+  }
+  return agents.filter((a) => a.id !== rootId && below.has(a.id));
+}
+
+// Agents an orchestration launched as their own sessions, nested by parent, with the skills their brief gave them and the ones they loaded.
+function orchestrationNodes({ agents, phases, live }) {
+  const nodes = new Map();
+  for (const agent of agents) {
+    const info = live[agent.id] || {};
+    const state = orchState(agent);
+    const running = state === 'running';
+    nodes.set(agent.id, {
+      id: `orch:${agent.id}`,
+      kind: 'agent',
+      orchestrated: true,
+      label: `${agent.id} · ${agent.name}`,
+      type: [agent.provider === 'codex' ? 'GPT' : null, agent.model, agent.effort].filter(Boolean).join(' · ') || null,
+      phase: phases?.[agent.phase] || null,
+      state,
+      acting: running && !!info.acting,
+      action: running ? info.action || null : null,
+      skills: orchestrationSkills(agent.skills || [], info.skills || [], running),
+      children: [...(info.children || [])],
+    });
+  }
+  const roots = [];
+  for (const agent of agents) {
+    const parent = agent.parentId && agent.parentId !== agent.id && !descendsFrom(agents, agent.parentId, agent.id) && nodes.get(agent.parentId);
+    (parent ? parent.children : roots).push(nodes.get(agent.id));
+  }
+  return roots;
+}
+
+module.exports = { emptyActivity, applyText, agentActivity, emptyProgress, applyJournal, workflowProgress, agentTree, countRunning, countActive, orchestrationNodes, descendantsOf };
