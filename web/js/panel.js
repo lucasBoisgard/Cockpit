@@ -3,7 +3,7 @@ const headEnd = (extra = '') => `<div class="head-end">${extra}${appButton()}<bu
 function renderTabs() {
   const diffWt = currentWt();
   const changes = diffWt && (diffWt.added || diffWt.deleted) ? `Changements<span class="tab-diff" title="Lignes ajoutées et retirées, non commitées"><span class="plus">+${diffWt.added}</span><span class="minus">−${diffWt.deleted}</span></span>` : 'Changements';
-  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', changes], ['agents', 'Agents']];
+  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', changes], ['agents', 'Agents'], ['files', 'Fichiers']];
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
   const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
   if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${orch.counts.total}</span>`]);
@@ -17,7 +17,8 @@ function renderTabs() {
   $('agents-view').hidden = tab !== 'agents';
   $('term-view').hidden = tab !== 'term';
   $('changes-view').hidden = tab !== 'changes';
-  $('panel').classList.toggle('wide', tab === 'changes' && changesWide);
+  $('files-view').hidden = tab !== 'files';
+  $('panel').classList.toggle('wide', (tab === 'changes' || tab === 'files') && changesWide);
   $('usage-view').hidden = tab !== 'usage';
   $('app-view').hidden = tab !== 'app';
   $('checks-view').hidden = tab !== 'checks';
@@ -89,12 +90,13 @@ function renderPanelBody() {
     <div><h3>${SCOPE_TITLE[scopeKind(since)]}</h3>${sum}</div>`);
   $('file-filter').hidden = shown.length < 2;
   setHtml($('file-tree'), fileTree(shown));
+  if (tab === 'files') openFiles();
 }
 
 function select(target) {
   freshDone.delete(target);
   selected = target; selectedFile = null; chatSession = null; chatLane = 'conversation'; chatAgentsOpen = false; chatSignature = null; chatBarSignature = null; reportSignature = null;
-  since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = '';
+  since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = ''; resetFiles();
   markReadAfterDwell(currentWt());
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
@@ -103,7 +105,7 @@ function select(target) {
   renderBoard(); renderPanel();
   if (tab === 'app') loadScreen();
   if (target === USAGE) loadUsage();
-  else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'checks') loadChecks(); if (tab === 'changes') openChanges(); if (tab === 'agents') loadAgents(); }
+  else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'checks') loadChecks(); if (tab === 'changes') openChanges(); if (tab === 'files') openFiles(); if (tab === 'agents') loadAgents(); }
   if (tab === 'term') { loadScreen(); $('screen').focus(); }
 }
 
@@ -148,6 +150,7 @@ $('panel').addEventListener('click', async (e) => {
     if (tab === 'term') { loadScreen(); $('screen').focus(); }
     if (tab === 'app') loadScreen();
     if (tab === 'changes') openChanges();
+    if (tab === 'files') openFiles();
     if (tab === 'agents') loadAgents();
     if (tab === 'orch') renderOrchestration(true);
     return;

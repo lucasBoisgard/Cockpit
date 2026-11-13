@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/web/css/master-nav.css">
 <link rel="stylesheet" href="/web/css/terminal.css">
 <link rel="stylesheet" href="/web/css/changes.css">
+<link rel="stylesheet" href="/web/css/files.css">
 <link rel="stylesheet" href="/web/css/review.css">
 <link rel="stylesheet" href="/web/css/pr.css">
 <link rel="stylesheet" href="/web/css/dialogs.css">
@@ -146,6 +147,20 @@
         <div class="file-tree" id="file-tree"></div>
       </div>
       <div class="diff" id="diff"><div class="placeholder">Choisis un fichier pour voir son diff</div></div>
+    </div>
+  </div>
+  <div class="view" id="files-view" hidden>
+    <div class="side-grid">
+      <div class="fx-side">
+        <div class="fx-tools">
+          <input class="file-filter" id="fx-filter" type="search" placeholder="Chercher un fichier" aria-label="Chercher un fichier">
+          <button class="btn" data-fx-collapse title="Replier tous les dossiers">⇤</button>
+          <button class="btn" data-fx-refresh title="Recharger la liste des fichiers">↻</button>
+        </div>
+        <div class="fx-count" id="fx-count"></div>
+        <div class="fx-tree" id="fx-tree"></div>
+      </div>
+      <div class="fx-viewer" id="fx-viewer"></div>
     </div>
   </div>
 </aside>
@@ -415,6 +430,8 @@
 <script src="/web/js/panel-chat.js"></script>
 <script src="/web/js/panel-composer.js"></script>
 <script src="/web/js/panel-changes.js"></script>
+<script src="/web/js/file-tree.js"></script>
+<script src="/web/js/panel-files.js"></script>
 <script src="/web/js/panel-pr.js"></script>
 <script src="/web/js/worktrees.js"></script>
 <script src="/web/js/history.js"></script>

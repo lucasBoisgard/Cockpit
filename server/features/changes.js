@@ -89,4 +89,4 @@ async function diff(wtPath, file, since) {
   return diffs.join('');
 }
 
-module.exports = { changesSince, ticketCommits, diff };
+module.exports = { changesTarget, changesSince, ticketCommits, diff };

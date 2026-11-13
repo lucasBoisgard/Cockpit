@@ -17,6 +17,7 @@ const { startSession, resumeSession, closeWorktree, archiveWorktree, unarchiveWo
 const { appState, startApp, stopApp, serveWorktree, unserveWorktree } = require('./features/app');
 const { prDetails, sendCheckFailure, pushBranch, prDraft, createPr } = require('./features/pr');
 const { changesSince, ticketCommits, diff } = require('./features/changes');
+const { listFiles, readFile } = require('./features/files');
 const { searchHistory, historyFile, historyChat, resumeFromHistory } = require('./features/history');
 const { readChat } = require('./features/chat');
 const { agentsOf } = require('./features/agents');
@@ -321,6 +322,8 @@ const readRoutes = {
     const list = await listCommands(q.get('path') || '');
     return list === null ? send(res, 400, 'text/plain', 'unknown worktree') : json(res, 200, list);
   },
+  '/api/files': async (res, q) => orBadRequest(res, await listFiles(q.get('wt') || ''), 'Worktree inconnu.'),
+  '/api/file': async (res, q) => orBadRequest(res, await readFile(q.get('wt') || '', q.get('file') || ''), 'Fichier inconnu ou hors du worktree.'),
   '/api/diff': async (res, q) => {
     const result = await diff(q.get('wt') || '', q.get('file') || '', q.get('since') || '');
     return result === null ? send(res, 400, 'text/plain', 'invalid path') : send(res, 200, 'text/plain; charset=utf-8', result);

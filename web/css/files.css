@@ -1,0 +1,33 @@
+.fx-side { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.fx-tools { display: flex; gap: 6px; padding: 12px 12px 6px; }
+.fx-tools .file-filter { flex: 1; min-width: 0; }
+.fx-tools .btn { padding: 3px 8px; }
+.fx-count { padding: 0 14px 6px; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.fx-tree { flex: 1; overflow: auto; padding: 0 6px 12px; display: flex; flex-direction: column; }
+.fx-empty { color: var(--muted); font-size: 12px; padding: 8px; }
+.fx-dir, .fx-file { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; padding: 3px 8px; border-radius: 6px; font: 12px var(--mono); min-height: 24px; }
+.fx-dir { color: var(--muted); }
+.fx-dir:hover, .fx-file:hover { background: var(--surface-2); color: var(--text); }
+.fx-file.on { background: var(--blue-bg); }
+.fx-caret { width: 10px; flex: none; }
+.fx-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+.fx-file .code { margin-left: auto; width: auto; }
+.fx-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex: none; }
+.fx-dirname { color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; flex: 1; min-width: 0; }
+
+.fx-viewer { overflow: auto; min-width: 0; }
+.fx-head { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.fx-head .btn { padding: 3px 8px; }
+.fx-path { font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; flex: 1; min-width: 120px; }
+.fx-size { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fx-cut { padding: 6px 14px; font-size: 12px; color: var(--amber); background: var(--surface-2); }
+.fx-code { display: flex; font: 12px/1.5 var(--mono); min-width: max-content; }
+.fx-code pre { margin: 0; padding: 8px 0; font: inherit; }
+.fx-gutter { position: sticky; left: 0; padding: 8px 10px 8px 14px !important; text-align: right; color: var(--faint); background: var(--surface); border-right: 1px solid var(--border); user-select: none; }
+.fx-text { padding: 8px 14px !important; white-space: pre; tab-size: 2; color: var(--text); }
+.fx-doc { padding: 16px 24px; max-width: 860px; }
+
+@media (max-width: 900px) {
+  #files-view .side-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: 40% minmax(0, 1fr); }
+  .fx-side { border-right: 0; border-bottom: 1px solid var(--border); }
+}
