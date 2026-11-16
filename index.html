@@ -37,6 +37,7 @@
 <link rel="stylesheet" href="/web/css/connections.css">
 <link rel="stylesheet" href="/web/css/ask.css">
 <link rel="stylesheet" href="/web/css/matrix.css">
+<link rel="stylesheet" href="/web/css/session-merge.css">
 </head>
 <body class="ws">
 <header>
@@ -233,10 +234,17 @@
 
 <dialog id="merge-dialog">
   <form id="merge-form">
-    <h2 id="merge-title">Fusionner le worktree</h2>
-    <p class="text">Ce worktree est archivé (ses sessions s’arrêtent, sa branche reste, « Restaurer » le remet en place), puis la cible reçoit son contexte : branche, commits, dernières réponses, chemin des conversations.</p>
-    <label for="merge-target">Fusionner dans<select id="merge-target" required></select></label>
-    <p class="text merge-how" id="merge-how"></p>
+    <div class="merge-head">
+      <h2 id="merge-title">Fusionner le worktree</h2>
+      <p class="text">Une autre session reprend ce contexte ; celui-ci est archivé.</p>
+    </div>
+    <div class="merge-source" id="merge-source"></div>
+    <fieldset class="merge-pick">
+      <legend>Fusionner dans</legend>
+      <input type="search" id="merge-filter" class="merge-filter" placeholder="Filtrer les worktrees…" autocomplete="off" hidden>
+      <div class="merge-targets" id="merge-targets"></div>
+    </fieldset>
+    <ol class="merge-steps" id="merge-steps"></ol>
     <div class="buttons">
       <button type="button" class="btn" data-dismiss>Annuler</button>
       <button type="submit" class="btn primary" id="merge-submit">Fusionner</button>
