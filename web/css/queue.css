@@ -60,8 +60,6 @@
 .queue-tools { border-top: 1px solid var(--line); padding: 6px; display: flex; gap: 4px; }
 .queue-tool { flex: 1; display: inline-flex; gap: 6px; align-items: center; justify-content: center; border: 1px solid transparent; background: none; border-radius: 8px; padding: 6px 8px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
 .queue-tool:hover, .queue-tool.is-current { background: var(--paper); border-color: var(--line); color: var(--ink); }
-.queue-tool-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
-.queue-tool-dot.on { background: var(--jade); }
 .queue-warn { color: var(--saffron); font-weight: 700; }
 .queue-mini { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; }
 .queue-tools.queue-mini { flex-direction: column; }
@@ -75,3 +73,15 @@
 .queue-dot-n { position: absolute; right: 3px; bottom: 1px; font: 700 9px var(--mono); color: var(--ink-3); }
 @media (prefers-reduced-motion: reduce) { .queue-dot.queue-working .queue-dot-g { animation: none; } }
 .queue-tag.queue-gpt { color: var(--ink); background: var(--well); border: 1px solid var(--line-strong); }
+
+/* Fold toggle of the fixed block: the header is a button, a folded block keeps one dot per session. */
+.queue-group-toggle { width: 100%; border: 0; border-radius: 0; cursor: pointer; font-family: inherit; text-align: left; gap: 8px; }
+.queue-group-toggle:hover { color: var(--ink); }
+.queue-group-toggle > span:first-child { flex: 1; }
+.queue-fold-dots { display: inline-flex; gap: 5px; align-items: center; }
+.queue-fold-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+.queue-fold-dot.queue-needs { background: var(--saffron); }
+.queue-fold-dot.queue-review { background: var(--jade); }
+.queue-fold-dot.queue-working { background: var(--slate); animation: breathe 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .queue-fold-dot.queue-working { animation: none; } }
+.queue-fold-dot.is-current { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink-2); }

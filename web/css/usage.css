@@ -58,3 +58,12 @@
 .us-more { align-self: flex-start; background: none; border: 0; color: var(--muted); font-size: 12px; padding: 2px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .us-more:hover { color: var(--text); }
 .us-num { display: inline-block; min-width: 6.5ch; }
+
+/* Top bar Tokens pill: only the provider dot and its percentage, the rest unfolds on hover or focus. */
+.tool-pill.tokens .us-fold { display: inline-flex; align-items: center; gap: 5px; max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; transition: max-width .2s ease, opacity .15s ease; }
+.tool-pill.tokens:hover .us-fold, .tool-pill.tokens:focus-visible .us-fold { max-width: 160px; opacity: 1; }
+.tool-pill.tokens .pill-meter { gap: 4px; }
+.tool-pill.tokens:hover .pill-meter, .tool-pill.tokens:focus-visible .pill-meter { gap: 5px; }
+.tool-pill.tokens { gap: 6px; }
+.tool-pill.tokens:hover, .tool-pill.tokens:focus-visible { gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .tool-pill.tokens .us-fold { transition: none; } }

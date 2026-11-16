@@ -49,11 +49,11 @@ function usageCard() {
     const windows = p.windows.filter((w) => w.key !== 'spend_limit' || w.level);
     const top = windows.reduce((a, b) => (b.pct > a.pct ? b : a), windows[0]);
     const tip = `${p.name} · ${windows.map((w) => `${w.short} : ${w.pct} %`).join(' · ')}${p.at ? ` · relevé il y a ${ago(p.at)}` : ''}`;
-    return `<span class="pill-meter us-meter ${top.level}" title="${esc(tip)}">${usageDot(p.id)}${esc(p.name)} <i><em class="us-fill-${p.id}" style="width:${top.pct}%"></em></i> ${top.pct} %</span>`;
+    return `<span class="pill-meter us-meter ${top.level}" title="${esc(tip)}">${usageDot(p.id)}<span class="us-fold">${esc(p.name)} <i><em class="us-fill-${p.id}" style="width:${top.pct}%"></em></i></span>${top.pct} %</span>`;
   }).join('');
   const alert = worst(providers.flatMap((p) => p.windows.map((w) => w.level)));
   return `<button class="tool-pill tokens ${alert} ${selected === USAGE ? 'selected' : ''}" data-usage="1" title="Limites des comptes Claude et GPT">
-    <b>Tokens</b>${meters || '<span class="pill-sub">en attente du premier relevé</span>'}
+    <b class="us-fold">Tokens</b>${meters || '<span class="pill-sub">en attente du premier relevé</span>'}
   </button>`;
 }
 

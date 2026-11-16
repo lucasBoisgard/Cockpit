@@ -11,7 +11,6 @@ function renderTopbar() {
   setHtml($('counters'), pills + boardPills() + limits);
   syncBoardPop();
   setHtml($('topbar-tools'), `
-    <button class="top-tool ${selected === SHELL ? 'is-current' : ''}" data-top-path="${SHELL}" title="Terminal bash persistant"><span class="queue-tool-dot ${state.shell?.live ? 'on' : ''}"></span>Terminal</button>
     ${usageCard()}
     <button class="top-search" data-top-palette title="Palette de commandes"><span>Chercher ou agir…</span><kbd>Ctrl K</kbd></button>`);
   $('tools-menu').querySelector('summary').textContent = '⋯';

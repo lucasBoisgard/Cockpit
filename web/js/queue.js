@@ -1,5 +1,6 @@
 // Attention queue: every worktree as one row saying why it needs you, grouped by the action expected.
 let queueArchivesOpen = false;
+let queueFixedFolded = localGet('queue-fixed-folded') === '1';
 
 const orchestrationOf = (wt) => wt.sessions.map((s) => state.orchestrations?.[s.sessionId]).find(Boolean) || null;
 const oneLineText = (text, max = 140) => {
@@ -31,7 +32,7 @@ function queueItems() {
   });
 }
 
-const queueOrdered = () => queueFlat(queueGroups(queueItems())).map((item) => item.key);
+const queueOrdered = () => queueFlat(queueGroups(queueItems())).filter((item) => !(queueFixedFolded && item.fixed && item.key !== selected)).map((item) => item.key);
 
 function queueRow(item) {
   const { wt, s, status } = item;
@@ -65,7 +66,14 @@ function queueFinished() {
   return n ? `<div class="queue-archives"><button class="queue-section-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedUi.show ? '▾' : '▸'} ${finishedWorktreeLabel(n)}</button></div>` : '';
 }
 
-const queueSection = (g) => `<section class="queue-section queue-g-${g.id}" role="group" aria-label="${esc(g.label)}"><div class="queue-group"><span>${g.label}</span><span class="queue-n">${g.items.length}</span></div>${g.items.map(queueRow).join('')}</section>`;
+// The fixed block folds to its header, which keeps one dot per session so a request stays visible.
+const queueSection = (g) => {
+  if (g.id !== FIXED_GROUP.id) return `<section class="queue-section queue-g-${g.id}" role="group" aria-label="${esc(g.label)}"><div class="queue-group"><span>${g.label}</span><span class="queue-n">${g.items.length}</span></div>${g.items.map(queueRow).join('')}</section>`;
+  const dots = g.items.map((i) => `<span class="queue-fold-dot queue-${queueGroupOf(i.status, i.read)} ${selected === i.wt.path ? 'is-current' : ''}" title="${esc(i.wt.label || i.wt.name)}" aria-hidden="true"></span>`).join('');
+  const waiting = g.items.filter((i) => queueGroupOf(i.status, i.read) === 'needs').length;
+  const label = `${g.label}, ${g.items.length}${waiting ? `, ${waiting} attend${waiting > 1 ? 'ent' : ''} ta réponse` : ''}`;
+  return `<section class="queue-section queue-g-${g.id}" role="group" aria-label="${esc(g.label)}"><button class="queue-group queue-group-toggle" data-queue-fixed-toggle aria-expanded="${!queueFixedFolded}" aria-label="${esc(label)}"><span><span aria-hidden="true">${queueFixedFolded ? '▸' : '▾'}</span> ${g.label}</span>${queueFixedFolded ? `<span class="queue-fold-dots">${dots}</span>` : ''}<span class="queue-n">${g.items.length}</span></button>${queueFixedFolded ? '' : g.items.map(queueRow).join('')}</section>`;
+};
 
 function renderQueue() {
   const nav = $('queue');
@@ -105,6 +113,7 @@ function stepQueue(delta) {
 
 $('queue').addEventListener('click', (e) => {
   if (e.target.closest('[data-queue-fold]')) { toggleQueue(); return; }
+  if (e.target.closest('[data-queue-fixed-toggle]')) { queueFixedFolded = !queueFixedFolded; localSet('queue-fixed-folded', queueFixedFolded ? '1' : '0'); renderQueue(); $('queue').querySelector('[data-queue-fixed-toggle]')?.focus(); return; }
   if (e.target.closest('[data-queue-archives]')) { queueArchivesOpen = !queueArchivesOpen; renderQueue(); return; }
   const restore = e.target.closest('[data-unarchive-q]');
   if (restore) { unarchive(restore.dataset.unarchiveQ, !!restore.dataset.resume); return; }
