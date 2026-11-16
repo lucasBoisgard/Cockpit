@@ -120,6 +120,11 @@ test('resuming a session killed mid-turn starts idle and counts the turn up to i
   assert.strictEqual(state.statusSince, 90000);
 });
 
+test('resuming an ended session makes it idle, so its queued messages are sent', () => {
+  const state = replay([start, prompt(2000), [3000, { hook_event_name: 'Stop' }], [4000, { hook_event_name: 'SessionEnd' }], [9000, { hook_event_name: 'SessionStart', source: 'resume' }]]);
+  assert.strictEqual(state.status, 'idle');
+});
+
 test('a compaction during a turn keeps the session working', () => {
   const state = replay([start, prompt(2000), tool(5000), [6000, { hook_event_name: 'SessionStart', source: 'compact' }]]);
   assert.strictEqual(state.status, 'working');

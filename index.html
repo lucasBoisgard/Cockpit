@@ -231,6 +231,19 @@
   </form>
 </dialog>
 
+<dialog id="merge-dialog">
+  <form id="merge-form">
+    <h2 id="merge-title">Fusionner le worktree</h2>
+    <p class="text">Ce worktree est archivé (ses sessions s’arrêtent, sa branche reste, « Restaurer » le remet en place), puis la cible reçoit son contexte : branche, commits, dernières réponses, chemin des conversations.</p>
+    <label for="merge-target">Fusionner dans<select id="merge-target" required></select></label>
+    <p class="text merge-how" id="merge-how"></p>
+    <div class="buttons">
+      <button type="button" class="btn" data-dismiss>Annuler</button>
+      <button type="submit" class="btn primary" id="merge-submit">Fusionner</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="history-dialog" class="wide">
   <div class="sheet">
     <div class="sheet-head">
@@ -435,6 +448,7 @@
 <script src="/web/js/panel-files.js"></script>
 <script src="/web/js/panel-pr.js"></script>
 <script src="/web/js/worktrees.js"></script>
+<script src="/web/js/session-merge.js"></script>
 <script src="/web/js/history.js"></script>
 <script src="/web/js/automations.js"></script>
 <script src="/web/js/palette.js"></script>

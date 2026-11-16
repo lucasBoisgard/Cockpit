@@ -46,6 +46,7 @@ function headMenu(wt, s) {
   item('data-head-history', 'Historique des sessions');
   if (!wt.mainCheckout && !wt.locked) {
     items.push('<hr>');
+    item(`data-head-merge="${esc(wt.path)}"`, 'Fusionner dans…', 'une autre session reprend ce contexte');
     item(`data-head-archive="${esc(wt.path)}"`, 'Archiver', 'garde la branche et la conversation');
     item(`data-head-close="${esc(wt.path)}"`, 'Fermer le worktree', '', 'shead-danger');
   }
@@ -118,6 +119,8 @@ $('panel-head').addEventListener('click', (e) => {
     return;
   }
   if (t.closest('[data-head-history]')) { closeMenu(); renderPanel(); openHistory(); return; }
+  const mergeBtn = t.closest('[data-head-merge]');
+  if (mergeBtn) { closeMenu(); renderPanel(); openMerge(mergeBtn.dataset.headMerge); return; }
   const archiveBtn = t.closest('[data-head-archive]');
   if (archiveBtn) { closeMenu(); renderPanel(); archive(archiveBtn.dataset.headArchive); return; }
   const closeBtn = t.closest('[data-head-close]');

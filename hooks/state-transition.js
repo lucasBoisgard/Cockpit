@@ -74,7 +74,7 @@ function applyHookEvent(state, input, { now, pane, fallbackCwd, provider, launch
 
   switch (input.hook_event_name) {
     case 'SessionStart':
-      state.status = !state.status || (['startup', 'resume'].includes(input.source) && ['working', 'needs_input'].includes(state.status)) ? 'idle' : state.status;
+      state.status = !state.status || (['startup', 'resume'].includes(input.source) && ['working', 'needs_input', 'ended'].includes(state.status)) ? 'idle' : state.status;
       break;
     case 'UserPromptSubmit':
       state.status = 'working';
