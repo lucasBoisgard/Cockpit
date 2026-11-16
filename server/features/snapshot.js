@@ -12,6 +12,7 @@ const { agentsRunning, forgetOld } = require('./agents');
 const { appState } = require('./app');
 const { readUsageSnapshots, codexUsage } = require('./usage');
 const { cachedPr } = require('./pr');
+const { reviewBoardState } = require('./review-board');
 const { eventsSeq } = require('./events');
 const { loadQueues } = require('./queue');
 const { pendingAsk } = require('./asks');
@@ -117,6 +118,7 @@ async function snapshot() {
     endedOrchestrations: endedOrch,
     lastEventId: eventsSeq(),
     pr: { enabled: ghAvailable, labels: CONFIG.pr?.labels || [], assignee: CONFIG.pr?.assignee || '' },
+    reviewBoard: reviewBoardState(),
   };
   storeSnapshot(data);
   return data;

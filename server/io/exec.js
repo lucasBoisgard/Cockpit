@@ -26,9 +26,9 @@ const ghAvailable = (() => {
   }
 })();
 
-function gh(cwd, args) {
+function gh(cwd, args, { timeout = 30000 } = {}) {
   return new Promise((resolve) => {
-    execFile('gh', args, { cwd, maxBuffer: 20 * 1024 * 1024, timeout: 30000 }, (error, stdout, stderr) => resolve({ ok: !error, stdout: stdout || '', stderr: stderr || (error ? error.message : '') }));
+    execFile('gh', args, { cwd, maxBuffer: 20 * 1024 * 1024, timeout }, (error, stdout, stderr) => resolve({ ok: !error, stdout: stdout || '', stderr: stderr || (error ? error.message : '') }));
   });
 }
 

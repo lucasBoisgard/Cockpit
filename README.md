@@ -37,6 +37,7 @@ Nothing is required. Copy `cockpit.config.example.json` to `~/.claude/cockpit/co
 - **`worktrees`**: what parallel sessions share in that repo: files copied into each worktree (`.env`), rules and setup given at session start, commands refused in a worktree. See [Parallel worktrees](docs/reference.md#parallel-worktrees).
 - **`app`**: the command that runs your app, so that the cockpit can start, check and serve it from a worktree.
 - **`pr`**: base branch, labels and assignee pre-filled for new PRs.
+- **`reviewBoard`**: a GitHub Projects board (`org`, `number`) whose review statuses show as pills: PRs waiting for your review, your PRs with questions or changes requested.
 
 The relevance matrix that picks models for agents ships with the repo: every install starts from its latest version and keeps its own learning in `~/.claude`.
 

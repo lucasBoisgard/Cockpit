@@ -24,6 +24,11 @@
     "labels": [],
     "assignee": ""
   },
+  "reviewBoard": {
+    "org": "",
+    "number": 0,
+    "view": 1
+  },
   "arena": {
     "maxUsagePercent": 75
   },
