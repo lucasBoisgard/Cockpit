@@ -3,7 +3,7 @@ const TOP_PULSE = [['needs', (n) => `${n} ${n > 1 ? 't’attendent' : 't’atten
 
 function renderTopbar() {
   const groups = queueGroups(queueItems());
-  const count = (id) => groups.find((g) => g.id === id)?.items.length || 0;
+  const count = (id) => queueByAttention(groups, id).length;
   const pills = TOP_PULSE.filter(([id]) => count(id)).map(([id, text]) => `<button class="top-pill top-${id}" data-top-jump="${id}"><span class="top-dot"></span>${text(count(id))}</button>`).join('')
     || '<span class="top-pill top-calm"><span class="top-dot"></span>tout est calme</span>';
   const limits = limitAlerts().map((w) => `<button class="top-pill top-limit-${w.level}" data-top-path="${USAGE}" title="${esc(resetText(w))}">Limite ${esc(w.label)} : ${w.pct} %</button>`).join('');
@@ -20,7 +20,7 @@ function renderTopbar() {
 $('counters').addEventListener('click', (e) => {
   const jump = e.target.closest('[data-top-jump]');
   if (jump) {
-    const first = queueGroups(queueItems()).find((g) => g.id === jump.dataset.topJump)?.items[0];
+    const first = queueByAttention(queueGroups(queueItems()), jump.dataset.topJump)[0];
     if (first) select(first.key);
     return;
   }

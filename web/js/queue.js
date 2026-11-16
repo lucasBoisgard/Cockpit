@@ -27,7 +27,7 @@ function queueReason(wt, s, st) {
 function queueItems() {
   return boardWorktrees(shownWorktrees()).map((wt) => {
     const s = primarySession(wt);
-    return { key: wt.path, wt, s, status: sessionStatus(wt), read: turnRead(wt), pinned: pins.has(wt.path), since: s?.statusSince || s?.updatedAt || 0, activity: lastActivity(wt) };
+    return { key: wt.path, wt, s, status: sessionStatus(wt), read: turnRead(wt), pinned: pins.has(wt.path), fixed: !!wt.mainCheckout, since: s?.statusSince || s?.updatedAt || 0, activity: lastActivity(wt) };
   });
 }
 
@@ -40,7 +40,7 @@ function queueRow(item) {
   const master = orchestrationOf(wt);
   const age = s ? statusAge(s, status) : wt.lastCommit ? ago(wt.lastCommit.at) : '';
   const where = wt.otherRepo ? `${wt.repoName} · ${wt.branch || ''}` : wt.branch || (wt.head ? `@ ${wt.head}` : '');
-  return `<button class="queue-row queue-${group} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
+  return `<button class="queue-row queue-${group} ${item.fixed ? 'is-fixed' : ''} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
     <span class="queue-title">${master ? '<span class="queue-master" title="Maître orchestrateur">◆</span>' : ''}${wt.review ? '<span class="queue-tag">REVIEW</span>' : ''}${isGpt(s) ? '<span class="queue-tag queue-gpt">GPT</span>' : ''}<span class="queue-name">${esc(wt.label || wt.name)}</span>${item.pinned ? '<span class="queue-pin" title="Épinglé">★</span>' : ''}</span>
     <span class="queue-why" title="${esc(queueReason(wt, s, status))}">${esc(oneLineText(queueReason(wt, s, status)))}</span>
     <span class="queue-sub"><span class="queue-where">${esc(where)}</span><span class="queue-age">${esc(age)}</span></span>
@@ -50,7 +50,7 @@ function queueRow(item) {
 function queueDot(item, index) {
   const { wt, s, status } = item;
   const group = queueGroupOf(status, item.read);
-  return `<button class="queue-dot queue-${group} ${orchestrationOf(wt) ? 'is-master' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${selected === wt.path}" title="${esc(`${wt.label || wt.name} · ${oneLineText(queueReason(wt, s, status), 90)}`)}"><span class="queue-dot-g"></span><span class="queue-dot-n">${index + 1}</span></button>`;
+  return `<button class="queue-dot queue-${group} ${orchestrationOf(wt) ? 'is-master' : ''} ${item.fixed ? 'is-fixed' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${selected === wt.path}" aria-label="${esc(`${item.fixed ? 'Session fixe · ' : ''}${wt.label || wt.name}`)}" title="${esc(`${wt.label || wt.name} · ${oneLineText(queueReason(wt, s, status), 90)}`)}"><span class="queue-dot-g"></span><span class="queue-dot-n">${index + 1}</span></button>`;
 }
 
 function queueArchives() {
@@ -65,16 +65,20 @@ function queueFinished() {
   return n ? `<div class="queue-archives"><button class="queue-section-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedUi.show ? '▾' : '▸'} ${finishedWorktreeLabel(n)}</button></div>` : '';
 }
 
+const queueSection = (g) => `<section class="queue-section queue-g-${g.id}" role="group" aria-label="${esc(g.label)}"><div class="queue-group"><span>${g.label}</span><span class="queue-n">${g.items.length}</span></div>${g.items.map(queueRow).join('')}</section>`;
+
 function renderQueue() {
   const nav = $('queue');
   if (!nav || !state) return;
   const groups = queueGroups(queueItems());
   const flat = queueFlat(groups);
-  const todo = flat.filter((i) => ['needs', 'review'].includes(queueGroupOf(i.status, i.read))).length;
+  const work = groups.filter((g) => g.id !== FIXED_GROUP.id);
+  const fixed = groups.filter((g) => g.id === FIXED_GROUP.id);
+  const todo = queueByAttention(groups, 'needs').length + queueByAttention(groups, 'review').length;
   const full = `<div class="queue-head"><span>${shownWorktrees().length} worktrees · <kbd>j</kbd> <kbd>k</kbd></span><button class="queue-fold" data-queue-fold title="Replier la file ([)" aria-label="Replier la file">«</button></div>
-    <div class="queue-scroll">${groups.map((g) => `<div class="queue-group queue-g-${g.id}"><span>${g.label}</span><span class="queue-n">${g.items.length}</span></div>${g.items.map(queueRow).join('')}`).join('')}
+    <div class="queue-scroll">${work.map(queueSection).join('')}
       <div class="queue-end">${todo ? `Rien d’autre après ${todo === 1 ? 'celle-ci' : `ces ${todo}`}` : 'Rien à faire pour l’instant'}</div>
-      ${queueFinished()}${queueArchives()}</div>`;
+      ${fixed.map(queueSection).join('')}${queueFinished()}${queueArchives()}</div>`;
   const mini = `<div class="queue-head"><button class="queue-fold" data-queue-fold title="Déplier la file ([)" aria-label="Déplier la file">»</button></div>
     <div class="queue-scroll queue-mini">${flat.map(queueDot).join('')}</div>`;
   const scroll = nav.querySelector('.queue-scroll')?.scrollTop || 0;
