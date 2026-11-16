@@ -8,7 +8,8 @@ function renderTopbar() {
     || '<span class="top-pill top-calm"><span class="top-dot"></span>tout est calme</span>';
   const limits = limitAlerts().map((w) => `<button class="top-pill top-limit-${w.level}" data-top-path="${USAGE}" title="${esc(resetText(w))}">Limite ${esc(w.label)} : ${w.pct} %</button>`).join('');
   $('repo-title').innerHTML = `Cockpit<span class="repo" title="${esc(state.repo)}">${esc(state.repoName)}</span>`;
-  setHtml($('counters'), pills + limits);
+  setHtml($('counters'), pills + boardPills() + limits);
+  syncBoardPop();
   setHtml($('topbar-tools'), `
     <button class="top-tool ${selected === SHELL ? 'is-current' : ''}" data-top-path="${SHELL}" title="Terminal bash persistant"><span class="queue-tool-dot ${state.shell?.live ? 'on' : ''}"></span>Terminal</button>
     ${usageCard()}

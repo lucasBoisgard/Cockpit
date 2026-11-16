@@ -88,6 +88,7 @@ The matrix learns: a master launches an agent with `--kind <category>` and, once
 
 - **Diff comments.** In "Changements", `+` on a line adds a comment; "Envoyer à Claude" sends all pending comments as one structured message. Report blocks have "Faire corriger par Claude" and "Voir dans le diff".
 - **PR and CI.** With `gh` logged in, each card shows its PR (number, draft, CI running or failing, changes requested, ready, merged), refreshed every minute. A PR tab lists checks, reviews and a "ready to merge" banner, and sends a failing check's log to Claude. "Pousser et ouvrir la PR" pushes the existing commits (no add, no commit) and opens the PR from a template with the configured labels and assignee, then checks them and the absence of a generated footer.
+- **Review board.** With `reviewBoard` set and `gh` holding the `read:project` scope, the top bar shows two pills read from a GitHub Projects board every 3 minutes: the open, non-draft pull requests of others in a "to review" status, and your own pull requests in a "needs an answer" status. A click lists them with a link to each PR and to the board.
 - **Archive and cleanup.** "Archiver" stops the sessions and removes the worktree but keeps its branch and conversation; archived worktrees can be restored, with their session resumed. "Outils → Nettoyage" lists every worktree with its idle time, disk size and git state, for bulk archive or close (close only for merged branches).
 - **Serve the app from a worktree.** "Servir l'app" checks the main checkout out on the worktree's last commit (detached HEAD) and restarts the app; "Revenir au checkout principal" puts it back. Refused when the main checkout has uncommitted changes.
 - **History.** "Outils → Historique" lists and searches every past session of the repo (messages and edited files), opens it read-only, resumes it in tmux (recreating its worktree from the branch if needed) or starts a new session with its context.
@@ -132,6 +133,9 @@ No npm dependency and no build step: Node, git and tmux only (`gh` for the PR fe
 | `pr.base` | `master` | Base branch for PRs, merged checks and cleanup |
 | `pr.labels` | `[]` | Labels pre-filled in "Pousser et ouvrir la PR" |
 | `pr.assignee` | none | Assignee pre-filled in "Pousser et ouvrir la PR" |
+| `reviewBoard.org`, `reviewBoard.number` | none | GitHub organization (organization boards only) and number of the Projects board whose review statuses feed the top bar pills (needs `gh auth refresh -s read:project`) |
+| `reviewBoard.view` | none | Board view opened by "Ouvrir le board" |
+| `reviewBoard.statuses` | `{ "toReview": ["To Review"], "mine": ["Questions", "Changes Requested"] }` | Status values counted as "to review" (others' PRs) and "needs an answer" (your PRs) |
 | `pr.template` | TL;DR / Ticket / Points d'attention / Comment tester | PR body template; `{ticket}` is replaced by the ticket id found in the branch name |
 | `providers.codex.bin` | `codex` | Codex CLI binary used for GPT sessions and agents |
 | `matrix.maintainer` | `false` | `true` writes matrix edits and ratings into the repo files of `server/data/` instead of `~/.claude`; for the repo's maintainer only |
