@@ -19,7 +19,7 @@ function headStateActions(wt, s, st) {
     if (s.provider === 'codex') return '<button class="btn shead-btn shead-main" data-head-ask>Répondre</button>';
     if (s.ask || s.codexScreen) return '<button class="btn shead-btn shead-main" data-head-ask>Répondre</button>';
     if (s.question?.options?.length) return s.question.options.slice(0, 4).map((o, i) => key(i + 1, `${i + 1}. ${esc(oneLineText(o, 40))}`, i ? '' : 'shead-main')).join('');
-    if (s.permission) return `${key(keys.allow, 'Autoriser <kbd>a</kbd>', 'shead-main')}${key(keys.always, 'Toujours')}${key(keys.deny, 'Refuser')}`;
+    if (s.permission) return `${key(keys.allow, 'Autoriser <kbd>a</kbd>', 'shead-main')}${s.provider === 'codex' ? key(keys.always, 'Toujours') : `<button class="btn shead-btn" data-head-always="${id}" title="Autorise cette demande et passe en mode auto">Toujours</button>`}${key(keys.deny, 'Refuser')}`;
     return '<button class="btn shead-btn shead-main" data-head-tab="chat">Répondre</button>';
   }
   if (st === 'working' && s.live && !backgroundOnly(s)) return `<button class="btn shead-btn" data-head-interrupt="${id}">Interrompre</button>`;
@@ -97,6 +97,8 @@ $('panel-head').addEventListener('click', (e) => {
     setTimeout(() => { $('ask-card').scrollIntoView({ block: 'nearest' }); $('ask-card').querySelector('.ask-option, .ask-other')?.focus(); }, 50);
     return;
   }
+  const always = t.closest('[data-head-always]');
+  if (always) { always.disabled = true; alwaysAllow(always.dataset.headAlways); return; }
   const k = t.closest('[data-head-op]');
   if (k) { headKey(k.dataset.session, [JSON.parse(k.dataset.headOp)], 'Réponse envoyée.'); return; }
   const stop = t.closest('[data-head-interrupt]');

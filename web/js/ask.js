@@ -38,6 +38,15 @@ function askForm(ask) {
     <div class="ask-buttons"><button class="btn ask-send" data-ask-send ${askComplete(ask) && !askSending ? '' : 'disabled'}>${askSending ? 'Envoi…' : 'Répondre'}</button><button class="btn" data-ask-defer>Répondre dans le terminal</button></div>`;
 }
 
+// "Toujours autoriser": the cockpit answers the prompt, then puts the session (its whole team when it is part of an
+// orchestration) in auto mode.
+async function alwaysAllow(sessionId) {
+  const result = await post('/api/permission/always', { target: sessionId });
+  toast(result.ok ? 'Autorisé, passage en mode auto dès que la demande est traitée.' : result.data.error || 'Envoi impossible.', result.ok ? '' : 'error');
+  setTimeout(refresh, 800);
+  return result.ok;
+}
+
 function keyCard(s) {
   const keys = keysOf(s);
   const op = (k) => esc(JSON.stringify(k));
@@ -45,7 +54,7 @@ function keyCard(s) {
     if (s.provider === 'codex') return `<div class="ask-title"><span class="ask-dot"></span>${esc(s.message || 'Permission demandée')}</div>
       <div class="ask-buttons"><button class="btn ask-send" data-codex-permission="allow">Autoriser</button><button class="btn" data-codex-permission="always">Toujours autoriser</button><button class="btn" data-codex-permission="deny">Refuser</button></div>`;
     return `<div class="ask-title"><span class="ask-dot"></span>${esc(s.message || 'Permission demandée')}</div>
-      <div class="ask-buttons"><button class="btn ask-send" data-ask-key="${op(keys.allow)}">Autoriser</button><button class="btn" data-ask-key="${op(keys.always)}">Toujours autoriser</button><button class="btn" data-ask-key="${op(keys.deny)}">Refuser</button></div>`;
+      <div class="ask-buttons"><button class="btn ask-send" data-ask-key="${op(keys.allow)}">Autoriser</button><button class="btn" data-ask-always title="Autorise cette demande et passe en mode auto">Toujours autoriser</button><button class="btn" data-ask-key="${op(keys.deny)}">Refuser</button></div>`;
   }
   const q = s.question;
   if (s.provider === 'codex') return `<div class="ask-title"><span class="ask-dot"></span>${esc(q.text)}</div>
@@ -158,6 +167,12 @@ $('ask-card').addEventListener('click', (e) => {
   const codexPermission = e.target.closest('[data-codex-permission]');
   if (codexPermission) {
     post('/api/codex/permission', { session: s.sessionId, decision: codexPermission.dataset.codexPermission }).then((r) => { toast(r.ok ? 'Codex a accepté la réponse.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); refresh(); });
+    return;
+  }
+  if (e.target.closest('[data-ask-always]')) {
+    const answered = askShown;
+    markAnswered();
+    alwaysAllow(s.sessionId).then((ok) => { if (!ok) unmarkAnswered(answered); });
     return;
   }
   const key = e.target.closest('[data-ask-key]');

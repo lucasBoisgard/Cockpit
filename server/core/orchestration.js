@@ -12,7 +12,7 @@ const AUTONOMY = {
   milestones: 'Ask the user to validate the plan before launching the first agents, then at the end of each phase before starting the next one. Between those points, decide alone.',
   decisions: 'Ask the user before every meaningful decision: the plan, each agent you launch (task, model, effort), and how to resolve each blocked agent.',
 };
-const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'acceptEdits', maxDepth: 2, arena: false, strictMaster: true };
+const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'auto', maxDepth: 2, arena: false, strictMaster: true };
 const MASTER_DISALLOWED_TOOLS = ['Edit', 'Write', 'NotebookEdit', 'Agent'];
 const MAX_AGENTS_LIMIT = 20;
 const MAX_DEPTH_LIMIT = 4;

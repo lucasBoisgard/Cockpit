@@ -672,6 +672,15 @@ async function updateSettings({ master, reason, ...input }) {
   return { ok: true, modes: modeText, notified: notified && notified.nextMessage, onResume: notified && notified.onResume };
 }
 
+// "Toujours autoriser" from any member of an orchestration: the whole team goes to auto (an agent can never be looser
+// than its orchestration). Returns whether the session belongs to an orchestration.
+async function switchTeamToAuto(sessionId) {
+  const found = core.findBySession(load(), String(sessionId || ''));
+  if (!found) return false;
+  if (modeOutOfStep(found.orch, 'auto')) await updateSettings({ master: found.orch.masterSessionId, agentMode: 'auto' });
+  return true;
+}
+
 function endOrchestration({ master, stopAgents }) {
   return locked(async () => {
     const orch = load()[String(master || '')];
@@ -832,6 +841,6 @@ function activeAgentsBySession(views) {
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews, launchedAgents,
-  setPaused, updateSettings, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
+  setPaused, updateSettings, switchTeamToAuto, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree, readStore: load, masterResumeDisallowed,
 };

@@ -86,7 +86,7 @@ test('settings that leave the autonomy as it was notify no agent', async () => {
 
 test('saving the same mode again touches no session', async () => {
   writeState('s-w2', 'done', '%900002');
-  seed([agent('w2')]);
+  seed([agent('w2', { mode: core.DEFAULT_SETTINGS.agentMode })]);
   const result = await updateSettings({ master: 'm1', agentMode: core.DEFAULT_SETTINGS.agentMode, maxAgents: 5 });
   assert.strictEqual(result.modes, null);
   assert.deepStrictEqual(sim.calls.filter((c) => c[0] !== 'list-panes'), []);

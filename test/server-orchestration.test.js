@@ -22,9 +22,9 @@ test('validatePhases trims names and refuses an empty plan', () => {
 test('validateLaunch checks the agent settings and resolves a phase by name', () => {
   const orch = orchWith();
   const ok = core.validateLaunch({ name: 'Front', brief: 'Fais X', model: 'Sonnet', effort: 'high', skills: ['code-review'], phase: 'implémenter' }, orch);
-  assert.deepStrictEqual(ok.agent, { name: 'Front', brief: 'Fais X', provider: 'claude', model: 'sonnet', effort: 'high', mode: 'acceptEdits', skills: ['code-review'], phase: 1, isolated: false });
+  assert.deepStrictEqual(ok.agent, { name: 'Front', brief: 'Fais X', provider: 'claude', model: 'sonnet', effort: 'high', mode: 'auto', skills: ['code-review'], phase: 1, isolated: false });
   const gpt = core.validateLaunch({ name: 'GPT', brief: 'b', provider: 'codex', model: 'gpt-6-luna', effort: 'ultra' }, orch, ['gpt-6-luna']);
-  assert.deepStrictEqual([gpt.agent.provider, gpt.agent.model, gpt.agent.effort, gpt.agent.mode], ['codex', 'gpt-6-luna', 'ultra', 'acceptEdits']);
+  assert.deepStrictEqual([gpt.agent.provider, gpt.agent.model, gpt.agent.effort, gpt.agent.mode], ['codex', 'gpt-6-luna', 'ultra', 'auto']);
   assert.ok(core.validateLaunch({ name: 'GPT', brief: 'b', provider: 'codex', model: 'opus' }, orch, ['gpt-6-luna']).error);
   assert.ok(core.validateLaunch({ name: 'x', brief: 'b', provider: 'gemini' }, orch).error);
   assert.ok(core.validateLaunch({ name: 'x', brief: '' }, orch).error);
@@ -275,4 +275,9 @@ test('normalizeSettings handles the arena flag', () => {
   assert.strictEqual(core.normalizeSettings({ autonomy: 'blocking' }, { ...core.DEFAULT_SETTINGS, arena: true }).settings.arena, true);
   assert.ok(core.masterSystemPrompt({ settings: { ...core.DEFAULT_SETTINGS, arena: true }, root: '/x' }).includes('Arena mode is ON'));
   assert.ok(!core.masterSystemPrompt({ settings: core.DEFAULT_SETTINGS, root: '/x' }).includes('Arena mode'));
+});
+
+test('orchestrations start in auto mode by default', () => {
+  assert.strictEqual(core.DEFAULT_SETTINGS.agentMode, 'auto');
+  assert.strictEqual(core.normalizeSettings({}).settings.agentMode, 'auto');
 });

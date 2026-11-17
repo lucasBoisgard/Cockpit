@@ -11,6 +11,7 @@ const { readSession } = require('./io/store');
 const { invalidateSnapshot } = require('./cache');
 const { snapshot, cleanupList } = require('./features/snapshot');
 const { markEventsRead, recentEvents } = require('./features/events');
+const { alwaysAllow } = require('./features/always-allow');
 const { enqueue, dequeue, deliver } = require('./features/queue');
 const { resolveTarget, pasteText, submitText, sendOps, screen, screenHash } = require('./features/terminal');
 const { startSession, resumeSession, closeWorktree, archiveWorktree, unarchiveWorktree } = require('./features/sessions');
@@ -187,6 +188,10 @@ const terminalActions = {
   '/api/paste': async (res, target, body) => {
     await pasteText(target, String(body.text || ''));
     return json(res, 200, { ok: true });
+  },
+  '/api/permission/always': async (res, target, body) => {
+    const result = await alwaysAllow({ target, sessionId: String(body.target || '') });
+    return json(res, result.error ? 409 : 200, result);
   },
   '/api/keys': async (res, target, body) => {
     const sent = await sendOps(target, Array.isArray(body.ops) ? body.ops.slice(0, 200) : []);
