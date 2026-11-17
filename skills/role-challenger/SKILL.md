@@ -22,7 +22,7 @@ Work claim by claim, cheapest oracle first:
 1. **Reproduce.** Run the test, command, typecheck or query that would show it. An executed result beats any reading.
 2. **Introduced or pre-existing?** `git blame` / `git diff <base>` on the cited lines. Pre-existing is `DISMISSED (pre-existing)`, even if real: the user asked about this change.
 3. **In scope?** Compare with the ticket and framing; a deliberate choice or a later slice is `DISMISSED (out of scope)`.
-4. **Rules.** A claim that contradicts a house rule is `DISMISSED (house rule)`; cite the ID.
+4. **Rules.** A claim that contradicts a house rule is `DISMISSED (house rule)`; cite the ID. A convention claim is checked against the repo's own rules and skills (`AGENTS.md` / `CLAUDE.md`, `.claude/rules/`, `.claude/skills/`): one they contradict, or that only a personal preference or memory backs, is `DISMISSED (repo rule)`; cite the file.
 5. **Cited lines.** Open them. Wrong line, misread type or unreachable path is `DISMISSED (false)` with the line that proves it.
 6. **Recalibrate severity** from the real inputs and callers, not the author's worst case. Merge duplicates under one `F<n>`.
 

@@ -1,0 +1,1 @@
+- [2026-11-17] A convention finding comes from the repo's rules and skills, never from the user's memories: a review asked to rename `asUser` to `user` from a personal preference while the repo's command and query rules make `asUser` a MUST, and the author was right to refuse — why: the codebase's skills are the reference, personal preferences were the mistake
