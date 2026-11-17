@@ -53,7 +53,7 @@ When the topology reaches commit, push or PR: check the grant covers it, otherwi
 - `BLOQUÉ`: a P1-P5 decision, a missing grant, a blocked child you cannot unblock from the brief and framing. Try to answer a child's `BLOQUÉ` yourself first; escalate only what the brief does not settle.
 - Quota refused: per `agent-protocol` (blockers).
 - Lost agent: one redispatch that changes something, else `ÉCHEC`.
-- Stop leaves whose work is integrated.
+- Keep a leaf open while its work may come back (verification, review, challenge, fixes). Stop it (`orchestrate stop <id>`) once every agent that had to validate its work has done so and no round trip is expected, not at the end of the topology: the graph then shows only what is still running. You can only stop agents below you. Before your final report, no leaf of yours is left open.
 
 ## 6. Final report
 `final.md` holds: verdict, cycles played, table of verdicts per leaf with raw file paths, `F<n>` with status and proof, decisions taken alone, agents launched (model, effort, rating), lessons proposed for `learnings.md`. Aggregate, never rewrite: keep disagreements between leaves as they are. The message follows the `agent-protocol` format with the topology's "reports" line below.

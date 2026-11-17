@@ -86,6 +86,11 @@ test('wakeText quotes a bounded excerpt of the report and points to the full one
   assert.ok(text.length < 1700);
 });
 
+test('wakeText of a finished turn invites the caller to close the agent, a stop notice does not', () => {
+  assert.match(core.wakeText(agent('w3', { name: 'Front' }), 'done', 'ok'), /orchestrate stop w3/);
+  assert.doesNotMatch(core.wakeText(agent('w3', { name: 'Front' }), 'stopped', 'ok'), /orchestrate stop/);
+});
+
 test('findBySession finds a master or the agent owning a session', () => {
   const store = { m1: { masterSessionId: 'm1', agents: [agent('w1', { sessionId: 's1' })] } };
   assert.strictEqual(core.findBySession(store, 'm1').agent, null);
@@ -275,4 +280,22 @@ test('normalizeSettings handles the arena flag', () => {
   assert.strictEqual(core.normalizeSettings({ autonomy: 'blocking' }, { ...core.DEFAULT_SETTINGS, arena: true }).settings.arena, true);
   assert.ok(core.masterSystemPrompt({ settings: { ...core.DEFAULT_SETTINGS, arena: true }, root: '/x' }).includes('Arena mode is ON'));
   assert.ok(!core.masterSystemPrompt({ settings: core.DEFAULT_SETTINGS, root: '/x' }).includes('Arena mode'));
+});
+
+test('an agent may only close the agents below it, the master may close any', () => {
+  const orch = { agents: [agent('w1'), agent('w2', { parentId: 'w1' }), agent('w3', { parentId: 'w2' }), agent('w4')] };
+  const [w1, w2, w3, w4] = orch.agents;
+  assert.strictEqual(core.stopRefusal(orch, null, w4), null);
+  assert.strictEqual(core.stopRefusal(orch, w1, w2), null);
+  assert.strictEqual(core.stopRefusal(orch, w1, w3), null);
+  assert.match(core.stopRefusal(orch, w1, w4), /n'est pas un de tes agents/);
+  assert.match(core.stopRefusal(orch, w2, w1), /n'est pas un de tes agents/);
+  assert.match(core.stopRefusal(orch, w1, w1), /n'est pas un de tes agents/);
+});
+
+test('a report whose parent was closed climbs to the next open ancestor, else the master', () => {
+  const orch = { masterSessionId: 'm1', paused: false, agents: [agent('w1', { sessionId: 's1' }), agent('w2', { sessionId: 's2', parentId: 'w1', stoppedAt: 5 }), agent('w3', { sessionId: 's3', parentId: 'w2' })] };
+  assert.deepStrictEqual(core.wakeTarget(orch, orch.agents[2]), { sessionId: 's1', hold: false });
+  orch.agents[0].stoppedAt = 6;
+  assert.deepStrictEqual(core.wakeTarget(orch, orch.agents[2]), { sessionId: 'm1', hold: false });
 });

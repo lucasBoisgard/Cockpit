@@ -183,20 +183,36 @@ const oneLine = (text, max) => excerpt(String(text || '').replace(/\s+/g, ' '), 
 function wakeText(agent, kind, report) {
   const head = kind === 'stopped' ? `[cockpit] L'agent ${agent.id} « ${agent.name} » s'est arrêté.` : `[cockpit] L'agent ${agent.id} « ${agent.name} » a fini son tour.`;
   const body = report ? `\nSon dernier message :\n${excerpt(report)}` : '';
-  return `${head}${body}\n(rapport complet : orchestrate read ${agent.id})`;
+  const close = kind === 'stopped' ? '' : `\nValidé par tous, plus d'aller-retour ? Ferme-le : orchestrate stop ${agent.id}`;
+  return `${head}${body}\n(rapport complet : orchestrate read ${agent.id})${close}`;
 }
 
 function resumeText(pending) {
   return pending.length ? `[cockpit] L'utilisateur t'a relancé. Pendant la pause :\n\n${pending.join('\n\n')}` : '[cockpit] L\'utilisateur t\'a relancé : reprends l\'orchestration.';
 }
 
-// Who receives an agent's report: its parent agent, or the master (held while the master is paused).
+// Who receives an agent's report: its closest parent agent still open, else the master (held while the master is paused).
+// A parent that was closed cannot read it, so the report climbs to the next ancestor.
 function wakeTarget(orch, agent) {
-  if (agent.parentId) {
-    const parent = orch.agents.find((a) => a.id === agent.parentId);
-    if (parent) return { sessionId: parent.sessionId, hold: false };
+  const seen = new Set([agent.id]);
+  let parent = orch.agents.find((a) => a.id === agent.parentId);
+  while (parent && !seen.has(parent.id)) {
+    if (!parent.stoppedAt) return { sessionId: parent.sessionId, hold: false };
+    seen.add(parent.id);
+    parent = orch.agents.find((a) => a.id === parent.parentId);
   }
   return { sessionId: orch.masterSessionId, hold: !!orch.paused };
+}
+
+// An agent may only close the agents below it; the master (no `self`) may close any.
+function stopRefusal(orch, self, target) {
+  if (!self) return null;
+  const below = new Set([self.id]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const a of orch.agents) if (a.parentId && below.has(a.parentId) && !below.has(a.id)) grew = !!below.add(a.id);
+  }
+  return target.id !== self.id && below.has(target.id) ? null : `${target.id} n'est pas un de tes agents : seul celui qui l'a lancé (ou le maître) peut le fermer.`;
 }
 
 function cliCommand(root) {
@@ -328,6 +344,6 @@ module.exports = {
   agentDepth, canLaunchSubAgents, autonomyNotice, noticeRoute,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
-  currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, resumeText, cliCommand,
+  currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, stopRefusal, resumeText, cliCommand,
   masterSystemPrompt, masterDisallowedTools, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, nextJobNumber, agentTag, jobHistory,
 };

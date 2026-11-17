@@ -9,7 +9,7 @@ const ORCH_AUTONOMY = { blocking: 'Seulement si bloquant', milestones: 'Aux éta
 const ORCH_COL = 270;
 const ORCH_SIZE = { master: [220, 74], phase: [170, 52], agent: [240, 68] };
 const ORCH_VGAP = 14;
-const orchUi = { history: false, byPhase: localGet('orchByPhase') !== '0', zoom: 1, collapsed: new Set(), pick: {}, inspector: {}, compose: false, settings: false, signature: '' };
+const orchUi = { hideDone: localGet('orchHideDone') === '1', history: false, byPhase: localGet('orchByPhase') !== '0', zoom: 1, collapsed: new Set(), pick: {}, inspector: {}, compose: false, settings: false, signature: '' };
 
 const currentOrch = () => (currentWt() ? orchestrationOf(currentWt()) : null);
 
@@ -26,12 +26,14 @@ const orchPhaseOf = (a, orch) => Math.max(0, Math.min(Number.isInteger(a.phase) 
 const orchShownPhase = (orch) => Math.max(0, Math.min(orch.phase, orch.phases.length - 1));
 
 function orchTree(orch) {
-  const hidden = finishedUi.show ? new Set() : hiddenAgentIds(orch.agents, { done: true });
+  const gone = hiddenAgentIds(orch.agents);
+  const hidden = orchUi.hideDone ? hiddenAgentIds(orch.agents, { done: true }) : gone;
+  const doneHidden = orchUi.hideDone ? doneHiddenAgentIds(orch.agents) : new Set();
   const childrenOf = (parentId) => orch.agents.filter((a) => a.parentId === parentId && !hidden.has(a.id));
   const agentNode = (a) => ({ id: a.id, kind: 'agent', status: a.status, agent: a, children: childrenOf(a.id).map(agentNode) });
   const allTop = orch.agents.filter((a) => !a.parentId || !orch.agents.some((p) => p.id === a.parentId));
   const top = allTop.filter((a) => !hidden.has(a.id));
-  const hiddenByRoot = hiddenCountByRoot(orch.agents, hidden);
+  const hiddenByRoot = hiddenCountByRoot(orch.agents, doneHidden);
   const masterStatus = orch.state === 'paused' ? 'stopped' : orch.state === 'needs' ? 'needs' : orch.state === 'working' ? 'working' : 'done';
   const children = orchUi.byPhase && orch.phases.length
     ? orch.phases.map((name, i) => {
@@ -40,7 +42,7 @@ function orchTree(orch) {
       return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(allTop.filter((a) => orchPhaseOf(a, orch) === i)), hiddenCount, children: agents.map(agentNode) };
     })
     : top.map(agentNode);
-  return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : hidden.size, children };
+  return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : doneHidden.size, children };
 }
 
 // Tidy horizontal tree: depth goes right, siblings stack downward, a parent sits at the middle of its children.
@@ -74,7 +76,7 @@ const orchGear = (status, big = false) => `<span class="orch-gear ${status === '
 
 function orchPhaseSub(node) {
   const finished = node.hiddenCount ? `${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : '';
-  if (!node.children.length) return finished || 'à venir';
+  if (!node.children.length) return finished || (node.status === 'stopped' ? 'terminée' : 'à venir');
   return `${node.children.length} agent${node.children.length > 1 ? 's' : ''} · ${ORCH_WORD[node.status].toLowerCase()}${finished ? ` · +${finished}` : ''}`;
 }
 
@@ -132,8 +134,9 @@ function orchInspector(orch, pick) {
   }
   if (pick.startsWith('p')) {
     const index = Number(pick.slice(1));
-    const agents = orch.agents.filter((a) => orchPhaseOf(a, orch) === index);
-    return `<h4>Phase ${index + 1} · ${esc(orch.phases[index] || '')}</h4><div class="orch-list">${agents.map((a) => `<button class="orch-item" data-orch-pick="${a.id}">${orchGear(a.status)}<span>${esc(a.id)} · ${esc(a.name)}</span><span class="orch-state orch-c-${a.status}">${ORCH_WORD[a.status]}</span></button>`).join('') || '<p class="orch-muted">Le maître n’a pas encore lancé d’agent pour cette phase.</p>'}</div>`;
+    const closed = orchUi.hideDone ? hiddenAgentIds(orch.agents, { done: true }) : hiddenAgentIds(orch.agents);
+    const agents = orch.agents.filter((a) => orchPhaseOf(a, orch) === index && !closed.has(a.id));
+    return `<h4>Phase ${index + 1} · ${esc(orch.phases[index] || '')}</h4><div class="orch-list">${agents.map((a) => `<button class="orch-item" data-orch-pick="${a.id}">${orchGear(a.status)}<span>${esc(a.id)} · ${esc(a.name)}</span><span class="orch-state orch-c-${a.status}">${ORCH_WORD[a.status]}</span></button>`).join('') || `<p class="orch-muted">${orch.agents.some((a) => orchPhaseOf(a, orch) === index) ? 'Tous les agents de cette phase sont clos.' : 'Le maître n’a pas encore lancé d’agent pour cette phase.'}</p>`}</div>`;
   }
   const a = orch.agents.find((x) => x.id === pick);
   if (!a) return '';
@@ -175,9 +178,10 @@ function orchHistoryButton(orch) {
   return `<span class="orch-pop"><button class="orch-btn" data-orch-history-open aria-expanded="${orchUi.history}">Jobs précédents (${n})</button>${orchUi.history ? orchHistory(orch) : ''}</span>`;
 }
 
+// Finished ("done") agents can be hidden; closed ones never show in the tree, so they have no button.
 function orchFinishedButton(orch) {
-  const n = hiddenAgentIds(orch.agents, { done: true }).size;
-  return n || (finishedUi.show && orch.counts.stopped) ? `<button class="orch-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedLabel(n)}</button>` : '';
+  const n = doneHiddenAgentIds(orch.agents).size;
+  return n ? `<button class="orch-btn" data-orch-done-toggle aria-pressed="${orchUi.hideDone}">${orchUi.hideDone ? `Afficher ${n} terminé${n > 1 ? 's' : ''}` : 'Masquer les terminés'}</button>` : '';
 }
 
 function renderOrchestration(force = false) {
@@ -186,13 +190,16 @@ function renderOrchestration(force = false) {
   if (!orch || tab !== 'orch') return;
   const master = orch.masterSessionId;
   const rawPick = orchUi.pick[master] || null;
-  const pick = rawPick && /^p\d+$/.test(rawPick) && Number(rawPick.slice(1)) >= orch.phases.length ? null : rawPick;
+  const shut = orchUi.hideDone ? hiddenAgentIds(orch.agents, { done: true }) : hiddenAgentIds(orch.agents);
+  const pick = rawPick && ((/^p\d+$/.test(rawPick) && Number(rawPick.slice(1)) >= orch.phases.length) || shut.has(rawPick)) ? null : rawPick;
+  if (rawPick && !pick) { delete orchUi.pick[master]; orchUi.inspector[master] = false; }
   const inspector = orchUi.inspector[master] && pick;
-  const settling = orch.agents.some((a) => a.status === 'done') ? Math.floor(Date.now() / 10000) : 0;
-  const signature = JSON.stringify([orch, settling, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings, orchUi.history]);
+  const signature = JSON.stringify([orch, orchUi.byPhase, orchUi.hideDone, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings, orchUi.history]);
   if (!force && signature === orchUi.signature) return;
   orchUi.signature = signature;
   const layout = orchLayout(orchTree(orch));
+  const drawn = new Set(layout.boxes.map((b) => b.node.id));
+  for (const id of [...orchUi.collapsed]) if (!drawn.has(id)) orchUi.collapsed.delete(id);
   const scroller = view.querySelector('.orch-scroll');
   const scroll = scroller ? [scroller.scrollLeft, scroller.scrollTop] : null;
   const draft = view.querySelector('#orch-compose-input')?.value || '';
@@ -250,6 +257,7 @@ $('orch-view').addEventListener('click', (e) => {
   const node = t.closest('[data-orch-node], [data-orch-pick]');
   if (node) { orchUi.pick[master] = node.dataset.orchNode || node.dataset.orchPick; orchUi.inspector[master] = true; renderOrchestration(); return; }
   if (t.closest('[data-orch-close]')) { orchUi.inspector[master] = false; renderOrchestration(); return; }
+  if (t.closest('[data-orch-done-toggle]')) { orchUi.hideDone = !orchUi.hideDone; localSet('orchHideDone', orchUi.hideDone ? '1' : '0'); renderOrchestration(); return; }
   const group = t.closest('[data-orch-group]');
   if (group) { orchUi.byPhase = group.dataset.orchGroup === '1'; localSet('orchByPhase', orchUi.byPhase ? '1' : '0'); orchUi.collapsed.clear(); renderOrchestration(); return; }
   if (t.closest('[data-orch-expand]')) { orchUi.collapsed.clear(); renderOrchestration(); return; }
