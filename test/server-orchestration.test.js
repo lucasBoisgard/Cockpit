@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const core = require('../server/core/orchestration');
 
+const { orchActivePhases } = require('../web/js/orch-phases');
 const orchWith = (agents = [], extra = {}) => ({ settings: { ...core.DEFAULT_SETTINGS }, phases: ['Explorer', 'Implémenter', 'Vérifier'], agents, events: [], paused: false, ...extra });
 const agent = (id, extra = {}) => ({ id, name: id, phase: 0, parentId: null, skills: [], createdAt: 0, ...extra });
 
@@ -63,6 +64,59 @@ test('canLaunch enforces pause, the active-agent limit and the depth limit', () 
   assert.strictEqual(core.canLaunch(orch, { w1: 'done', w2: 'done', w3: 'done' }, 'w1'), null);
 });
 
+test('the default limit is 10 agents and the quota refusal points to the Réglages', () => {
+  assert.strictEqual(core.DEFAULT_SETTINGS.maxAgents, 10);
+  const orch = orchWith([agent('w1')], { settings: { ...core.DEFAULT_SETTINGS, maxAgents: 1 } });
+  assert.match(core.launchQuotaRefusal(orch, { w1: 'working' }), /Réglages/);
+});
+
+test('activePhases lists the sorted phases with unfinished agents', () => {
+  const orch = orchWith([agent('w1', { phase: 0 }), agent('w2', { phase: 1 }), agent('w3', { phase: 2 }), agent('w4', { phase: 2 })]);
+  assert.deepStrictEqual(core.activePhases(orch, { w1: 'working', w2: 'done', w3: 'working', w4: 'needs' }), [0, 2]);
+  assert.deepStrictEqual(core.activePhases(orch, { w1: 'working', w2: 'done', w3: 'done', w4: 'starting' }), [0, 2]);
+  assert.deepStrictEqual(core.activePhases(orch, { w1: 'done', w2: 'stopped', w3: 'done', w4: 'done' }), []);
+  assert.deepStrictEqual(core.activePhases(orchWith(), {}), []);
+});
+
+test('activePhases is sorted when an agent is relaunched in an earlier phase', () => {
+  const orch = orchWith([agent('w1', { phase: 2 }), agent('w2', { phase: 0 })]);
+  assert.deepStrictEqual(core.activePhases(orch, { w1: 'working', w2: 'working' }), [0, 2]);
+  assert.strictEqual(core.currentPhase(orch, { w1: 'working', w2: 'working' }), 0);
+});
+
+test('activePhases: an agent without status is not active', () => {
+  const orch = orchWith([agent('w1', { phase: 0 }), agent('w2', { phase: 1 })]);
+  assert.deepStrictEqual(core.activePhases(orch, { w2: 'working' }), [1]);
+});
+
+test('shownPhases clamps active phases to the plan, deduplicates and never hides them', () => {
+  const v = { phases: ['a', 'b', 'c', 'd'], phase: 0 };
+  assert.deepStrictEqual(core.shownPhases({ ...v, activePhases: [1, 2] }), [1, 2]);
+  assert.deepStrictEqual(core.shownPhases({ ...v, activePhases: [1, 6, 7] }), [1, 3]);
+  assert.deepStrictEqual(core.shownPhases({ phases: ['a', 'b'], phase: 0, activePhases: [0, 4] }), [0, 1]);
+  assert.deepStrictEqual(core.shownPhases({ ...v, phase: 2 }), [2]);
+  assert.deepStrictEqual(core.shownPhases({ ...v, phase: 2, activePhases: [] }), [2]);
+  assert.deepStrictEqual(core.shownPhases({ phases: [], activePhases: [3] }), []);
+});
+
+test('shownPhases matches the web helper on common cases, non-integers included', () => {
+  const phases = ['a', 'b', 'c', 'd'];
+  for (const extra of [{ phase: 1 }, { phase: 2, activePhases: [] }, { phase: 0, activePhases: [3, 1, 1] }, { phase: 0, activePhases: [1, 9] }, { phase: null }, { phase: 0, activePhases: [1, 'x'] }, { phase: 5 }]) {
+    assert.deepStrictEqual(core.shownPhases({ phases, ...extra }), orchActivePhases({ phases, ...extra }), JSON.stringify(extra));
+  }
+  assert.deepStrictEqual(core.shownPhases({ phases: [], phase: 0 }), orchActivePhases({ phases: [], phase: 0 }));
+});
+
+test('phaseSummary words the CLI status line', () => {
+  const phases = ['Explorer', 'Coder', 'Revoir'];
+  assert.strictEqual(core.phaseSummary({ phases: [], phase: 0 }), 'pas de plan');
+  assert.strictEqual(core.phaseSummary({ phases, phase: 1, activePhases: [1] }), 'phase 2/3 « Coder »');
+  assert.strictEqual(core.phaseSummary({ phases, phase: 0 }), 'phase 1/3 « Explorer »');
+  assert.strictEqual(core.phaseSummary({ phases, phase: 0, activePhases: [0, 2] }), 'phases 1 · 3 en parallèle');
+  assert.strictEqual(core.phaseSummary({ phases, phase: 0, activePhases: [0, 8, 9] }), 'phases 1 · 3 en parallèle');
+  assert.strictEqual(core.phaseSummary({ phases, phase: 0, activePhases: [8, 9] }), 'phase 3/3 « Revoir »');
+});
+
 test('currentPhase is the earliest phase with unfinished agents', () => {
   const orch = orchWith([agent('w1', { phase: 0 }), agent('w2', { phase: 1 }), agent('w3', { phase: 2 })]);
   assert.strictEqual(core.currentPhase(orch, { w1: 'done', w2: 'working', w3: 'starting' }), 1);
@@ -97,6 +151,14 @@ test('the system prompts carry the CLI path, the autonomy rule and the agent rul
   const master = core.masterSystemPrompt({ settings: { ...core.DEFAULT_SETTINGS, maxAgents: 3 }, root: '/cockpit' });
   assert.match(master, /node \/cockpit\/bin\/orchestrate\.js/);
   assert.match(master, /At most 3 agents/);
+  const milestones = core.masterSystemPrompt({ settings: { ...core.DEFAULT_SETTINGS, autonomy: 'milestones' }, root: '/cockpit' });
+  assert.match(milestones, /at each milestone/);
+  assert.match(milestones, /Independent phases keep running/);
+  assert.doesNotMatch(milestones, /before starting the next one/);
+  assert.match(master, /graph of workstreams/);
+  assert.match(master, /several phases may run at the same time/);
+  assert.match(master, /never fear sending too many/);
+  assert.match(master, /raising it in the Réglages instead of serializing/);
   assert.match(master, new RegExp(core.AUTONOMY.blocking.slice(0, 30)));
   const shared = core.agentSystemPrompt({ agent: agent('w2', { skills: ['code-review'] }), masterWorktree: 'wt', isolated: false, root: '/cockpit' });
   assert.match(shared, /BLOQUÉ :/);

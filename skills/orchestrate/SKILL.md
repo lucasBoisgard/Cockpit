@@ -39,7 +39,7 @@ Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`
 | Command | What it does |
 |---|---|
 | `orchestrate status` | Phases, every agent (status, model, effort, skills, current action) and recent events |
-| `orchestrate plan "Explorer" "Implémenter" "Vérifier" "Livrer"` | Sets the phases, in order (re-run to change them) |
+| `orchestrate plan "Explorer" "Implémenter" "Vérifier" "Livrer"` | Sets the phases: named workstreams, not gates. Their order is only the display order and several can be active at once (re-run to change them) |
 | `orchestrate skills` | Skills an agent can load, with their description |
 | `orchestrate models` | Providers (Claude, GPT through Codex), whether they are available, their models and efforts |
 | `orchestrate matrix [category]` | The relevance matrix: which provider, model and effort for which kind of task, with the ratings observed on earlier agents |
@@ -59,20 +59,26 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
 1. **Understand the goal.** Do a couple of lookups yourself at most (ticket, one file); anything
    broader goes to an exploration agent. If the goal is ambiguous and your
    autonomy level says so, ask the user now, with one `AskUserQuestion`, before launching anything.
-2. **Plan.** Set the phases with `orchestrate plan`. Typical: Explorer, Implémenter, Vérifier, Livrer.
-   Tell the user the plan in a few lines: phases, agents you intend to launch, and why.
-3. **Launch the agents of the current phase**, in parallel when their tasks are independent. Then
-   **end your turn** with a short status. Never sleep or poll: the cockpit writes to you
+2. **Plan as a graph, not a queue.** Set the phases with `orchestrate plan`. Typical: Explorer, Implémenter, Vérifier, Livrer.
+   Phases are workstreams, not gates: write what depends on what in `plan.md` of the run dir.
+   Tell the user the plan in a few lines: phases, which start now, which can loop back, agents you intend to launch, and why.
+3. **After the dispatch, launch the first wave across every phase that can already start** (for example
+   exploring the code, reading the ticket and preparing the test setup at once), several agents per phase
+   when the work splits (see "How many"). Then **end your turn** with a short status. Never sleep or poll: the cockpit writes to you
    (`[cockpit] L'agent w3 … a fini son tour`) when an agent ends a turn, and merges several
    notifications into one message when they arrive together.
 4. **On each notification**, read the report (`orchestrate read`), then:
    - the work is done and good → note it, launch what depends on it;
+   - the result reopens an earlier phase (an implementation finding reopens exploration) → relaunch
+     there with `--phase`. At most 2 returns per edge (phase → earlier phase), counted in your `journal.md`;
+     past that, ask or report. Review/fix loops keep the bounds of `agent-protocol`;
    - the report starts with `BLOQUÉ :` → answer with `orchestrate send` when you can decide from the
      goal and the code; otherwise ask the user (per your autonomy level), then send the answer;
    - the work is wrong or partial → `orchestrate send` precise corrections, or stop it and launch a
      better-suited agent (another model, more effort, another skill).
-5. **Verify** before calling a phase done: launch a reviewer agent (`--skill code-review`, a different
-   model from the implementer when possible) and/or a verification agent that runs the checks and reports. Start with one low-effort pass and add a targeted high pass only for risky diffs (see "Review passes" in `pick-agent-model`).
+5. **Verify as pieces land**, not after the whole phase. Launch a reviewer agent (`--skill code-review`,
+   a different model from the implementer when possible) and/or a verification agent that runs the checks.
+   Start with one low-effort pass; add a targeted high pass only for risky diffs (see "Review passes" in `pick-agent-model`).
 6. **Deliver.** Summarize for the user: what was done, by which agents, what was checked, what is
    left. Pushing, opening a pull request or anything irreversible needs the user's go unless the goal
    says otherwise.
@@ -117,21 +123,30 @@ Make each choice deliberately, and say it in one line when you launch: the user 
   skips permissions: the cockpit refuses it. When the user changes that mode in the Réglages, the cockpit
   applies it itself to you and to every agent already running, sub-agents included: never relaunch agents
   for it.
-- **How many**: only as many agents as there are truly independent tasks. The cockpit refuses
-  launches beyond the user's limit; when refused, wait for a notification instead of retrying.
+- **Phase of each launch**: without `--phase` an agent lands in the last phase that has agents, not in an active one. In parallel work always pass `--phase`.
+- **How many**: fan out. One agent per independent question, area, source or file group; do not fear
+  sending too many, and when in doubt send more.
+  - Breadth first with small fast models (haiku or sonnet at low effort, or the matrix's cheap GPT pick); escalate only what needs depth.
+  - On an ambiguous or critical question, put two or more models (or providers) on it and cross-check their answers
+    yourself from the reports, or with one summarize agent when there are more than ~5. The one-agent rule of
+    `agent-protocol` is for reviewing a single diff, not for exploration.
+  - Pick the category per kind of exploration (explore, summarize, architecture) and take the matrix's pick.
+  - The cockpit refuses launches beyond the user's limit (`maxAgents`, ceiling 20). When it blocks a useful fan-out,
+    say it once in an `@user` line (a decision) and suggest raising it in the Réglages; never serialize silently.
+    Launch the rest as slots free up, on the next notifications, instead of retrying.
 
 ## Arène mode
 
 The user turns the Arène mode on or off per orchestration (at creation or in the session's Réglages); it is slower and costlier, so never assume it. Run `orchestrate calibration` at the start of every job and again when the cockpit tells you the mode changed. While it says **Arène : active**, the user wants every model compared instead of the best one picked:
 - **Every task that needs a model** (anything you would give one agent) goes to a judge instead: launch one `role-model-judge` sub-orchestrator with `--kind review --provider claude --model fable --effort high` (fallback `opus`/`high`), `--skill role-model-judge` (no `--mode`: it inherits the session's mode, and the cockpit refuses a looser one), the task brief exactly as you would give one agent, its category, whether it writes files, a budget, and "at most 4 competitors". It runs the competition, rates every competitor and hands you the winner's result. Integrate that result as if one agent had produced it; for a writing task, integrate the winner's branch and delete the others.
 - **Never duplicated**: actions with effects outside the repo (push, PR, PR comment, message, prod query, deploy) and the framing step (`role-framer`) and the dispatch step (`role-dispatcher`). Those keep one agent.
-- **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors). Run one competition at a time unless the user's agent limit allows more, and keep tasks sequential rather than shrinking the competitor count below 2.
+- **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors). Run one competition at a time unless the user's agent limit allows more (count each competition as 5 agents when planning waves; parallel phases must not each start one), and keep tasks sequential rather than shrinking the competitor count below 2.
 - You do not rate the competitors yourself; the judge does. Rate the judge (category `review`) on how well it judged: evidence, blindness, a usable winner.
 - When `orchestrate calibration` says coverage is complete, tell the user in one `@user` line and suggest turning the Arène mode off for this session; do not turn it off yourself. When it is inactive, pick one model per task as below.
 
 ## Sub-orchestrators (depth)
 
-Default: launch flat agents yourself. Delegate to a **sub-orchestrator** (an agent allowed to launch its own agents) only when a sub-task needs several internal round trips that you do not need to see: implement → review → fix loops, an experiment with several measured variants, a comparison of competing designs, or a fan-out of 3+ independent searches to merge. Do not use one for a single agent's work, nor to avoid reading a report. Each level adds cost and latency (multi-agent runs use many times the tokens of one agent), so go one level deeper only when the loop is real.
+Default: launch flat agents yourself, wide fan-outs included, while the `maxAgents` cap allows it. Delegate to a **sub-orchestrator** (an agent allowed to launch its own agents) only when a sub-task needs several internal round trips that you do not need to see: implement → review → fix loops, an experiment with several measured variants, or a comparison of competing designs. A wide fan-out of searches alone is not a reason to delegate: a sub-orchestrator's agents count in the same `maxAgents`. Do not use one for a single agent's work, nor to avoid reading a report. Each level adds cost and latency (multi-agent runs use many times the tokens of one agent), so go one level deeper only when the loop is real.
 
 **Brief it** with, in addition to a normal brief:
 - explicit right to launch agents, with `--mode auto` (if the cockpit refuses it, it stops and reports), and a cap: at most 3 agents at once, at most N agents launched in total, stopped ones included (usually 4 to 6; the sub-orchestrator itself is not counted), at most 2 review/fix rounds;

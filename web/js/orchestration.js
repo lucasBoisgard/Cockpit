@@ -23,8 +23,6 @@ function orchPhaseStatus(agents) {
 // An agent whose phase no longer exists (the master re-planned with fewer phases) sits in the last one instead of vanishing.
 const orchPhaseOf = (a, orch) => Math.max(0, Math.min(Number.isInteger(a.phase) ? a.phase : 0, orch.phases.length - 1));
 
-const orchShownPhase = (orch) => Math.max(0, Math.min(orch.phase, orch.phases.length - 1));
-
 function orchTree(orch) {
   const hidden = finishedUi.show ? new Set() : hiddenAgentIds(orch.agents, { done: true });
   const childrenOf = (parentId) => orch.agents.filter((a) => a.parentId === parentId && !hidden.has(a.id));
@@ -87,7 +85,7 @@ function orchNodeHtml(box, orch, pick) {
     const n = orch.counts.working + orch.counts.starting;
     return `<div class="${cls}" style="${style}" data-orch-node="m"><div class="orch-line">${orchGear(node.status)}<b>◆ Maître</b>${toggle}</div>
       <div class="orch-sub">${orch.paused ? 'En pause' : `${n} actif${n > 1 ? 's' : ''} / ${orch.settings.maxAgents} max`}${node.hiddenCount ? ` · ${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : ''}</div>
-      <div class="orch-act">${esc(orch.phases.length ? `Phase ${orchShownPhase(orch) + 1}/${orch.phases.length} · ${orch.phases[orchShownPhase(orch)] || ''}` : 'Pas encore de plan')}</div></div>`;
+      <div class="orch-act">${esc(orchActivePhasesLabel(orch))}</div></div>`;
   }
   if (node.kind === 'phase') {
     return `<div class="${cls}" style="${style}" data-orch-node="${node.id}"><div class="orch-line"><b>${node.index + 1}. ${esc(node.name)}</b>${toggle}</div>
@@ -122,7 +120,7 @@ function orchInspector(orch, pick) {
   if (pick === 'm') {
     const events = orch.events.slice(-14).reverse().map((e) => `<li><span class="orch-time">${new Date(e.at).toTimeString().slice(0, 5)}</span>${esc(e.text)}</li>`).join('');
     return `<h4>Maître</h4><p class="orch-goal">${esc(oneLineText(orch.goal, 400))}</p>
-      <dl class="orch-kv"><dt>Phase</dt><dd>${orch.phases.length ? `${orchShownPhase(orch) + 1}/${orch.phases.length} · ${esc(orch.phases[orchShownPhase(orch)] || '')}` : 'pas de plan'}</dd>
+      <dl class="orch-kv"><dt>${orchActivePhases(orch).length > 1 ? 'Phases' : 'Phase'}</dt><dd>${esc(orchActivePhasesDetail(orch))}</dd>
       <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orch.counts.total} lancés · ${orch.settings.maxAgents} max</dd>
       <dt>Me solliciter</dt><dd>${ORCH_AUTONOMY[orch.settings.autonomy] || orch.settings.autonomy}</dd>
       <dt>Profondeur</dt><dd>${orch.settings.maxDepth} niveau${orch.settings.maxDepth > 1 ? 'x' : ''}</dd>

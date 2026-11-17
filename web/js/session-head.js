@@ -114,7 +114,7 @@ $('panel-head').addEventListener('click', (e) => {
   const promote = t.closest('[data-head-promote]');
   if (promote) {
     closeMenu(); renderPanel();
-    if (!confirm('Passer cette session en mode maître ? Elle recevra les consignes d’orchestrateur et pourra lancer des agents (6 au maximum).')) return;
+    if (!confirm('Passer cette session en mode maître ? Elle recevra les consignes d’orchestrateur et pourra lancer des agents (10 au maximum).')) return;
     post('/api/orch/promote', { sessionId: promote.dataset.headPromote }).then((r) => { toast(r.ok ? 'La session devient maître.' : r.data.error || 'Action impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 500); });
     return;
   }

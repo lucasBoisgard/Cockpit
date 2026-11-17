@@ -378,6 +378,15 @@ test('the prompt states the real restriction: a promoted master is rule-only unt
   assert.match(delivered.at(-1).text, /NOT disabled/);
 });
 
+test('the view exposes the active phases next to the current one', async () => {
+  writeState('s-w1', 'working', '%900001');
+  writeState('s-w2', 'working', '%900002');
+  seed([agent('w1', { phase: 2 }), agent('w2', { phase: 0 })], { phases: ['a', 'b', 'c'] });
+  const view = (await orchestrationViews()).active.m1;
+  assert.deepStrictEqual(view.activePhases, [0, 2]);
+  assert.strictEqual(view.phase, 0);
+});
+
 test('settings stored before strictMaster existed read as strict and do not announce a change', async () => {
   const { strictMaster, ...legacy } = core.DEFAULT_SETTINGS;
   seed([], { settings: legacy });

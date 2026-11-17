@@ -14,7 +14,7 @@ function queueReason(wt, s, st) {
   if (st === 'needs_input') return s.message || (s.permission ? 'Demande une permission' : 'Attend ta réponse');
   if (orch && st === 'working') {
     const n = orch.counts.working + orch.counts.starting;
-    return n ? `${n} agent${n > 1 ? 's' : ''} au travail · ${orch.phases[orch.phase] || 'sans plan'}` : 'Le maître prépare la suite';
+    return n ? `${n} agent${n > 1 ? 's' : ''} au travail · ${orchActivePhasesShort(orch)}` : 'Le maître prépare la suite';
   }
   if (st === 'working') {
     if (backgroundOnly(s)) return 'Agents en arrière-plan';
