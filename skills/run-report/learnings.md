@@ -1,9 +1,10 @@
 # Run report learnings
 
-Read before every report. Newest rule wins on conflict. Format: `- [date] rule — why/feedback: "quote or source"`.
+Read before every report. Newest rule wins on conflict. Format: `- [date] rule — why/feedback: "quote or source"`, or the agent-protocol form `- [rule|hypothesis] lesson - why - evidence (date) - seen: n`, whose date for conflicts is the evidence date.
 
 ## Length and density
-- [2026-11-06] Be brief and succinct: one or two screens, never a 1000-line page; the verdict leads, in 3 lines max — why: "Sois bref et succinct. Je ne veux pas d'un fichier indigeste de 1000 lignes moches"
+- [2026-11-06] Be brief and succinct: one or two screens, never a 1000-line page; the verdict leads, one line plus its graph — why: "Sois bref et succinct. Je ne veux pas d'un fichier indigeste de 1000 lignes moches"
+- [2026-11-17] Lead every section with a schema; text only as labels, captions and one-line callouts — why/feedback: "Je veux des schémas plutôt que beaucoup de texte"
 - [2026-11-06] Overflow goes to links to raw reports, never into the page — why: same request
 - [2026-10-26] No big text blocks: short headings, one idea per line, paragraphs of 1-2 sentences max — why: "les gros blocs comme ça sont illisibles" (house rule H8)
 - [2026-11-04] Condensed means one finding line plus the conclusion; no context paragraph before each item, no jargon-heavy report phrasing, human tone — why: reports and drafts judged too verbose (memory feedback_concise_review_drafts)
@@ -19,6 +20,10 @@ Read before every report. Newest rule wins on conflict. Format: `- [date] rule �
 ## Visual
 - [2026-11-06] Sober cards or tables with state badges, no walls of text; light and dark themes — why: "pas de fichier indigeste… moches"; ux-agency learnings favour compact pills and glanceable status
 - [2026-11-06] Cockpit-style typed blocks (colour per kind) are a good model for short, typed reporting — why: review-report skill format
+- [rule] Diagrams scaled up beyond their natural size, with labels overflowing their nodes and saturated fills, get rejected: two layouts switched by container query and capped at natural width, nodes sized from their label, neutral surfaces with a dot or border plus a word, then the headless visual check (SKILL.md section 4) - why: "les schémas, fais un effort, ce n'est pas responsive et c'est très désagréable à l'œil" (tables were liked: "les tableaux sont top") - evidence (2026-11-17) - seen: 1
+
+## Hub
+- [rule] Hub index cards show creation and last-modified dates, sorted by last-modified date (most recent first) within each group; unknown date = "inconnu", never invented - why: user feedback on the hub - evidence (2026-11-17) - seen: 1
 
 ## Language
 - [2026-08-18] Displayed content in the user's language, always, even mid-technical work — why: house rule H7

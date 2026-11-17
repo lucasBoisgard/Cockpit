@@ -38,6 +38,24 @@ function askForm(ask) {
     <div class="ask-buttons"><button class="btn ask-send" data-ask-send ${askComplete(ask) && !askSending ? '' : 'disabled'}>${askSending ? 'Envoi…' : 'Répondre'}</button><button class="btn" data-ask-defer>Répondre dans le terminal</button></div>`;
 }
 
+// "Toujours autoriser": the cockpit answers the prompt, then puts the session (its whole team when it is part of an
+// orchestration) in auto mode.
+async function alwaysAllow(sessionId) {
+  const result = await post('/api/permission/always', { target: sessionId });
+  toast(result.ok ? 'Autorisé, passage en mode auto dès que la demande est traitée.' : result.data.error || 'Envoi impossible.', result.ok ? '' : 'error');
+  setTimeout(refresh, 800);
+  return result.ok;
+}
+
+// Allow or deny a Claude permission prompt: the cockpit reads the dialog on the screen and presses what matches, since
+// the order of Yes and No differs between dialogs.
+async function answerPermission(sessionId, decision) {
+  const result = await post('/api/permission/answer', { target: sessionId, decision });
+  toast(result.ok ? 'Réponse envoyée.' : result.data.error || 'Envoi impossible.', result.ok ? '' : 'error');
+  setTimeout(refresh, 800);
+  return result.ok;
+}
+
 function keyCard(s) {
   const keys = keysOf(s);
   const op = (k) => esc(JSON.stringify(k));
@@ -45,7 +63,7 @@ function keyCard(s) {
     if (s.provider === 'codex') return `<div class="ask-title"><span class="ask-dot"></span>${esc(s.message || 'Permission demandée')}</div>
       <div class="ask-buttons"><button class="btn ask-send" data-codex-permission="allow">Autoriser</button><button class="btn" data-codex-permission="always">Toujours autoriser</button><button class="btn" data-codex-permission="deny">Refuser</button></div>`;
     return `<div class="ask-title"><span class="ask-dot"></span>${esc(s.message || 'Permission demandée')}</div>
-      <div class="ask-buttons"><button class="btn ask-send" data-ask-key="${op(keys.allow)}">Autoriser</button><button class="btn" data-ask-key="${op(keys.always)}">Toujours autoriser</button><button class="btn" data-ask-key="${op(keys.deny)}">Refuser</button></div>`;
+      <div class="ask-buttons"><button class="btn ask-send" data-ask-decision="allow">Autoriser</button><button class="btn" data-ask-always title="Autorise cette demande et passe en mode auto">Toujours autoriser</button><button class="btn" data-ask-decision="deny">Refuser</button></div>`;
   }
   const q = s.question;
   if (s.provider === 'codex') return `<div class="ask-title"><span class="ask-dot"></span>${esc(q.text)}</div>
@@ -89,7 +107,7 @@ function openCodexTerminal(tmuxName) {
 // Whether the prompt a session shows has just been answered from the card (used by the conversation too).
 function promptAnswered(s) {
   if (!s || s.status !== 'needs_input') return false;
-  return [...askAnswered].some((k) => k.startsWith(`${s.sessionId}|`) && k.includes(`|${s.message || ''}|`));
+  return [...askAnswered].some((k) => k.startsWith(`${s.sessionId}|`) && k.includes(`|${s.message || ''}|`) && k.endsWith(`|${s.statusSince || ''}`));
 }
 
 // The prompt the card currently shows: once answered, the card hides until another prompt comes.
@@ -108,8 +126,9 @@ function unmarkAnswered(key) {
 function renderAskCard() {
   const card = $('ask-card');
   const s = currentSession();
+  if (s && s.status !== 'needs_input') for (const k of [...askAnswered]) if (k.startsWith(`${s.sessionId}|`)) askAnswered.delete(k);
   let mode = !s?.live || s.status !== 'needs_input' ? null : s.codexScreen ? 'screen' : s.ask ? 'ask' : s.question?.options?.length ? 'keys' : s.permission ? 'perm' : null;
-  const prompt = mode ? `${s.sessionId}|${mode}|${s.ask?.toolUseId || ''}|${s.message || ''}|${JSON.stringify(s.codexScreen?.prompt || null)}` : '';
+  const prompt = mode ? `${s.sessionId}|${mode}|${s.ask?.toolUseId || ''}|${s.message || ''}|${JSON.stringify(s.codexScreen?.prompt || null)}|${s.statusSince || ''}` : '';
   if (prompt && askAnswered.has(prompt)) mode = null;
   const signature = mode ? `${prompt}|${askSending}` : '';
   if (signature === askSignature && !askRedraw) return;
@@ -158,6 +177,19 @@ $('ask-card').addEventListener('click', (e) => {
   const codexPermission = e.target.closest('[data-codex-permission]');
   if (codexPermission) {
     post('/api/codex/permission', { session: s.sessionId, decision: codexPermission.dataset.codexPermission }).then((r) => { toast(r.ok ? 'Codex a accepté la réponse.' : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); refresh(); });
+    return;
+  }
+  if (e.target.closest('[data-ask-always]')) {
+    const answered = askShown;
+    markAnswered();
+    alwaysAllow(s.sessionId).then((ok) => { if (!ok) unmarkAnswered(answered); });
+    return;
+  }
+  const decision = e.target.closest('[data-ask-decision]');
+  if (decision) {
+    const answered = askShown;
+    markAnswered();
+    answerPermission(s.sessionId, decision.dataset.askDecision).then((ok) => { if (!ok) unmarkAnswered(answered); });
     return;
   }
   const key = e.target.closest('[data-ask-key]');

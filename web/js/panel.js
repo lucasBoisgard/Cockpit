@@ -6,7 +6,7 @@ function renderTabs() {
   const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', changes], ['agents', 'Agents'], ['files', 'Fichiers']];
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
   const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
-  if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${orch.counts.total}</span>`]);
+  if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${typeof orchOpenCount === 'function' ? orchOpenCount(orch) : orch.counts.total}</span>`]);
   if (currentWt() && !isBase(currentWt()) && state.pr?.enabled) tabs.push(['checks', currentWt().pr ? `PR #${currentWt().pr.number}` : 'PR']);
   if (state.app) tabs.push(['app', `App<span class="tab-dot ${esc(state.app.state)}"></span>`]);
   if (!tabs.some(([id]) => id === tab)) tab = tabs[0][0];

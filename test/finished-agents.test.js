@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { isFinishedAgent, isDoneAgent, DONE_DWELL_MS, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree } = require('../web/js/finished-agents');
+const { isFinishedAgent, isDoneAgent, doneHiddenAgentIds, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree } = require('../web/js/finished-agents');
 
 const agent = (id, status, extra = {}) => ({ id, status, parentId: null, sessionId: `s-${id}`, worktree: 'main-wt', phase: 0, stoppedAt: status === 'stopped' ? 10 : null, lostAt: null, ...extra });
 
@@ -86,18 +86,45 @@ test('finishedScope also hides the stopped agents of ended orchestrations, but n
   assert.deepStrictEqual([...scope.worktrees], ['main-wt--x-w1']);
 });
 
-test('the graph also hides agents done for a while, the board never does', () => {
-  const now = 1_000_000;
-  const done = (id, ago, extra = {}) => agent(id, 'done', { doneAt: now - ago, ...extra });
-  const agents = [done('w1', DONE_DWELL_MS + 1), done('w2', 1000), agent('w3', 'working'), agent('w4', 'needs'), agent('w5', 'stopped')];
-  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true, now })].sort(), ['w1', 'w5']);
-  assert.deepStrictEqual([...hiddenAgentIds(agents, { now })], ['w5']);
-  assert.strictEqual(isDoneAgent(agent('w1', 'done'), now), false);
+test('with the done option a finished agent is hidden too, a working or asking one never is', () => {
+  const agents = [agent('w1', 'done'), agent('w2', 'stopped'), agent('w3', 'working'), agent('w4', 'needs')];
+  assert.deepStrictEqual([...hiddenAgentIds(agents)], ['w2']);
+  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true })].sort(), ['w1', 'w2']);
 });
 
-test('in the graph a done parent stays while a child is still visible', () => {
-  const now = 1_000_000;
-  const old = now - DONE_DWELL_MS - 1;
-  const agents = [agent('w1', 'done', { doneAt: old }), agent('w2', 'working', { parentId: 'w1' }), agent('w3', 'done', { doneAt: old, parentId: 'w1' })];
-  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true, now })], ['w3']);
+test('with the done option a finished parent stays while a child still works', () => {
+  const agents = [agent('w1', 'done'), agent('w2', 'working', { parentId: 'w1' }), agent('w3', 'done', { parentId: 'w1' })];
+  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true })], ['w3']);
+});
+
+test('only finished agents are counted as hideable: a closed parent kept out by its done children is not', () => {
+  const agents = [agent('w1', 'stopped'), agent('w2', 'done', { parentId: 'w1' }), agent('w3', 'done'), agent('w4', 'working', { parentId: 'w3' })];
+  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true })].sort(), ['w1', 'w2']);
+  assert.deepStrictEqual([...doneHiddenAgentIds(agents)], ['w2']);
+  assert.strictEqual(isDoneAgent(agent('w1', 'stopped')), false);
+});
+
+test('the Agents tab and the graph close exactly the same agents', () => {
+  const { closedAgentIds } = require('../server/core/agents');
+  const cases = [
+    [agent('w1', 'stopped'), agent('w2', 'done'), agent('w3', 'working'), agent('w4', 'needs')],
+    [agent('w1', 'stopped'), agent('w2', 'working', { parentId: 'w1' }), agent('w3', 'stopped', { parentId: 'w1' })],
+    [agent('w1', 'stopped'), agent('w2', 'stopped', { parentId: 'w1' }), agent('w3', 'stopped', { parentId: 'w2' })],
+    [agent('w1', 'stopped', { lostAt: 20 }), agent('w2', 'stopped', { stoppedAt: null })],
+    [agent('w2', 'stopped', { parentId: 'gone' })],
+    [agent('w1', 'stopped', { lostAt: 5, stoppedAt: 10 }), agent('w2', 'stopped', { lostAt: 10, stoppedAt: 10 })],
+    [agent('w1', 'stopped', { parentId: 'w1' }), agent('w2', 'stopped', { parentId: 'w3' }), agent('w3', 'stopped', { parentId: 'w2' })],
+  ];
+  for (const agents of cases) assert.deepStrictEqual([...closedAgentIds(agents)].sort(), [...hiddenAgentIds(agents)].sort());
+});
+
+test('the Agents tab lists only the open agents of a master and says how many, even when none is left', () => {
+  const { agentsOf } = require('../server/features/agents');
+  const launched = (agents) => ({ role: 'master', goal: 'g', phases: ['P'], agents: agents.map((a) => ({ ...a, session: null })) });
+  const some = agentsOf('no-such-session', Date.now(), launched([agent('w1', 'stopped'), agent('w2', 'working'), agent('w3', 'done')]));
+  assert.deepStrictEqual(some.tree.children.map((c) => c.id), ['orch:w2', 'orch:w3']);
+  assert.strictEqual(some.tree.orchestrated, 2);
+  assert.strictEqual(some.tree.role, 'master');
+  const none = agentsOf('no-such-session', Date.now(), launched([agent('w1', 'stopped')]));
+  assert.deepStrictEqual([none.tree.children.length, none.tree.orchestrated, none.tree.role], [0, 0, 'master']);
 });

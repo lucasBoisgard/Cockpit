@@ -9,7 +9,7 @@ const ORCH_AUTONOMY = { blocking: 'Seulement si bloquant', milestones: 'Aux éta
 const ORCH_COL = 270;
 const ORCH_SIZE = { master: [220, 74], phase: [170, 52], agent: [240, 68] };
 const ORCH_VGAP = 14;
-const orchUi = { history: false, byPhase: localGet('orchByPhase') !== '0', zoom: 1, collapsed: new Set(), pick: {}, inspector: {}, compose: false, settings: false, signature: '' };
+const orchUi = { hideDone: localGet('orchHideDone') === '1', byPhase: localGet('orchByPhase') !== '0', zoom: 1, collapsed: new Set(), pick: {}, inspector: {}, compose: false, settings: false, signature: '' };
 
 const currentOrch = () => (currentWt() ? orchestrationOf(currentWt()) : null);
 
@@ -20,16 +20,21 @@ function orchPhaseStatus(agents) {
   return agents.every((a) => a.status === 'stopped') ? 'stopped' : 'done';
 }
 
+// Agents still open: the ones their orchestrator has stopped count for nothing, in the tab counter, the head chip and here.
+const orchOpenCount = (orch) => orch.agents.length - hiddenAgentIds(orch.agents).size;
+
 // An agent whose phase no longer exists (the master re-planned with fewer phases) sits in the last one instead of vanishing.
 const orchPhaseOf = (a, orch) => Math.max(0, Math.min(Number.isInteger(a.phase) ? a.phase : 0, orch.phases.length - 1));
 
 function orchTree(orch) {
-  const hidden = finishedUi.show ? new Set() : hiddenAgentIds(orch.agents, { done: true });
+  const gone = hiddenAgentIds(orch.agents);
+  const hidden = orchUi.hideDone ? hiddenAgentIds(orch.agents, { done: true }) : gone;
+  const doneHidden = orchUi.hideDone ? doneHiddenAgentIds(orch.agents) : new Set();
   const childrenOf = (parentId) => orch.agents.filter((a) => a.parentId === parentId && !hidden.has(a.id));
   const agentNode = (a) => ({ id: a.id, kind: 'agent', status: a.status, agent: a, children: childrenOf(a.id).map(agentNode) });
   const allTop = orch.agents.filter((a) => !a.parentId || !orch.agents.some((p) => p.id === a.parentId));
   const top = allTop.filter((a) => !hidden.has(a.id));
-  const hiddenByRoot = hiddenCountByRoot(orch.agents, hidden);
+  const hiddenByRoot = hiddenCountByRoot(orch.agents, doneHidden);
   const masterStatus = orch.state === 'paused' ? 'stopped' : orch.state === 'needs' ? 'needs' : orch.state === 'working' ? 'working' : 'done';
   const children = orchUi.byPhase && orch.phases.length
     ? orch.phases.map((name, i) => {
@@ -38,7 +43,7 @@ function orchTree(orch) {
       return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(allTop.filter((a) => orchPhaseOf(a, orch) === i)), hiddenCount, children: agents.map(agentNode) };
     })
     : top.map(agentNode);
-  return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : hidden.size, children };
+  return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : doneHidden.size, children };
 }
 
 // Tidy horizontal tree: depth goes right, siblings stack downward, a parent sits at the middle of its children.
@@ -72,7 +77,7 @@ const orchGear = (status, big = false) => `<span class="orch-gear ${status === '
 
 function orchPhaseSub(node) {
   const finished = node.hiddenCount ? `${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : '';
-  if (!node.children.length) return finished || 'à venir';
+  if (!node.children.length) return finished || (node.status === 'stopped' ? 'terminée' : 'à venir');
   return `${node.children.length} agent${node.children.length > 1 ? 's' : ''} · ${ORCH_WORD[node.status].toLowerCase()}${finished ? ` · +${finished}` : ''}`;
 }
 
@@ -121,7 +126,7 @@ function orchInspector(orch, pick) {
     const events = orch.events.slice(-14).reverse().map((e) => `<li><span class="orch-time">${new Date(e.at).toTimeString().slice(0, 5)}</span>${esc(e.text)}</li>`).join('');
     return `<h4>Maître</h4><p class="orch-goal">${esc(oneLineText(orch.goal, 400))}</p>
       <dl class="orch-kv"><dt>${orchActivePhases(orch).length > 1 ? 'Phases' : 'Phase'}</dt><dd>${esc(orchActivePhasesDetail(orch))}</dd>
-      <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orch.counts.total} lancés · ${orch.settings.maxAgents} max</dd>
+      <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orchOpenCount(orch)} ouverts · ${orch.settings.maxAgents} max</dd>
       <dt>Me solliciter</dt><dd>${ORCH_AUTONOMY[orch.settings.autonomy] || orch.settings.autonomy}</dd>
       <dt>Profondeur</dt><dd>${orch.settings.maxDepth} niveau${orch.settings.maxDepth > 1 ? 'x' : ''}</dd>
       <dt>Permissions</dt><dd>${esc(orchModeLabel(orch.settings.agentMode, orch.masterModePending))}</dd>${orch.settings.arena ? '<dt>Mode Arène</dt><dd>actif</dd>' : ''}<dt>Maître strict</dt><dd>${orch.masterRestricted ? 'oui' : 'non'}${orch.masterRestrictionPending ? ' (réglage appliqué à la prochaine reprise)' : ''}</dd></dl>
@@ -130,15 +135,14 @@ function orchInspector(orch, pick) {
   }
   if (pick.startsWith('p')) {
     const index = Number(pick.slice(1));
-    const agents = orch.agents.filter((a) => orchPhaseOf(a, orch) === index);
-    return `<h4>Phase ${index + 1} · ${esc(orch.phases[index] || '')}</h4><div class="orch-list">${agents.map((a) => `<button class="orch-item" data-orch-pick="${a.id}">${orchGear(a.status)}<span>${esc(a.id)} · ${esc(a.name)}</span><span class="orch-state orch-c-${a.status}">${ORCH_WORD[a.status]}</span></button>`).join('') || '<p class="orch-muted">Le maître n’a pas encore lancé d’agent pour cette phase.</p>'}</div>`;
+    const closed = orchUi.hideDone ? hiddenAgentIds(orch.agents, { done: true }) : hiddenAgentIds(orch.agents);
+    const agents = orch.agents.filter((a) => orchPhaseOf(a, orch) === index && !closed.has(a.id));
+    return `<h4>Phase ${index + 1} · ${esc(orch.phases[index] || '')}</h4><div class="orch-list">${agents.map((a) => `<button class="orch-item" data-orch-pick="${a.id}">${orchGear(a.status)}<span>${esc(a.id)} · ${esc(a.name)}</span><span class="orch-state orch-c-${a.status}">${ORCH_WORD[a.status]}</span></button>`).join('') || `<p class="orch-muted">${orch.agents.some((a) => orchPhaseOf(a, orch) === index) ? 'Tous les agents de cette phase sont clos.' : 'Le maître n’a pas encore lancé d’agent pour cette phase.'}</p>`}</div>`;
   }
   const a = orch.agents.find((x) => x.id === pick);
   if (!a) return '';
   const files = a.files?.length ? `<h4>Fichiers modifiés</h4><ul class="orch-files">${a.files.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : '';
-  const keys = PROVIDER_KEYS[a.provider] || PROVIDER_KEYS.claude;
-  const op = (k) => esc(JSON.stringify(k));
-  const answer = a.status === 'needs' ? `<div class="orch-ask"><b>${esc(a.id)} te demande</b><p>${esc(a.message || 'Une réponse dans son terminal.')}</p><div class="orch-row">${a.provider === 'codex' ? '' : `<button class="btn orch-main" data-orch-op="${op(keys.allow)}" data-orch-target="${esc(a.sessionId)}">Autoriser</button><button class="btn" data-orch-op="${op(keys.deny)}" data-orch-target="${esc(a.sessionId)}">Refuser</button>`}<button class="btn" data-orch-session="${esc(a.sessionId)}">Voir</button></div></div>`
+  const answer = a.status === 'needs' ? `<div class="orch-ask"><b>${esc(a.id)} te demande</b><p>${esc(a.message || 'Une réponse dans son terminal.')}</p><div class="orch-row">${a.provider === 'codex' ? '' : `<button class="btn orch-main" data-orch-decision="allow" data-orch-target="${esc(a.sessionId)}">Autoriser</button><button class="btn" data-orch-decision="deny" data-orch-target="${esc(a.sessionId)}">Refuser</button>`}<button class="btn" data-orch-session="${esc(a.sessionId)}">Voir</button></div></div>`
     : a.unattached ? `<div class="orch-ask"><b>Hook à valider</b><p>Codex n’exécute le hook du cockpit qu’une fois validé : ouvre le terminal de cet agent, tape /hooks et fais-lui confiance. Le cockpit suivra alors son état.</p></div>` : '';
   const live = ['working', 'starting', 'needs', 'done'].includes(a.status);
   return `<h4>Agent · ${esc(a.id)}</h4><div class="orch-line">${orchGear(a.status, true)}<b class="orch-title">${esc(a.name)}</b></div>
@@ -162,20 +166,10 @@ function orchSettings(orch) {
     <div class="orch-row"><button class="btn primary">Appliquer</button><button type="button" class="btn orch-danger" data-orch-end>Terminer l’orchestration</button></div></form>`;
 }
 
-function orchHistory(orch) {
-  const items = [...(orch.history || [])].reverse().map((j) => `<li><b>Job ${j.job}</b> · ${new Date(j.endedAt).toLocaleDateString('fr-FR')}<p>${esc(oneLineText(j.goal, 160))}</p><span class="orch-muted">${j.agents.length} agent${j.agents.length > 1 ? 's' : ''}${j.agents.length ? ` · ${esc(j.agents.map((a) => a.id).join(', '))}` : ''}</span></li>`).join('');
-  return `<div class="orch-settings orch-history"><ul>${items}</ul></div>`;
-}
-
-function orchHistoryButton(orch) {
-  const n = orch.history?.length || 0;
-  if (!n) return '';
-  return `<span class="orch-pop"><button class="orch-btn" data-orch-history-open aria-expanded="${orchUi.history}">Jobs précédents (${n})</button>${orchUi.history ? orchHistory(orch) : ''}</span>`;
-}
-
+// Finished ("done") agents can be hidden; closed ones never show in the tree, so they have no button.
 function orchFinishedButton(orch) {
-  const n = hiddenAgentIds(orch.agents, { done: true }).size;
-  return n || (finishedUi.show && orch.counts.stopped) ? `<button class="orch-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedLabel(n)}</button>` : '';
+  const n = doneHiddenAgentIds(orch.agents).size;
+  return n ? `<button class="orch-btn" data-orch-done-toggle aria-pressed="${orchUi.hideDone}">${orchUi.hideDone ? `Afficher ${n} terminé${n > 1 ? 's' : ''}` : 'Masquer les terminés'}</button>` : '';
 }
 
 function renderOrchestration(force = false) {
@@ -184,13 +178,16 @@ function renderOrchestration(force = false) {
   if (!orch || tab !== 'orch') return;
   const master = orch.masterSessionId;
   const rawPick = orchUi.pick[master] || null;
-  const pick = rawPick && /^p\d+$/.test(rawPick) && Number(rawPick.slice(1)) >= orch.phases.length ? null : rawPick;
+  const shut = orchUi.hideDone ? hiddenAgentIds(orch.agents, { done: true }) : hiddenAgentIds(orch.agents);
+  const pick = rawPick && ((/^p\d+$/.test(rawPick) && Number(rawPick.slice(1)) >= orch.phases.length) || shut.has(rawPick)) ? null : rawPick;
+  if (rawPick && !pick) { delete orchUi.pick[master]; orchUi.inspector[master] = false; }
   const inspector = orchUi.inspector[master] && pick;
-  const settling = orch.agents.some((a) => a.status === 'done') ? Math.floor(Date.now() / 10000) : 0;
-  const signature = JSON.stringify([orch, settling, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings, orchUi.history]);
+  const signature = JSON.stringify([orch, orchUi.byPhase, orchUi.hideDone, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings]);
   if (!force && signature === orchUi.signature) return;
   orchUi.signature = signature;
   const layout = orchLayout(orchTree(orch));
+  const drawn = new Set(layout.boxes.map((b) => b.node.id));
+  for (const id of [...orchUi.collapsed]) if (!drawn.has(id)) orchUi.collapsed.delete(id);
   const scroller = view.querySelector('.orch-scroll');
   const scroll = scroller ? [scroller.scrollLeft, scroller.scrollTop] : null;
   const draft = view.querySelector('#orch-compose-input')?.value || '';
@@ -206,7 +203,6 @@ function renderOrchestration(force = false) {
       <div class="orch-seg" role="group" aria-label="Regroupement"><button data-orch-group="1" aria-pressed="${orchUi.byPhase}">Par phase</button><button data-orch-group="0" aria-pressed="${!orchUi.byPhase}">Par agent</button></div>
       ${orchUi.collapsed.size ? '<button class="orch-btn" data-orch-expand>Tout déplier</button>' : ''}
       ${orchFinishedButton(orch)}
-      ${orchHistoryButton(orch)}
       <span class="orch-grow"></span>
       <button class="orch-btn ${orch.paused ? 'is-on' : ''}" data-orch-pause="${orch.paused ? '0' : '1'}">${orch.paused ? 'Reprendre' : 'Pause'}</button>
       <span class="orch-pop"><button class="orch-btn" data-orch-settings-open aria-expanded="${orchUi.settings}">Réglages</button>${orchUi.settings ? orchSettings(orch) : ''}</span>
@@ -248,6 +244,7 @@ $('orch-view').addEventListener('click', (e) => {
   const node = t.closest('[data-orch-node], [data-orch-pick]');
   if (node) { orchUi.pick[master] = node.dataset.orchNode || node.dataset.orchPick; orchUi.inspector[master] = true; renderOrchestration(); return; }
   if (t.closest('[data-orch-close]')) { orchUi.inspector[master] = false; renderOrchestration(); return; }
+  if (t.closest('[data-orch-done-toggle]')) { orchUi.hideDone = !orchUi.hideDone; localSet('orchHideDone', orchUi.hideDone ? '1' : '0'); renderOrchestration(); return; }
   const group = t.closest('[data-orch-group]');
   if (group) { orchUi.byPhase = group.dataset.orchGroup === '1'; localSet('orchByPhase', orchUi.byPhase ? '1' : '0'); orchUi.collapsed.clear(); renderOrchestration(); return; }
   if (t.closest('[data-orch-expand]')) { orchUi.collapsed.clear(); renderOrchestration(); return; }
@@ -255,7 +252,6 @@ $('orch-view').addEventListener('click', (e) => {
   if (zoom) { const d = Number(zoom.dataset.orchZoom); orchUi.zoom = d === 0 ? 1 : Math.max(0.5, Math.min(1.6, orchUi.zoom * (d > 0 ? 1.15 : 1 / 1.15))); renderOrchestration(); return; }
   const pause = t.closest('[data-orch-pause]');
   if (pause) { orchPost('/api/orch/pause', { master, paused: pause.dataset.orchPause === '1' }, pause.dataset.orchPause === '1' ? 'Maître en pause : plus aucun nouvel agent.' : 'Maître relancé.'); return; }
-  if (t.closest('[data-orch-history-open]')) { orchUi.history = !orchUi.history; renderOrchestration(); return; }
   if (t.closest('[data-orch-settings-open]')) { orchUi.settings = !orchUi.settings; renderOrchestration(); return; }
   if (t.closest('[data-orch-end]')) {
     if (!confirm('Terminer l’orchestration ? Les agents encore actifs sont arrêtés ; leurs conversations restent.')) return;
@@ -273,6 +269,8 @@ $('orch-view').addEventListener('click', (e) => {
   if (stop) { if (confirm(`Arrêter ${stop.dataset.orchStop} ? Sa conversation est gardée.`)) orchPost('/api/orch/stop', { caller: master, id: stop.dataset.orchStop, by: 'user' }, `${stop.dataset.orchStop} arrêté.`); return; }
   const resume = t.closest('[data-orch-resume]');
   if (resume) { orchPost('/api/orch/resume', { caller: master, id: resume.dataset.orchResume, by: 'user' }, `${resume.dataset.orchResume} relancé.`); return; }
+  const decision = t.closest('[data-orch-decision]');
+  if (decision) { orchPost('/api/permission/answer', { target: decision.dataset.orchTarget, decision: decision.dataset.orchDecision }, 'Réponse envoyée.'); return; }
   const key = t.closest('[data-orch-op]');
   if (key) orchPost('/api/keys', { target: key.dataset.orchTarget, ops: [JSON.parse(key.dataset.orchOp)] }, 'Réponse envoyée.');
 });

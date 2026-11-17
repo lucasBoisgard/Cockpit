@@ -19,7 +19,7 @@ function headStateActions(wt, s, st) {
     if (s.provider === 'codex') return '<button class="btn shead-btn shead-main" data-head-ask>Répondre</button>';
     if (s.ask || s.codexScreen) return '<button class="btn shead-btn shead-main" data-head-ask>Répondre</button>';
     if (s.question?.options?.length) return s.question.options.slice(0, 4).map((o, i) => key(i + 1, `${i + 1}. ${esc(oneLineText(o, 40))}`, i ? '' : 'shead-main')).join('');
-    if (s.permission) return `${key(keys.allow, 'Autoriser <kbd>a</kbd>', 'shead-main')}${key(keys.always, 'Toujours')}${key(keys.deny, 'Refuser')}`;
+    if (s.permission) return `${s.provider === 'codex' ? key(keys.allow, 'Autoriser <kbd>a</kbd>', 'shead-main') : `<button class="btn shead-btn shead-main" data-head-decision="allow" data-session="${id}">Autoriser <kbd>a</kbd></button>`}${s.provider === 'codex' ? key(keys.always, 'Toujours') : `<button class="btn shead-btn" data-head-always="${id}" title="Autorise cette demande et passe en mode auto">Toujours</button>`}${s.provider === 'codex' ? key(keys.deny, 'Refuser') : `<button class="btn shead-btn" data-head-decision="deny" data-session="${id}">Refuser</button>`}`;
     return '<button class="btn shead-btn shead-main" data-head-tab="chat">Répondre</button>';
   }
   if (st === 'working' && s.live && !backgroundOnly(s)) return `<button class="btn shead-btn" data-head-interrupt="${id}">Interrompre</button>`;
@@ -61,7 +61,7 @@ function sessionHead(wt, st) {
   const age = s ? statusAge(s, st) : '';
   const details = [
     s?.task ? `<div class="shead-task" title="${esc(s.task)}">${esc(oneLineText(s.task, 400))}</div>` : '',
-    `<div class="shead-chips">${wt.otherRepo ? `<span class="repo-chip">${esc(wt.repoName)}</span>` : ''}${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}${orch ? `<span class="chip shead-orch">◆ maître · ${orch.counts.total} agent${orch.counts.total > 1 ? 's' : ''}</span>${orch.settings.arena ? '<span class="chip shead-arena">Arène</span>' : ''}` : ''}${cardMeta(wt, s, st).join('')}</div>`,
+    `<div class="shead-chips">${wt.otherRepo ? `<span class="repo-chip">${esc(wt.repoName)}</span>` : ''}${branchChip(wt)}${prChip(wt.pr)}${extChips(wt)}${orch ? `<span class="chip shead-orch">◆ maître · ${typeof orchOpenCount === 'function' ? orchOpenCount(orch) : orch.counts.total} agent${orch.counts.total > 1 ? 's' : ''}</span>${orch.settings.arena ? '<span class="chip shead-arena">Arène</span>' : ''}` : ''}${cardMeta(wt, s, st).join('')}</div>`,
     parallelRow(wt),
   ].join('');
   return `<div class="shead shead-${group}">
@@ -97,6 +97,10 @@ $('panel-head').addEventListener('click', (e) => {
     setTimeout(() => { $('ask-card').scrollIntoView({ block: 'nearest' }); $('ask-card').querySelector('.ask-option, .ask-other')?.focus(); }, 50);
     return;
   }
+  const decide = t.closest('[data-head-decision]');
+  if (decide) { decide.disabled = true; answerPermission(decide.dataset.session, decide.dataset.headDecision); return; }
+  const always = t.closest('[data-head-always]');
+  if (always) { always.disabled = true; alwaysAllow(always.dataset.headAlways); return; }
   const k = t.closest('[data-head-op]');
   if (k) { headKey(k.dataset.session, [JSON.parse(k.dataset.headOp)], 'Réponse envoyée.'); return; }
   const stop = t.closest('[data-head-interrupt]');
