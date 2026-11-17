@@ -48,7 +48,7 @@ Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`
 | `orchestrate read w3` | The agent's full last report and the files it changed |
 | `orchestrate send w3 "…"` | Writes to an agent (queued until its turn ends if it is working) |
 | `orchestrate stop w3` | Closes an agent's session (its conversation is kept, `resume` brings it back). Keep it open while its work may still come back (review, verification, challenge, fixes to make): close it once the work is validated by every agent that had to check it and no further round trip is expected, without waiting for the end of the job. A closed agent leaves the graph. The master can close any agent, a sub-orchestrator only the agents below it. The report of an agent whose parent is closed goes to the next open ancestor |
-| `orchestrate new "<goal>"` | Closes the delivered job and starts a blank board for the same session (see "A new job"). Refused while an agent is still working |
+| `orchestrate new "<goal>"` | Starts a blank board (no plan, no agent, ids from `w1` again). **Only when the user explicitly asks for it**; never to handle a follow-up request (see "Follow-up requests"). Refused while an agent is still working |
 | `orchestrate resume w3 "…"` | Restarts a stopped agent with a message |
 
 Agent statuses: `démarre`, `travaille`, `ATTEND L'UTILISATEUR` (a permission prompt only the user
@@ -77,13 +77,15 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
    left. Pushing, opening a pull request or anything irreversible needs the user's go unless the goal
    says otherwise.
 
-## A new job
+## Follow-up requests
 
-Once a job is delivered and reported, and the user asks for a new one, run `orchestrate new "<goal>"`
-**before anything else** (before `plan`, before any launch). Rate the agents of the delivered job first: an archived agent can no longer be rated. The cockpit archives the delivered job
-(still readable under "Jobs précédents"), stops the agents that only finished their turn, and gives
-you an empty board: no plan, no agent, ids from `w1` again, same settings. If it refuses because an
-agent is still working, wait for it or stop it, then retry.
+The user keeps talking to the same master: the context stays. A follow-up request continues the same orchestration: keep the goal,
+the plan, the journal and the agent ids, and never run `orchestrate new` on your own. Add what the request needs: new phases appended
+after the existing ones (re-running `orchestrate plan` replaces the list, so repeat the existing phases and add the new ones) and new agents
+in the right phase. Only the agents are closed, as soon as their work is validated (below); everything else stays.
+
+Run `orchestrate new "<goal>"` only when the user explicitly asks to start over with a clean board. Rate the agents first: an archived agent
+can no longer be rated. It stops the agents that only finished their turn and refuses while one is still working: wait for it or stop it, then retry.
 
 Close delivered topics yourself: stop each agent once its work is validated by all the agents that had to check it and no round trip remains (an agent whose work is still under review or fixes stays open; finished agents left open clutter the graph and bury the new ones), remove merged worktrees (`git worktree remove`) and delete their merged branches.
 
