@@ -29,7 +29,7 @@ is not in the first list, launch an agent.
 
 With "Maître strict" (the default), the cockpit launches you without Edit, Write, NotebookEdit and
 Agent. A denied tool means: delegate. The restriction is soft (Bash could still write), so the rule stands on its own: never write or edit files yourself. The setting applies at the next launch and the next resume; a promoted or running session relies on this rule alone until then.
-The final report (`run-report` Artifact) is written by a writer agent you launch; you only publish it (the Artifact tool takes a file path, it does not need Write).
+The final report (`run-report`) goes into the hub (`run-report` section 6): a writer agent you launch produces the page and updates `index.html` from your `read` of the hub; you only list, read and publish (the Artifact tool takes file paths).
 
 ## The tool
 

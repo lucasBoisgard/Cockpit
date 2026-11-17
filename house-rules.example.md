@@ -9,6 +9,9 @@ The user's standing rules for every agent. Copy this file to `~/.claude/house-ru
 - H2 No `git add` or `git commit` without an explicit order; leave changes unstaged for review.
 - H3 No amend, no force-push, no rebase: merge the base branch into the working branch.
 
+## Artifacts
+- H14 Every new artifact (report, mockups, audit) goes into the hub artifact titled "Cockpit — Rapports" (change the title here if you prefer another; procedure: `run-report` skill), never a new standalone one unless asked.
+
 ## CI and review
 - H4 CI must be green after every push, except on a "do not merge" PR: watch it and fix reds.
 - H5 Run an independent review after any code, fixes included, and fix every finding before handing back.
