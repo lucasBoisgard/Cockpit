@@ -139,7 +139,7 @@ async function startMaster({ worktree, prompt, model, effort, mode, autonomy, ma
   if (!goal) return { error: 'Décris l\'objectif du maître.' };
   const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster });
   if (normalized.error) return normalized;
-  const setting = core.validateLaunch({ name: 'maître', brief: goal, model, effort, mode: mode || 'default' }, { settings: normalized.settings, phases: [], agents: [] });
+  const setting = core.validateLaunch({ name: 'maître', brief: goal, model, effort, mode: mode || normalized.settings.agentMode }, { settings: normalized.settings, phases: [], agents: [] });
   if (setting.error) return setting;
   const existing = (await listWorktrees()).find((wt) => worktreeName(wt.path) === name);
   const sessionId = crypto.randomUUID();

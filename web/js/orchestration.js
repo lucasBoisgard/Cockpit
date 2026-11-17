@@ -141,9 +141,7 @@ function orchInspector(orch, pick) {
   const a = orch.agents.find((x) => x.id === pick);
   if (!a) return '';
   const files = a.files?.length ? `<h4>Fichiers modifiés</h4><ul class="orch-files">${a.files.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : '';
-  const keys = PROVIDER_KEYS[a.provider] || PROVIDER_KEYS.claude;
-  const op = (k) => esc(JSON.stringify(k));
-  const answer = a.status === 'needs' ? `<div class="orch-ask"><b>${esc(a.id)} te demande</b><p>${esc(a.message || 'Une réponse dans son terminal.')}</p><div class="orch-row">${a.provider === 'codex' ? '' : `<button class="btn orch-main" data-orch-op="${op(keys.allow)}" data-orch-target="${esc(a.sessionId)}">Autoriser</button><button class="btn" data-orch-op="${op(keys.deny)}" data-orch-target="${esc(a.sessionId)}">Refuser</button>`}<button class="btn" data-orch-session="${esc(a.sessionId)}">Voir</button></div></div>`
+  const answer = a.status === 'needs' ? `<div class="orch-ask"><b>${esc(a.id)} te demande</b><p>${esc(a.message || 'Une réponse dans son terminal.')}</p><div class="orch-row">${a.provider === 'codex' ? '' : `<button class="btn orch-main" data-orch-decision="allow" data-orch-target="${esc(a.sessionId)}">Autoriser</button><button class="btn" data-orch-decision="deny" data-orch-target="${esc(a.sessionId)}">Refuser</button>`}<button class="btn" data-orch-session="${esc(a.sessionId)}">Voir</button></div></div>`
     : a.unattached ? `<div class="orch-ask"><b>Hook à valider</b><p>Codex n’exécute le hook du cockpit qu’une fois validé : ouvre le terminal de cet agent, tape /hooks et fais-lui confiance. Le cockpit suivra alors son état.</p></div>` : '';
   const live = ['working', 'starting', 'needs', 'done'].includes(a.status);
   return `<h4>Agent · ${esc(a.id)}</h4><div class="orch-line">${orchGear(a.status, true)}<b class="orch-title">${esc(a.name)}</b></div>
@@ -270,6 +268,8 @@ $('orch-view').addEventListener('click', (e) => {
   if (stop) { if (confirm(`Arrêter ${stop.dataset.orchStop} ? Sa conversation est gardée.`)) orchPost('/api/orch/stop', { caller: master, id: stop.dataset.orchStop, by: 'user' }, `${stop.dataset.orchStop} arrêté.`); return; }
   const resume = t.closest('[data-orch-resume]');
   if (resume) { orchPost('/api/orch/resume', { caller: master, id: resume.dataset.orchResume, by: 'user' }, `${resume.dataset.orchResume} relancé.`); return; }
+  const decision = t.closest('[data-orch-decision]');
+  if (decision) { orchPost('/api/permission/answer', { target: decision.dataset.orchTarget, decision: decision.dataset.orchDecision }, 'Réponse envoyée.'); return; }
   const key = t.closest('[data-orch-op]');
   if (key) orchPost('/api/keys', { target: key.dataset.orchTarget, ops: [JSON.parse(key.dataset.orchOp)] }, 'Réponse envoyée.');
 });

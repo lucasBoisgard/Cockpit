@@ -19,7 +19,7 @@ document.addEventListener('keydown', (e) => {
     const wt = state.worktrees.find((w) => w.path === path);
     const s = wt && liveSession(wt);
     if (s?.status === 'needs_input' && s.provider === 'codex') { document.querySelector('#tabs [data-tab="chat"]')?.click(); $('ask-card').scrollIntoView({ block: 'nearest' }); }
-    else if (s?.status === 'needs_input' && s.permission) { post('/api/keys', { target: s.sessionId, ops: [keysOf(s).allow] }).then((r) => { toast(r.ok ? `Permission accordée à ${wt.name}.` : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 800); }); }
+    else if (s?.status === 'needs_input' && s.permission) { (s.provider === 'codex' ? post('/api/keys', { target: s.sessionId, ops: [keysOf(s).allow] }) : post('/api/permission/answer', { target: s.sessionId, decision: 'allow' })).then((r) => { toast(r.ok ? `Permission accordée à ${wt.name}.` : r.data.error || 'Envoi impossible.', r.ok ? '' : 'error'); setTimeout(refresh, 800); }); }
     return;
   }
   if (/^[1-9]$/.test(e.key) && panelOpen) { document.querySelectorAll('#tabs button')[Number(e.key) - 1]?.click(); return; }

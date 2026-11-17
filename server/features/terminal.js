@@ -56,6 +56,13 @@ async function sendOps(target, ops) {
   return { ok: true };
 }
 
+// Named keys in a single tmux call, so that nothing can land between them.
+async function sendNamedKeys(target, names) {
+  if (!names.length || !names.every((n) => NAMED_KEYS.has(n))) return { error: 'Touche invalide.' };
+  const result = await tmux(['send-keys', '-t', target, ...names]);
+  return result.ok ? { ok: true } : { error: result.stderr || 'Envoi au terminal impossible.' };
+}
+
 async function screen(target) {
   const result = await tmux(['capture-pane', '-p', '-e', '-t', target, '-S', `-${SCREEN_HISTORY_LINES}`]);
   return result.ok ? result.stdout.replace(/\s+$/, '') : null;
@@ -63,4 +70,4 @@ async function screen(target) {
 
 const screenHash = (text) => crypto.createHash('md5').update(text).digest('hex');
 
-module.exports = { resolveTarget, pasteText, submitText, sendOps, screen, screenHash };
+module.exports = { resolveTarget, pasteText, submitText, sendOps, sendNamedKeys, screen, screenHash };
