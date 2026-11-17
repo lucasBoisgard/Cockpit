@@ -47,7 +47,7 @@ Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`
 | `orchestrate launch --name "…" --kind implement --phase Implémenter --model sonnet --effort high --skill <s> <<'EOF' … EOF` | Launches an agent with that brief (stdin, `--brief` or `--brief-file`). `--phase` takes the phase name, or its number counted from 1 |
 | `orchestrate read w3` | The agent's full last report and the files it changed |
 | `orchestrate send w3 "…"` | Writes to an agent (queued until its turn ends if it is working) |
-| `orchestrate stop w3` | Stops an agent (its conversation is kept). Stop agents once their work is integrated and you no longer need to talk to them |
+| `orchestrate stop w3` | Closes an agent's session (its conversation is kept, `resume` brings it back). Keep it open while its work may still come back (review, verification, challenge, fixes to make): close it once the work is validated by every agent that had to check it and no further round trip is expected, without waiting for the end of the job. A closed agent leaves the graph. The master can close any agent, a sub-orchestrator only the agents below it. The report of an agent whose parent is closed goes to the next open ancestor |
 | `orchestrate new "<goal>"` | Closes the delivered job and starts a blank board for the same session (see "A new job"). Refused while an agent is still working |
 | `orchestrate resume w3 "…"` | Restarts a stopped agent with a message |
 
@@ -85,8 +85,7 @@ Once a job is delivered and reported, and the user asks for a new one, run `orch
 you an empty board: no plan, no agent, ids from `w1` again, same settings. If it refuses because an
 agent is still working, wait for it or stop it, then retry.
 
-Close delivered topics yourself too: stop the agents whose work is integrated, remove merged worktrees
-(`git worktree remove`) and delete their merged branches.
+Close delivered topics yourself: stop each agent once its work is validated by all the agents that had to check it and no round trip remains (an agent whose work is still under review or fixes stays open; finished agents left open clutter the graph and bury the new ones), remove merged worktrees (`git worktree remove`) and delete their merged branches.
 
 ## Choosing each agent's settings
 

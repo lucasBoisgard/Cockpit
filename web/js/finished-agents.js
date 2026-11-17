@@ -1,28 +1,32 @@
-// Agents the master has stopped have finished their work: the board and the orchestration tree hide them
-// unless the user asks to see them. An agent that died on its own (lost after its last stop) has not finished and stays visible,
+// Agents their orchestrator has stopped have finished their work: the board hides them unless the user asks to see them,
+// and the orchestration tree never draws them (an agent that merely ended its turn, "done", stays in the tree and
+// can be hidden with `hiddenAgentIds(agents, { done: true })`). An agent that died on its own (lost after its last stop) has not finished and stays visible,
 // and so does a stopped parent while one of its sub-agents is not hidden.
 // Decisions without DOM, also required by the tests.
 const finishedUi = { show: typeof localGet === 'function' && localGet('showFinished') === '1' };
 
 const isFinishedAgent = (a) => a.status === 'stopped' && !!a.stoppedAt && !(a.lostAt > a.stoppedAt);
 
-// The orchestration graph also hides an agent that ended its turn, once it has stayed done for a short while (an agent
-// between two turns of the same job must not blink in and out). The board keeps showing it: its report may be unread.
-const DONE_DWELL_MS = 30 * 1000;
-const isDoneAgent = (a, now) => a.status === 'done' && !!a.doneAt && now - a.doneAt >= DONE_DWELL_MS;
+const isDoneAgent = (a) => a.status === 'done';
 
-function hiddenAgentIds(agents, { done = false, now = Date.now() } = {}) {
+function hiddenAgentIds(agents, { done = false } = {}) {
   const kids = new Map();
   for (const a of agents) kids.set(a.parentId, [...(kids.get(a.parentId) || []), a]);
   const memo = new Map();
   const hidden = (a) => {
     if (!memo.has(a.id)) {
       memo.set(a.id, false);
-      memo.set(a.id, (isFinishedAgent(a) || (done && isDoneAgent(a, now))) && (kids.get(a.id) || []).every(hidden));
+      memo.set(a.id, (isFinishedAgent(a) || (done && isDoneAgent(a))) && (kids.get(a.id) || []).every(hidden));
     }
     return memo.get(a.id);
   };
   return new Set(agents.filter(hidden).map((a) => a.id));
+}
+
+// The "done" agents the tree hides on request: finished agents only (a closed parent kept out by its children is not one).
+function doneHiddenAgentIds(agents) {
+  const byId = new Map(agents.map((a) => [a.id, a]));
+  return new Set([...hiddenAgentIds(agents, { done: true })].filter((id) => isDoneAgent(byId.get(id))));
 }
 
 // A worktree is only hidden when every agent working in it is hidden; the master's own worktree never is.
@@ -98,4 +102,4 @@ if (typeof document !== 'undefined') {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { isFinishedAgent, isDoneAgent, DONE_DWELL_MS, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree };
+if (typeof module !== 'undefined') module.exports = { isFinishedAgent, isDoneAgent, doneHiddenAgentIds, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree };
