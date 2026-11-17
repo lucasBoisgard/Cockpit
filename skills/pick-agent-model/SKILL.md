@@ -31,15 +31,24 @@ Ties: `delicate` beats `implement`/`refactor`, `debug` beats `implement` when th
 
 Run `orchestrate matrix <category>`. Picks are ranked by the reference score blended with observed ratings, and unavailable providers come last. Run `orchestrate models` if you are not sure what is available.
 
-**By default, take the first available pick.** Move away from it only for one of these reasons, and name the reason:
+**Provider parity comes first.** Claude and GPT get an even share of the agents (target 50/50 over seven days, and each account's usage limits kept in balance). Relevance has to be judged on both families, the matrix only learns from agents it sees, and one account must not carry the whole load. Run `orchestrate balance`, then:
+
+1. Take the best available Claude pick and the best available GPT pick of the category.
+2. If their ranks are within 1 point, or the GPT pick is flagged `à éprouver` (fewer than 3 ratings), the provider is the one `orchestrate balance` names: it already alternates when the shares are even.
+3. If one side is more than 1 point better with enough ratings behind it, take the better pick and say why.
+4. A fan-out (several agents on one phase or one question) is split across both providers, about half each, with the same brief and each provider's own pick for the category.
+5. GPT is not only a second opinion: it implements, explores, tests, debugs and reviews like Claude does.
+6. Stay on Claude only for a named constraint (see Constraint below), never out of habit.
+
+Second opinion, Diversity and Arène mode below override parity; Exploration only changes the pick inside the provider parity chose. Beyond parity, take the first available pick of the chosen provider. Move away from it only for one of these reasons, and name the reason:
 
 - **Second opinion**: a `review` of a Claude agent's work, or a competing variant, goes to another family (GPT via `--provider codex`) if it is available. Otherwise use another Claude model than the implementer's.
 - **Budget or speed**: the task is small, mechanical or repetitive, so a cheaper or faster pick within 0.5 of the top score is enough.
 - **Breadth**: a wide exploration is many small fast agents, one per question, area or source, not one big agent. Escalate to a stronger pick only the findings that need depth. Choose the category per kind of exploration (explore, summarize, architecture) and take the matrix's cheap, fast pick: typically `haiku·low` or the cheap GPT pick for listing, `sonnet` for reasoning about a flow.
-- **Diversity**: the same ambiguous or critical question goes to 2+ models or providers (`--provider codex` included) and a cross-check agent (or the master, from the reports) compares the answers. This is for questions and explorations, not for writers or diff reviews (see Review passes).
+- **Diversity**: the same ambiguous or critical question goes to 2+ models, at least one of each provider (`--provider codex` included) and a cross-check agent (or the master, from the reports) compares the answers. This is for questions and explorations, not for writers or diff reviews (see Review passes).
 - **Context size**: the material does not fit the top pick's context, so take the best pick that fits.
 - **Retry**: the same pick already failed on this task, so go up one step (more effort first, then a stronger model).
-- **Constraint**: GPT agents cannot launch sub-agents or load Claude skills. If the brief needs either, stay on Claude.
+- **Constraint**: GPT agents cannot launch sub-agents or load Claude skills. If the brief needs sub-agents, stay on Claude. A skill is not a reason on its own: paste the skill's sheet in the brief of a GPT agent (the role skills say how).
 - **Few ratings**: a pick backed by fewer than 3 ratings is still an estimate. Don't let one bad rating rule out an otherwise strong pick.
 - **Arène mode**: while `orchestrate calibration` says `Arène : active` for your orchestration, do not pick one model: the task goes to a `role-model-judge` competition (see the `orchestrate` skill). The rules below apply again once it is off.
 - **Exploration**: about one launch in five, take the best pick flagged `à éprouver` (fewer than 3 ratings, score 4 or more) instead of the first pick, so new models such as Fable get rated. Only when all of these hold: the task is not urgent, the work is reversible, and an oracle or a reviewer will check it. Never explore on a sensitive or irreversible change, a retry, or when the user is waiting on the result. Announce it as `(exploration)` and rate it like any other agent.

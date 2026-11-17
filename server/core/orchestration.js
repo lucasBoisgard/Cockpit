@@ -247,6 +247,7 @@ function masterSystemPrompt({ settings, root, restricted = settings.strictMaster
     ...(restricted ? ['Edit, Write, NotebookEdit and Agent are disabled for you by the cockpit; a refusal means you must delegate.']
       : strict ? ['Edit, Write, NotebookEdit and Agent are NOT disabled in this session (the cockpit could not apply it to a running session): only the rule holds, never use them. The cockpit disables them the next time this session is resumed.']
         : ['Edit, Write, NotebookEdit and Agent are not disabled for you, but the rule still holds: never use them, delegate.']),
+    'Use Claude and GPT evenly: they must get an equal share of the agents, for relevance and for the load on each account. Before choosing an agent\'s provider run `orchestrate balance` and follow the provider parity rule of the pick-agent-model skill; never default to Claude out of habit.',
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more. If that cap blocks a useful fan-out, tell the user and suggest raising it in the Réglages instead of serializing silently.`,

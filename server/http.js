@@ -30,6 +30,7 @@ const { listCommands } = require('./features/commands');
 const orchestration = require('./features/orchestration');
 const arenaBreaker = require('./features/arena-breaker');
 const { providersInfo } = require('./features/providers');
+const { balanceState } = require('./features/provider-balance');
 const mcp = require('./features/mcp');
 const { answerAsk } = require('./features/asks');
 const { sendMessage } = require('./features/routing');
@@ -285,6 +286,7 @@ const readRoutes = {
   },
   '/api/orch/skills': async (res) => json(res, 200, await orchestration.skillsForAgents()),
   '/api/providers': async (res) => json(res, 200, await providersInfo()),
+  '/api/balance': async (res) => json(res, 200, await balanceState()),
   '/api/matrix': async (res) => json(res, 200, await modelMatrix.getMatrix()),
   '/api/calibration': async (res) => json(res, 200, await modelMatrix.getCalibration()),
   '/api/orch/arena': async (res, q) => {

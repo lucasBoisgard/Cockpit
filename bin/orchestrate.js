@@ -16,6 +16,7 @@ const USAGE = `orchestrate <commande>
   plan <phase> <phase>…          définit les phases, dans l'ordre (numérotées à partir de 1)
   skills                         skills disponibles pour les agents
   models                         fournisseurs (Claude, GPT via Codex), leurs modèles et leurs niveaux d'effort
+  balance                        équilibre Claude/GPT : part de chaque fournisseur sur 7 jours, remplissage de leurs limites, et celui à privilégier pour le prochain agent
   matrix [catégorie]             matrice de pertinence : quel fournisseur, modèle et effort pour quel type de tâche,
                                  avec les notes observées sur les agents précédents
   rate <id> <1-5> [note] [--kind <catégorie>]
@@ -46,7 +47,10 @@ function fail(message) {
   process.exit(1);
 }
 
-async function call(route, body) {
+// The best available pick of each provider, so that the overview never shows one family only.
+const bestPerProvider = (picks) => ['claude', 'codex'].map((id) => picks.find((p) => p.available && p.provider === id)).filter(Boolean);
+
+async function call(route, body, { soft = false } = {}) {
   const url = `http://127.0.0.1:${PORT}${route}`;
   const headers = { 'X-Cockpit-Token': token() };
   let res;
@@ -55,10 +59,14 @@ async function call(route, body) {
       ? await fetch(url, { method: 'POST', headers: { ...headers, 'X-Cockpit': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ caller: CALLER, ...body }) })
       : await fetch(url, { headers });
   } catch {
+    if (soft) return null;
     fail(`Le cockpit ne répond pas sur le port ${PORT}. Lance ~/.claude/cockpit/ensure.sh puis réessaie.`);
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) fail(data.error || `Erreur ${res.status}`);
+  if (!res.ok || data.error) {
+    if (soft) return null;
+    fail(data.error || `Erreur ${res.status}`);
+  }
   return data;
 }
 
@@ -148,8 +156,13 @@ async function main() {
       const p = await call('/api/providers');
       return console.log(Object.entries(p).map(([id, v]) => `${id} — ${v.label}${v.available ? '' : v.installed === false ? ' (non installé)' : ' (non connecté : indisponible)'}\n  modèles : ${v.models.map((m) => m.id).join(', ')}\n  efforts : ${v.efforts.join(', ')}`).join('\n'));
     }
+    case 'balance': {
+      const b = await call('/api/balance');
+      return console.log(b.text);
+    }
     case 'matrix': {
       const m = await call('/api/matrix');
+      const balance = await call('/api/balance', undefined, { soft: true });
       const stars = (n) => (n == null ? 'hors matrice' : `${n}/5`);
       const pick = (p, i) => {
         const obs = `${p.observed ? ` · observé ${p.observed.avg}/5 sur ${p.observed.n}` : ''}${(p.observed?.n || 0) < 3 ? ' · à éprouver' : ''}`;
@@ -162,7 +175,7 @@ async function main() {
         return console.log(`${c.label} [${c.id}]${c.source === 'local' ? ' · réglage local' : ''}\n${c.description || ''}\n${c.picks.map(pick).join('\n')}`);
       }
       const head = `Matrice de pertinence (${m.available.codex ? 'Claude et GPT disponibles' : 'GPT indisponible : Codex non connecté'})\n${m.note}`;
-      return console.log(`${head}\n\n${m.categories.map((c) => `${c.id.padEnd(14)} ${c.label} → ${c.picks.filter((p) => p.available).slice(0, 2).map((p) => `${p.provider === 'codex' ? 'GPT ' : ''}${p.model}·${p.effort || '-'} (${p.rank})`).join(', ') || '—'}`).join('\n')}\n\nDétail : orchestrate matrix <catégorie>`);
+      return console.log(`${head}${balance?.text ? `\n${balance.text}` : ''}\n\n${m.categories.map((c) => `${c.id.padEnd(14)} ${c.label} → ${bestPerProvider(c.picks).map((p) => `${p.provider === 'codex' ? 'GPT ' : ''}${p.model}·${p.effort || '-'} (${p.rank})`).join(', ') || '—'}`).join('\n')}\n\nDétail : orchestrate matrix <catégorie>`);
     }
     case 'rate': {
       await call('/api/orch/rate', { id: rest[0], score: Number(rest[1]), note: rest.slice(2).join(' '), kind: flags.kind });

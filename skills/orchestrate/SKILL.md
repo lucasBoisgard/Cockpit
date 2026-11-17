@@ -42,6 +42,7 @@ Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`
 | `orchestrate plan "Explorer" "Implémenter" "Vérifier" "Livrer"` | Sets the phases: named workstreams, not gates. Their order is only the display order and several can be active at once (re-run to change them) |
 | `orchestrate skills` | Skills an agent can load, with their description |
 | `orchestrate models` | Providers (Claude, GPT through Codex), whether they are available, their models and efforts |
+| `orchestrate balance` | Claude/GPT balance: each provider's share of the agents over seven days, how full their usage windows are, and which one to favor for the next agent. Read it before choosing a provider |
 | `orchestrate matrix [category]` | The relevance matrix: which provider, model and effort for which kind of task, with the ratings observed on earlier agents |
 | `orchestrate rate w3 4 "…"` | Rates an agent's work (1 to 5) once you have checked it; it feeds the matrix |
 | `orchestrate launch --name "…" --kind implement --phase Implémenter --model sonnet --effort high --skill <s> <<'EOF' … EOF` | Launches an agent with that brief (stdin, `--brief` or `--brief-file`). `--phase` takes the phase name, or its number counted from 1 |
@@ -101,21 +102,24 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 
 1. **Classify the task** into a matrix category (`orchestrate matrix` lists them: explore, summarize,
    implement, frontend, tests, refactor, debug, delicate, architecture, review, large-context).
-2. **Read its row** with `orchestrate matrix <category>`. Picks are ranked by their reference score blended
-   with the ratings of earlier agents; unavailable providers come last. Take the first available pick
-   unless the task gives a reason not to (budget, a second opinion from another family, context size),
-   and say that reason. `role-dispatcher` applies `pick-agent-model` when it proposes models; you still check each proposed pick against `orchestrate matrix <kind>` before launching, and rate every agent.
-   **Effort**: calibrate it with section 2b of the `pick-agent-model` skill (default `low`/`medium`, `high` only with a stated reason, a time budget per phase). Use the matrix's first pick as a starting point and check its effort against that section.
+2. **Read its row** with `orchestrate matrix <category>` and the balance with `orchestrate balance`. Picks are
+   ranked by their reference score blended with the ratings of earlier agents; unavailable providers come
+   last. Choose the provider by the parity rule of `pick-agent-model` §2 (Claude and GPT get an even share),
+   then take that provider's first available pick unless the task gives a reason not to (budget, a second
+   opinion from another family, context size), and say that reason. `role-dispatcher` applies `pick-agent-model` when it proposes models; you still check each proposed pick against `orchestrate matrix <kind>` before launching, and rate every agent.
+   **Effort**: calibrate it with section 2b of the `pick-agent-model` skill (default `low`/`medium`, `high` only with a stated reason, a time budget per phase). Use the chosen provider's first pick as a starting point and check its effort against that section.
 3. **Launch with `--kind <category>`**, so the rating you give later lands in the right row.
 4. **Rate it** with `orchestrate rate <id> <1-5> "<one sentence>"` once you have checked its work: 5 =
    nothing to fix, 3 = usable after corrections, 1 = had to redo it. Say what went well or wrong, not the
    task itself. Rate every agent you integrate or discard; ratings are how the matrix learns.
 
-- **Provider**: Claude by default. `--provider codex --model <gpt model>` runs the agent on GPT through
-  Codex (run `orchestrate models` first: GPT is only there when Codex is installed and logged in). Use
-  GPT for an independent second opinion (a review of a Claude agent's work, a competing variant of a
-  design), or when the user asks for it. A GPT agent works in a sandbox: it cannot reach the cockpit,
-  so it never launches sub-agents, and Claude skills are not available to it.
+- **Provider**: Claude and GPT get an even share, decided by the parity rule of `pick-agent-model` §2 with
+  `orchestrate balance`. `--provider codex --model <gpt model>` runs the agent on GPT through Codex (run
+  `orchestrate models` first: GPT is only there when Codex is installed and logged in), for example
+  `--provider codex --model gpt-6.1-sol --effort medium`. GPT works as well as Claude for implementing,
+  exploring, testing, debugging and reviewing, and is also the independent second opinion on Claude's work.
+  A GPT agent works in a sandbox: it cannot reach the cockpit, so it never launches sub-agents, and Claude
+  skills are not available to it: paste the skill's sheet in its brief.
 - **Skills**: run `orchestrate skills` once, then give an agent the skills that match its task
   (`--skill` may be repeated). The agent loads them before starting.
 - **Permission mode**: agents default to the mode set by the user for this master (usually
