@@ -29,6 +29,12 @@
     "number": 0,
     "view": 1
   },
+  "reviewClaim": {
+    "org": "",
+    "number": 0,
+    "inReview": "In Review",
+    "label": ""
+  },
   "arena": {
     "maxUsagePercent": 75
   },

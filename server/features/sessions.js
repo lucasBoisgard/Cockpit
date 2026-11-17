@@ -5,6 +5,7 @@ const { REPO, CONFIG, CLAUDE_BIN, REVIEWS_DIR, TMUX_SIZE, TMUX_PATH } = require(
 const { run, git, tmux, sleep } = require('../io/exec');
 const { claudeLockAlive } = require('../io/proc');
 const { loadStore, saveStore, readSession, writeSessionOverride, sessionsIn } = require('../io/store');
+const { claimReview } = require('./review-claim');
 const { paneOf, validName, validPrRef, tmuxSessionName, reviewSystemPrompt, codexReviewPrompt, reviewPrompt } = require('../core/sessions');
 const { usageWorktree } = require('../core/usage');
 const { invalidateSnapshot } = require('../cache');
@@ -88,7 +89,8 @@ async function startSession({ worktree, prompt, kind, pr, parent, provider, mode
     if (kind === 'review' && !validPrRef(prRef)) return { error: 'PR invalide : un lien GitHub de pull request ou un numéro.' };
     if (kind === 'review' && mode === 'plan') return { error: 'La review GPT doit pouvoir écrire son rapport : choisis un mode autre que Plan.' };
     const found = (await listWorktrees()).find((wt) => worktreeName(wt.path) === name);
-    return startCodexSession({ name, existing: found, prompt, model, effort, mode, parent, pr: prRef });
+    const started = await startCodexSession({ name, existing: found, prompt, model, effort, mode, parent, pr: prRef });
+    return started.error || !prRef ? started : { ...started, ...(await claimReview(prRef)) };
   }
   const chosen = model || effort || mode ? providerCore.validateSettings('claude', { model, effort, mode }) : {};
   if (chosen.error) return chosen;
@@ -113,7 +115,7 @@ async function startSession({ worktree, prompt, kind, pr, parent, provider, mode
   const result = await launchClaude(session, existing ? existing.path : REPO, args);
   if (!result.ok) return { error: result.stderr.trim() };
   linkParent(name, parent);
-  return { session };
+  return review ? { session, ...(await claimReview(prRef)) } : { session };
 }
 
 async function resumeSession({ session: sessionId }) {

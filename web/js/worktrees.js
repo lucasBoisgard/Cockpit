@@ -94,6 +94,7 @@ $('new-form').addEventListener('submit', async (e) => {
     const result = await post('/api/start', { worktree: name, prompt: $('new-prompt').value, kind: newKind(), pr: $('new-pr').value, parent, ...chosen });
     if (!result.ok) { toast(`${name} : ${result.data.error || 'lancement impossible'}`, 'error'); break; }
     started.push(name);
+    if (result.data.warning) toast(result.data.warning, 'error');
   }
   $('new-submit').disabled = false;
   if (!started.length) return;
