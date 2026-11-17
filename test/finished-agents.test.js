@@ -103,3 +103,28 @@ test('only finished agents are counted as hideable: a closed parent kept out by 
   assert.deepStrictEqual([...doneHiddenAgentIds(agents)], ['w2']);
   assert.strictEqual(isDoneAgent(agent('w1', 'stopped')), false);
 });
+
+test('the Agents tab and the graph close exactly the same agents', () => {
+  const { closedAgentIds } = require('../server/core/agents');
+  const cases = [
+    [agent('w1', 'stopped'), agent('w2', 'done'), agent('w3', 'working'), agent('w4', 'needs')],
+    [agent('w1', 'stopped'), agent('w2', 'working', { parentId: 'w1' }), agent('w3', 'stopped', { parentId: 'w1' })],
+    [agent('w1', 'stopped'), agent('w2', 'stopped', { parentId: 'w1' }), agent('w3', 'stopped', { parentId: 'w2' })],
+    [agent('w1', 'stopped', { lostAt: 20 }), agent('w2', 'stopped', { stoppedAt: null })],
+    [agent('w2', 'stopped', { parentId: 'gone' })],
+    [agent('w1', 'stopped', { lostAt: 5, stoppedAt: 10 }), agent('w2', 'stopped', { lostAt: 10, stoppedAt: 10 })],
+    [agent('w1', 'stopped', { parentId: 'w1' }), agent('w2', 'stopped', { parentId: 'w3' }), agent('w3', 'stopped', { parentId: 'w2' })],
+  ];
+  for (const agents of cases) assert.deepStrictEqual([...closedAgentIds(agents)].sort(), [...hiddenAgentIds(agents)].sort());
+});
+
+test('the Agents tab lists only the open agents of a master and says how many, even when none is left', () => {
+  const { agentsOf } = require('../server/features/agents');
+  const launched = (agents) => ({ role: 'master', goal: 'g', phases: ['P'], agents: agents.map((a) => ({ ...a, session: null })) });
+  const some = agentsOf('no-such-session', Date.now(), launched([agent('w1', 'stopped'), agent('w2', 'working'), agent('w3', 'done')]));
+  assert.deepStrictEqual(some.tree.children.map((c) => c.id), ['orch:w2', 'orch:w3']);
+  assert.strictEqual(some.tree.orchestrated, 2);
+  assert.strictEqual(some.tree.role, 'master');
+  const none = agentsOf('no-such-session', Date.now(), launched([agent('w1', 'stopped')]));
+  assert.deepStrictEqual([none.tree.children.length, none.tree.orchestrated, none.tree.role], [0, 0, 'master']);
+});

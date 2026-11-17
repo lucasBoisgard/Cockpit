@@ -1,8 +1,7 @@
 const { readSession } = require('../io/store');
-const { sendOps } = require('./terminal');
+const { answerPermission } = require('./permission-answer');
 const { cycleSessionMode } = require('./agent-mode');
 const { switchTeamToAuto } = require('./orchestration');
-const { PROVIDERS } = require('../core/providers');
 
 // "Toujours autoriser": answers the permission prompt, then puts the session in auto mode so that it stops asking.
 // A member of an orchestration takes its whole team along (an agent is never looser than its orchestration);
@@ -11,7 +10,7 @@ const FINAL = ['applied', 'unchanged', 'unreachable', 'offline', 'failed'];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Built around injectable I/O so that the flow can be tested without tmux.
-function createAlwaysAllow({ readSession, sendOps, cycleSessionMode, switchTeamToAuto, allowKey, retryMs = 1000, giveUpMs = 10 * 60 * 1000 }) {
+function createAlwaysAllow({ readSession, pressAllow, cycleSessionMode, switchTeamToAuto, retryMs = 1000, giveUpMs = 10 * 60 * 1000 }) {
   const waiting = new Set();
   const asking = (session) => session?.status === 'needs_input' && !!session.permission;
   const gone = (session) => !session || session.status === 'ended';
@@ -60,13 +59,13 @@ function createAlwaysAllow({ readSession, sendOps, cycleSessionMode, switchTeamT
     if (!session) return { error: 'Session inconnue.' };
     if (session.provider === 'codex') return { error: 'Codex a son propre « Toujours autoriser ».' };
     if (!asking(session)) return { error: 'Aucune permission en attente pour cette session.' };
-    const sent = await sendOps(target, [allowKey]);
+    const sent = await pressAllow({ target, sessionId: id });
     if (sent.error) return sent;
     switchToAuto(id).then(done, () => done('error'));
     return { ok: true };
   };
 }
 
-const alwaysAllow = createAlwaysAllow({ readSession, sendOps, cycleSessionMode, switchTeamToAuto, allowKey: PROVIDERS.claude.keys.allow });
+const alwaysAllow = createAlwaysAllow({ readSession, pressAllow: ({ target, sessionId }) => answerPermission({ target, sessionId, decision: 'allow' }), cycleSessionMode, switchTeamToAuto });
 
 module.exports = { alwaysAllow, createAlwaysAllow };

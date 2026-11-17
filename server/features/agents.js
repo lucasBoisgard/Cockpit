@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readJson, readSession } = require('../io/store');
 const { readTail, subdirs } = require('../io/files');
-const { emptyActivity, applyText, emptyProgress, applyJournal, agentTree, countRunning, countActive, orchestrationNodes } = require('../core/agents');
+const { emptyActivity, applyText, emptyProgress, applyJournal, agentTree, countRunning, countActive, orchestrationNodes, closedAgentIds } = require('../core/agents');
 const { effectiveStatus } = require('../core/sessions');
 const { transcriptFor } = require('./chat');
 const { builtinCommandNames } = require('./commands');
@@ -106,9 +106,11 @@ function agentsOf(sessionId, now = Date.now(), launched = null) {
   const tree = sessionTree(session, now) || (launched && { id: 'main', kind: 'main', label: session?.task || 'Session', state: 'idle', acting: false, action: null, skills: [], children: [] });
   if (!tree) return null;
   if (launched) {
-    const live = Object.fromEntries(launched.agents.map((a) => [a.id, launchedInfo(a, now)]));
-    tree.children.push(...orchestrationNodes({ agents: launched.agents, phases: launched.phases, live }));
-    tree.orchestrated = launched.agents.length;
+    const closed = closedAgentIds(launched.agents);
+    const open = launched.agents.filter((a) => !closed.has(a.id));
+    const live = Object.fromEntries(open.map((a) => [a.id, launchedInfo(a, now)]));
+    tree.children.push(...orchestrationNodes({ agents: open, phases: launched.phases, live }));
+    tree.orchestrated = open.length;
     tree.role = launched.role;
     if (launched.goal) tree.label = launched.goal;
   }

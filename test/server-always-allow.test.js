@@ -7,10 +7,9 @@ function setup(overrides = {}) {
   const cycles = [];
   const deps = {
     readSession: (id) => (id === 'gone' ? null : { sessionId: id, provider: id === 'gpt' ? 'codex' : 'claude', ...(sent.length ? { status: 'working' } : { status: 'needs_input', permission: true }) }),
-    sendOps: async (target, ops) => { sent.push([target, ops]); return {}; },
+    pressAllow: async ({ target }) => { sent.push([target, 'allow']); return {}; },
     cycleSessionMode: async (id, mode) => { cycles.push([id, mode]); return 'applied'; },
     switchTeamToAuto: async () => false,
-    allowKey: { literal: '1' },
     retryMs: 1,
     ...overrides,
   };
@@ -31,7 +30,7 @@ test('a plain session is answered with allow, then walked to auto', async () => 
   let result;
   const done = new Promise((resolve) => { result = alwaysAllow({ target: 'pane1', sessionId: 's1', done: resolve }); });
   assert.deepStrictEqual(await result, { ok: true });
-  assert.deepStrictEqual(sent, [['pane1', [{ literal: '1' }]]]);
+  assert.deepStrictEqual(sent, [['pane1', 'allow']]);
   assert.strictEqual(await done, 'applied');
   assert.deepStrictEqual(cycles, [['s1', 'auto']]);
 });
@@ -51,7 +50,7 @@ test('a session that is still working is retried until its prompt is idle', asyn
 });
 
 test('a failed key press reports the error and never switches the mode', async () => {
-  const { alwaysAllow, cycles } = setup({ sendOps: async () => ({ error: 'offline' }) });
+  const { alwaysAllow, cycles } = setup({ pressAllow: async () => ({ error: 'offline' }) });
   assert.deepStrictEqual(await alwaysAllow({ target: 't', sessionId: 's1' }), { error: 'offline' });
   assert.deepStrictEqual(cycles, []);
 });

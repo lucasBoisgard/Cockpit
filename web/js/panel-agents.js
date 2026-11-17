@@ -61,10 +61,10 @@ async function loadAgents() {
   const data = await res.json().catch(() => null);
   if (!data) return;
   const { tree, running } = data;
-  const noun = tree.orchestrated ? 'agent' : 'sous-agent';
+  const noun = tree.role ? 'agent' : 'sous-agent';
   const summary = running ? `${running} ${noun}${running > 1 ? 's' : ''} en cours` : `Aucun ${noun} en cours`;
   const launcher = tree.role === 'master' ? 'le maître' : 'cet agent';
-  const launched = tree.orchestrated ? ` · ${tree.orchestrated} lancé${tree.orchestrated > 1 ? 's' : ''} par ${launcher}, visibles tout le job` : '';
+  const launched = tree.role ? ` · ${tree.orchestrated} ouvert${tree.orchestrated > 1 ? 's' : ''} par ${launcher}` : '';
   setHtml($('agents-tree'), `<div class="agents-summary">${summary}${launched} · les roues tournent pendant une action, les skills du tour en cours brillent, les sous-agents terminés restent 5 min</div><ul class="agents-tree">${agentNodeHtml(tree)}</ul>`);
   $('agents-tree').querySelectorAll('.agents-gear, .agents-skill').forEach((el) => el.getAnimations().forEach((a) => { a.startTime = 0; }));
 }
