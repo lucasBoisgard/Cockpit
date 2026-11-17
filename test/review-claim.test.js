@@ -46,7 +46,6 @@ function fakeGh({ labels = [{ name: 'team' }], items = [], data, prView, user = 
     if (args[0] === 'pr') return prView || ok({ id: 'PR1', labels });
     const query = args.find((a) => /^query=/.test(a));
     if (/query\(\$org/.test(query)) return ok(data !== undefined ? data : { data: { organization: { projectV2: { id: 'P1', fields: { nodes: FIELDS } } }, node: { projectItems: { nodes: items } } } });
-    if (/addProjectV2ItemById/.test(query)) return ok({ data: { addProjectV2ItemById: { item: { id: 'I1' } } } });
     if (/updateProjectV2ItemFieldValue/.test(query)) { written.owner = 'alex'; written.status = 'In Review'; return ok({ data: {} }); }
     return ok({ data: { node: { owner: { name: written.owner }, status: { name: written.status } } } });
   };
@@ -65,15 +64,18 @@ test('a pull request of another team is left alone and never touches the board',
   assert.ok(!gh.calls.some((c) => /graphql/.test(c)));
 });
 
-test('a team pull request missing from the board is added, then claimed and verified', async () => {
+test('a team pull request missing from the board is left alone: no write, no warning', async () => {
   const gh = fakeGh();
   assert.deepStrictEqual(await createClaimReview({ settings: SETTINGS, run: gh.run })('#12'), {});
-  assert.ok(gh.calls.some((c) => /addProjectV2ItemById/.test(c)));
+  assert.ok(gh.calls.some((c) => /query\(\$org/.test(c)));
+  assert.ok(!gh.calls.some((c) => /mutation/.test(c)));
+  assert.deepStrictEqual(await createClaimReview({ settings: SETTINGS, run: fakeGh({ user: 'carol' }).run })('12'), {});
 });
 
-test('a pull request already on the board is not added twice', async () => {
+test('a pull request already on the board is claimed and verified, never added', async () => {
   const gh = fakeGh({ items: [{ id: 'I9', project: { id: 'P1' } }] });
   assert.deepStrictEqual(await createClaimReview({ settings: SETTINGS, run: gh.run })('12'), {});
+  assert.ok(gh.calls.some((c) => /updateProjectV2ItemFieldValue/.test(c)));
   assert.ok(!gh.calls.some((c) => /addProjectV2ItemById/.test(c)));
 });
 
@@ -81,6 +83,6 @@ test('failures come back as a warning and never throw', async () => {
   const claim = (opts) => createClaimReview({ settings: SETTINGS, run: fakeGh(opts).run })('12');
   assert.match((await claim({ prView: { ok: true, stdout: 'not json', stderr: '' } })).warning, /Projet de review non mis à jour/);
   assert.match((await claim({ data: { data: null } })).warning, /vide/);
-  assert.match((await claim({ user: 'carol' })).warning, /carol/);
+  assert.match((await claim({ user: 'carol', items: [{ id: 'I9', project: { id: 'P1' } }] })).warning, /carol/);
   assert.deepStrictEqual(await createClaimReview({ settings: null, run: fakeGh().run })('12'), {});
 });

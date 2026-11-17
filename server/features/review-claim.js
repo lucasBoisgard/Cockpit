@@ -14,7 +14,6 @@ const READ = `query($org: String!, $number: Int!, $pr: ID!) {
   }
   node(id: $pr) { ... on PullRequest { projectItems(first: 50) { nodes { id project { id } } } } }
 }`;
-const ADD = 'mutation($project: ID!, $pr: ID!) { addProjectV2ItemById(input: { projectId: $project, contentId: $pr }) { item { id } } }';
 const SET = `mutation($project: ID!, $item: ID!, $owner: ID!, $ownerOption: String!, $status: ID!, $statusOption: String!) {
   owner: updateProjectV2ItemFieldValue(input: { projectId: $project, itemId: $item, fieldId: $owner, value: { singleSelectOptionId: $ownerOption } }) { projectV2Item { id } }
   status: updateProjectV2ItemFieldValue(input: { projectId: $project, itemId: $item, fieldId: $status, value: { singleSelectOptionId: $statusOption } }) { projectV2Item { id } }
@@ -66,15 +65,11 @@ function createClaimReview({ settings, run, available = true }) {
     if (read.error) return fail(read.error);
     const project = read.data.organization?.projectV2;
     if (!project) return fail(`projet ${settings.org}/${settings.number} introuvable`);
+    // The cockpit never adds a PR to the board: one that is not on it is left alone, silently.
+    const itemId = read.data.node?.projectItems?.nodes?.find((i) => i.project?.id === project.id)?.id;
+    if (!itemId) return {};
     const plan = planClaim(project.fields?.nodes, user, settings);
     if (plan.error) return fail(plan.error);
-    let itemId = read.data.node?.projectItems?.nodes?.find((i) => i.project?.id === project.id)?.id;
-    if (!itemId) {
-      const added = await graphql(ADD, { project: project.id, pr: prId });
-      if (added.error) return fail(added.error);
-      itemId = added.data.addProjectV2ItemById?.item?.id;
-      if (!itemId) return fail('ajout de la PR au projet impossible');
-    }
     const set = await graphql(SET, { project: project.id, item: itemId, owner: plan.ownerFieldId, ownerOption: plan.ownerOptionId, status: plan.statusFieldId, statusOption: plan.statusOptionId });
     if (set.error) return fail(set.error);
     const check = await graphql(CHECK, { item: itemId, ownerField: settings.ownerField, statusField: settings.statusField });
