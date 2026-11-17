@@ -35,6 +35,8 @@ Run `orchestrate matrix <category>`. Picks are ranked by the reference score ble
 
 - **Second opinion**: a `review` of a Claude agent's work, or a competing variant, goes to another family (GPT via `--provider codex`) if it is available. Otherwise use another Claude model than the implementer's.
 - **Budget or speed**: the task is small, mechanical or repetitive, so a cheaper or faster pick within 0.5 of the top score is enough.
+- **Breadth**: a wide exploration is many small fast agents, one per question, area or source, not one big agent. Escalate to a stronger pick only the findings that need depth. Choose the category per kind of exploration (explore, summarize, architecture) and take the matrix's cheap, fast pick: typically `haiku·low` or the cheap GPT pick for listing, `sonnet` for reasoning about a flow.
+- **Diversity**: the same ambiguous or critical question goes to 2+ models or providers (`--provider codex` included) and a cross-check agent (or the master, from the reports) compares the answers. This is for questions and explorations, not for writers or diff reviews (see Review passes).
 - **Context size**: the material does not fit the top pick's context, so take the best pick that fits.
 - **Retry**: the same pick already failed on this task, so go up one step (more effort first, then a stronger model).
 - **Constraint**: GPT agents cannot launch sub-agents or load Claude skills. If the brief needs either, stay on Claude.

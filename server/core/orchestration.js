@@ -9,10 +9,10 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const AGENT_MODES = ['default', 'acceptEdits', 'auto', 'plan'];
 const AUTONOMY = {
   blocking: 'Only ask the user when you are truly blocked: a decision you cannot make from the goal, the code or the agents\' reports, or an action that cannot be undone (pushing, opening a pull request, touching shared data).',
-  milestones: 'Ask the user to validate the plan before launching the first agents, then at the end of each phase before starting the next one. Between those points, decide alone.',
+  milestones: 'Ask the user to validate the plan before launching the first agents, then at each milestone (a phase that lands, the end). Independent phases keep running between those points: decide alone.',
   decisions: 'Ask the user before every meaningful decision: the plan, each agent you launch (task, model, effort), and how to resolve each blocked agent.',
 };
-const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 6, agentMode: 'auto', maxDepth: 2, arena: false, strictMaster: true };
+const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 10, agentMode: 'auto', maxDepth: 2, arena: false, strictMaster: true };
 const MASTER_DISALLOWED_TOOLS = ['Edit', 'Write', 'NotebookEdit', 'Agent'];
 const MAX_AGENTS_LIMIT = 20;
 const MAX_DEPTH_LIMIT = 4;
@@ -126,7 +126,7 @@ function launchQuotaRefusal(orch, statuses) {
   if (orch.paused) return 'Le maître est en pause : aucun nouvel agent tant que l\'utilisateur ne le relance pas.';
   if (orch.endedAt) return 'Cette orchestration est terminée.';
   const active = orch.agents.filter((a) => isActive(statuses[a.id])).length;
-  if (active >= orch.settings.maxAgents) return `Déjà ${active} agents actifs sur ${orch.settings.maxAgents} autorisés : attends qu'un agent finisse ou arrête-en un.`;
+  if (active >= orch.settings.maxAgents) return `Déjà ${active} agents actifs sur ${orch.settings.maxAgents} autorisés : attends qu'un agent finisse, arrête-en un ou demande à l'utilisateur d'augmenter la limite dans les Réglages.`;
   return null;
 }
 
@@ -137,11 +137,30 @@ function canLaunch(orch, statuses, parentId) {
   return null;
 }
 
-function currentPhase(orch, statuses) {
+function activePhases(orch, statuses) {
   const open = orch.agents.filter((a) => !FINISHED.includes(statuses[a.id] || 'done')).map((a) => a.phase);
-  if (open.length) return Math.min(...open);
+  return [...new Set(open)].sort((a, b) => a - b);
+}
+
+function currentPhase(orch, statuses) {
+  const open = activePhases(orch, statuses);
+  if (open.length) return open[0];
   if (orch.agents.length) return Math.max(...orch.agents.map((a) => a.phase));
   return 0;
+}
+
+function shownPhases({ phases = [], phase = 0, activePhases: active }) {
+  if (!phases.length) return [];
+  const last = phases.length - 1;
+  const raw = Array.isArray(active) && active.length ? active : [phase];
+  return [...new Set(raw.map((i) => Math.max(0, Math.min(Number.isInteger(i) ? i : 0, last))))].sort((a, b) => a - b);
+}
+
+function phaseSummary(v) {
+  const shown = shownPhases(v);
+  if (!shown.length) return 'pas de plan';
+  if (shown.length > 1) return `phases ${shown.map((i) => i + 1).join(' · ')} en parallèle`;
+  return `phase ${shown[0] + 1}/${v.phases.length} « ${v.phases[shown[0]]} »`;
 }
 
 // What the user sees for the master as a whole.
@@ -230,10 +249,11 @@ function masterSystemPrompt({ settings, root, restricted = settings.strictMaster
         : ['Edit, Write, NotebookEdit and Agent are not disabled for you, but the rule still holds: never use them, delegate.']),
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
-    `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more.`,
+    `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more. If that cap blocks a useful fan-out, tell the user and suggest raising it in the Réglages instead of serializing silently.`,
     `The agent tree may go ${maxDepth(settings)} level${maxDepth(settings) > 1 ? 's' : ''} deep below you; the cockpit refuses a launch beyond that.`,
     ...(settings.arena ? ['Arena mode is ON: run every task that needs a model as a competition between several models in parallel, have a judge agent compare and rate them (orchestrate rate / rescore), and follow orchestrate calibration until every relevant combination has enough ratings. Slower and costlier on purpose.'] : []),
     'Choose each agent\'s provider, model and effort from the relevance matrix (orchestrate matrix), launch it with --kind, and rate its work once checked (orchestrate rate).',
+    'Plan the work as a graph of workstreams, not a straight line: several phases may run at the same time, and a later result may send work back to an earlier phase (bounded loops). Start verification as soon as a piece of work lands, without waiting for the whole phase. Fan out one agent per independent question, area or source, and never fear sending too many: small fast models first for breadth, and several models or providers on an ambiguous or critical question, with a cross-check of their answers.',
     'After launching agents, end your turn: the cockpit writes to you when an agent finishes its turn. Never wait in a sleep or polling loop.',
     'Answer the user in French.',
   ].join('\n');
@@ -264,7 +284,7 @@ function agentSystemPrompt({ agent, orch = { settings: DEFAULT_SETTINGS, agents:
     agent.provider === 'codex'
       ? 'You cannot reach the cockpit from your sandbox: never try to launch sub-agents.'
       : canLaunchSubAgents(orch, agent)
-        ? `If your brief explicitly allows it, you may launch sub-agents with ${cliCommand(root)} (see ${root}/skills/orchestrate/SKILL.md).`
+        ? `If your brief explicitly allows it, you may launch sub-agents with ${cliCommand(root)} (see ${root}/skills/orchestrate/SKILL.md); then fan out one sub-agent per independent question or area instead of one after the other.`
         : 'You are at the maximum depth of the agent tree: you cannot launch sub-agents, the cockpit refuses it. Do the work yourself.',
   ].join('\n');
 }
@@ -344,6 +364,6 @@ module.exports = {
   agentDepth, canLaunchSubAgents, autonomyNotice, noticeRoute,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
   isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
-  currentPhase, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, stopRefusal, resumeText, cliCommand,
+  currentPhase, activePhases, shownPhases, phaseSummary, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, stopRefusal, resumeText, cliCommand,
   masterSystemPrompt, masterDisallowedTools, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, nextJobNumber, agentTag, jobHistory,
 };

@@ -31,7 +31,7 @@ Contract of the role. Shared rules (report, statuses, snapshots, grants, bounds,
 - Pick the topology named in the brief. None fits: `BLOQUÉ` with the topology you propose.
 - Leaves: use the role skill when it exists (`role-challenger`, `pr-reviewer`, `pr-ci-keeper`, `role-framer`). A role without a skill gets its full sheet pasted in its brief (generic leaf contract in `agent-protocol`).
 - Every launch: choose model and effort with `pick-agent-model`, state the reason in one line, launch with `--kind`, rate the agent after you checked its work.
-- Research is one agent (effort per `pick-agent-model` §2b; never two low searchers on the same diff). The challenger is another family at `medium`.
+- One research question is one agent, a wide research is one agent per question, and an ambiguous or critical question may get 2+ models (see `pick-agent-model` Diversity) (effort per `pick-agent-model` §2b; never two low reviewers on the same diff). The challenger is another family at `medium`.
 - Independent leaves start in parallel (context gathering while you freeze the snapshot); dependent ones chain without waiting for the master.
 - Resume a finished leaf instead of relaunching one: it keeps its context and skips a startup.
 

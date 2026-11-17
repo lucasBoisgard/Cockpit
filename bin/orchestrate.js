@@ -3,6 +3,7 @@
 // It identifies the calling session with CLAUDE_CODE_SESSION_ID, set by Claude Code in every Bash call.
 const fs = require('node:fs');
 const path = require('node:path');
+const core = require('../server/core/orchestration');
 
 const ROOT = path.resolve(__dirname, '..');
 const PORT = process.env.COCKPIT_PORT || '8052';
@@ -108,7 +109,7 @@ function printCalibration(c) {
 }
 
 function printStatus(v, calibration) {
-  const phase = v.phases.length ? `phase ${v.phase + 1}/${v.phases.length} « ${v.phases[v.phase] || '?'} »` : 'pas de plan';
+  const phase = core.phaseSummary(v);
   const phaseName = (i) => (v.phases[i] ? `« ${v.phases[i]} »` : `${i + 1}`);
   const lines = [`Maître ${v.worktree} · ${phase} · ${v.counts.working + v.counts.starting} actifs / ${v.settings.maxAgents} max · autonomie ${v.settings.autonomy}${v.paused ? ' · EN PAUSE' : ''}`];
   if (v.settings.arena && calibration) lines.push(calibrationLine(calibration));

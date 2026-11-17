@@ -415,6 +415,7 @@ function view(orch, panes, store = load()) {
     paused: !!orch.paused,
     phases: orch.phases,
     phase: core.currentPhase(orch, statuses),
+    activePhases: core.activePhases(orch, statuses),
     state: core.masterState(orch, masterStatus, statuses),
     masterStatus,
     counts: core.counts(orch, statuses),
