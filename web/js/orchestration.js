@@ -20,6 +20,9 @@ function orchPhaseStatus(agents) {
   return agents.every((a) => a.status === 'stopped') ? 'stopped' : 'done';
 }
 
+// Agents still open: the ones their orchestrator has stopped count for nothing, in the tab counter, the head chip and here.
+const orchOpenCount = (orch) => orch.agents.length - hiddenAgentIds(orch.agents).size;
+
 // An agent whose phase no longer exists (the master re-planned with fewer phases) sits in the last one instead of vanishing.
 const orchPhaseOf = (a, orch) => Math.max(0, Math.min(Number.isInteger(a.phase) ? a.phase : 0, orch.phases.length - 1));
 
@@ -125,7 +128,7 @@ function orchInspector(orch, pick) {
     const events = orch.events.slice(-14).reverse().map((e) => `<li><span class="orch-time">${new Date(e.at).toTimeString().slice(0, 5)}</span>${esc(e.text)}</li>`).join('');
     return `<h4>Maître</h4><p class="orch-goal">${esc(oneLineText(orch.goal, 400))}</p>
       <dl class="orch-kv"><dt>Phase</dt><dd>${orch.phases.length ? `${orchShownPhase(orch) + 1}/${orch.phases.length} · ${esc(orch.phases[orchShownPhase(orch)] || '')}` : 'pas de plan'}</dd>
-      <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orch.counts.total} lancés · ${orch.settings.maxAgents} max</dd>
+      <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orchOpenCount(orch)} ouverts · ${orch.settings.maxAgents} max</dd>
       <dt>Me solliciter</dt><dd>${ORCH_AUTONOMY[orch.settings.autonomy] || orch.settings.autonomy}</dd>
       <dt>Profondeur</dt><dd>${orch.settings.maxDepth} niveau${orch.settings.maxDepth > 1 ? 'x' : ''}</dd>
       <dt>Permissions</dt><dd>${esc(orchModeLabel(orch.settings.agentMode, orch.masterModePending))}</dd>${orch.settings.arena ? '<dt>Mode Arène</dt><dd>actif</dd>' : ''}<dt>Maître strict</dt><dd>${orch.masterRestricted ? 'oui' : 'non'}${orch.masterRestrictionPending ? ' (réglage appliqué à la prochaine reprise)' : ''}</dd></dl>

@@ -162,6 +162,25 @@ function countRunning(node) {
   return node.children.reduce((n, child) => n + (child.kind === 'agent' && child.state === 'running' ? 1 : 0) + countRunning(child), 0);
 }
 
+// Agents their orchestrator has stopped are no longer listed, nor counted: a closed parent stays while one of its children is not
+// closed. Twin of `hiddenAgentIds` in web/js/finished-agents.js (a test keeps the two in step); an agent that died on its own
+// (lost after its last stop) is not closed.
+const isClosedAgent = (a) => a.status === 'stopped' && !!a.stoppedAt && !(a.lostAt > a.stoppedAt);
+
+function closedAgentIds(agents) {
+  const kids = new Map();
+  for (const a of agents) kids.set(a.parentId, [...(kids.get(a.parentId) || []), a]);
+  const memo = new Map();
+  const closed = (a) => {
+    if (!memo.has(a.id)) {
+      memo.set(a.id, false);
+      memo.set(a.id, isClosedAgent(a) && (kids.get(a.id) || []).every(closed));
+    }
+    return memo.get(a.id);
+  };
+  return new Set(agents.filter(closed).map((a) => a.id));
+}
+
 const ORCH_STATE = { starting: 'running', working: 'running', needs: 'waiting', done: 'done', stopped: 'done' };
 
 const orchState = (agent) => (agent.status === 'stopped' && agent.lostAt ? 'lost' : ORCH_STATE[agent.status] || 'done');
@@ -222,4 +241,4 @@ function orchestrationNodes({ agents, phases, live }) {
   return roots;
 }
 
-module.exports = { emptyActivity, applyText, agentActivity, emptyProgress, applyJournal, workflowProgress, agentTree, countRunning, countActive, orchestrationNodes, descendantsOf };
+module.exports = { emptyActivity, applyText, agentActivity, emptyProgress, applyJournal, workflowProgress, agentTree, countRunning, countActive, orchestrationNodes, descendantsOf, closedAgentIds };
