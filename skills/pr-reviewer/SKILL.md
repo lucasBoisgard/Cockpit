@@ -29,6 +29,7 @@ Review a fixed snapshot of a diff and report CANDIDATE findings. A challenger (a
 4. For each candidate, prove **introduced yes/no**: `git blame` or `git diff <base>` on the line. A defect that pre-dates the diff is reported as pre-existing, never as introduced, in a separate section; keep it only when the diff relies on it or is impacted by it (as `/autoreview` does), and measure against the stack base, not always master.
 5. Never infer a fact you can read: open the file, run the command. A guess goes out as `[DEDUCED]` and triggers nothing.
 6. Check the touched code against the house rules that apply to code (H7, H13).
+7. Check it against the repo's own rules and skills (`AGENTS.md` / `CLAUDE.md`, `.claude/rules/`, `.claude/skills/`, above all the architecture and state-of-the-art ones), loading those that match the touched files. They are the only source for a convention finding: never raise one from the user's personal preferences or memories, and drop it when a repo rule says otherwise. Cite the rule file in the finding.
 
 ## Delta mode
 
