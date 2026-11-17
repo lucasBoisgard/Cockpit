@@ -387,7 +387,7 @@ function agentView(agent, status, session) {
   return {
     id: agent.id, name: agent.name, status, provider: agent.provider || 'claude', kind: agent.kind || null, rating: agent.rating || null, model: agent.model, effort: agent.effort, mode: agent.mode, modePending: !!agent.modePending, skills: agent.skills, phase: agent.phase,
     parentId: agent.parentId, sessionId: agent.sessionId, worktree: agent.worktree, isolated: agent.isolated, branch: agent.branch || null,
-    createdAt: agent.createdAt, stoppedAt: agent.stoppedAt || null, lost: !!agent.lostAt, lostAt: agent.lostAt || null, brief: core.excerpt(agent.brief, 4000),
+    createdAt: agent.createdAt, doneAt: status === 'done' ? session?.statusSince || session?.updatedAt || null : null, stoppedAt: agent.stoppedAt || null, lost: !!agent.lostAt, lostAt: agent.lostAt || null, brief: core.excerpt(agent.brief, 4000),
     unattached: agent.provider === 'codex' && !agent.sessionId && status === 'starting' && Date.now() - agent.createdAt > 20000,
     action: session?.actions?.[0] ? `${session.actions[0].tool} · ${session.actions[0].detail || ''}` : null,
     lastAssistant: session?.lastAssistant || null, message: session?.status === 'needs_input' ? session.message || null : null,

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { isFinishedAgent, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree } = require('../web/js/finished-agents');
+const { isFinishedAgent, isDoneAgent, DONE_DWELL_MS, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree } = require('../web/js/finished-agents');
 
 const agent = (id, status, extra = {}) => ({ id, status, parentId: null, sessionId: `s-${id}`, worktree: 'main-wt', phase: 0, stoppedAt: status === 'stopped' ? 10 : null, lostAt: null, ...extra });
 
@@ -84,4 +84,20 @@ test('finishedScope also hides the stopped agents of ended orchestrations, but n
   const scope = finishedScope({}, ended);
   assert.deepStrictEqual([...scope.sessions], ['s-w1']);
   assert.deepStrictEqual([...scope.worktrees], ['main-wt--x-w1']);
+});
+
+test('the graph also hides agents done for a while, the board never does', () => {
+  const now = 1_000_000;
+  const done = (id, ago, extra = {}) => agent(id, 'done', { doneAt: now - ago, ...extra });
+  const agents = [done('w1', DONE_DWELL_MS + 1), done('w2', 1000), agent('w3', 'working'), agent('w4', 'needs'), agent('w5', 'stopped')];
+  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true, now })].sort(), ['w1', 'w5']);
+  assert.deepStrictEqual([...hiddenAgentIds(agents, { now })], ['w5']);
+  assert.strictEqual(isDoneAgent(agent('w1', 'done'), now), false);
+});
+
+test('in the graph a done parent stays while a child is still visible', () => {
+  const now = 1_000_000;
+  const old = now - DONE_DWELL_MS - 1;
+  const agents = [agent('w1', 'done', { doneAt: old }), agent('w2', 'working', { parentId: 'w1' }), agent('w3', 'done', { doneAt: old, parentId: 'w1' })];
+  assert.deepStrictEqual([...hiddenAgentIds(agents, { done: true, now })], ['w3']);
 });

@@ -6,14 +6,19 @@ const finishedUi = { show: typeof localGet === 'function' && localGet('showFinis
 
 const isFinishedAgent = (a) => a.status === 'stopped' && !!a.stoppedAt && !(a.lostAt > a.stoppedAt);
 
-function hiddenAgentIds(agents) {
+// The orchestration graph also hides an agent that ended its turn, once it has stayed done for a short while (an agent
+// between two turns of the same job must not blink in and out). The board keeps showing it: its report may be unread.
+const DONE_DWELL_MS = 30 * 1000;
+const isDoneAgent = (a, now) => a.status === 'done' && !!a.doneAt && now - a.doneAt >= DONE_DWELL_MS;
+
+function hiddenAgentIds(agents, { done = false, now = Date.now() } = {}) {
   const kids = new Map();
   for (const a of agents) kids.set(a.parentId, [...(kids.get(a.parentId) || []), a]);
   const memo = new Map();
   const hidden = (a) => {
     if (!memo.has(a.id)) {
       memo.set(a.id, false);
-      memo.set(a.id, isFinishedAgent(a) && (kids.get(a.id) || []).every(hidden));
+      memo.set(a.id, (isFinishedAgent(a) || (done && isDoneAgent(a, now))) && (kids.get(a.id) || []).every(hidden));
     }
     return memo.get(a.id);
   };
@@ -93,4 +98,4 @@ if (typeof document !== 'undefined') {
   });
 }
 
-if (typeof module !== 'undefined') module.exports = { isFinishedAgent, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree };
+if (typeof module !== 'undefined') module.exports = { isFinishedAgent, isDoneAgent, DONE_DWELL_MS, hiddenAgentIds, finishedScope, hiddenCountByRoot, isFinishedWorktree };

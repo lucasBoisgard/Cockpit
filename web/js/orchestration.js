@@ -20,8 +20,13 @@ function orchPhaseStatus(agents) {
   return agents.every((a) => a.status === 'stopped') ? 'stopped' : 'done';
 }
 
+// An agent whose phase no longer exists (the master re-planned with fewer phases) sits in the last one instead of vanishing.
+const orchPhaseOf = (a, orch) => Math.max(0, Math.min(Number.isInteger(a.phase) ? a.phase : 0, orch.phases.length - 1));
+
+const orchShownPhase = (orch) => Math.max(0, Math.min(orch.phase, orch.phases.length - 1));
+
 function orchTree(orch) {
-  const hidden = finishedUi.show ? new Set() : hiddenAgentIds(orch.agents);
+  const hidden = finishedUi.show ? new Set() : hiddenAgentIds(orch.agents, { done: true });
   const childrenOf = (parentId) => orch.agents.filter((a) => a.parentId === parentId && !hidden.has(a.id));
   const agentNode = (a) => ({ id: a.id, kind: 'agent', status: a.status, agent: a, children: childrenOf(a.id).map(agentNode) });
   const allTop = orch.agents.filter((a) => !a.parentId || !orch.agents.some((p) => p.id === a.parentId));
@@ -30,9 +35,9 @@ function orchTree(orch) {
   const masterStatus = orch.state === 'paused' ? 'stopped' : orch.state === 'needs' ? 'needs' : orch.state === 'working' ? 'working' : 'done';
   const children = orchUi.byPhase && orch.phases.length
     ? orch.phases.map((name, i) => {
-      const agents = top.filter((a) => a.phase === i);
-      const hiddenCount = allTop.filter((a) => a.phase === i).reduce((n, a) => n + (hiddenByRoot.get(a.id) || 0), 0);
-      return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(allTop.filter((a) => a.phase === i)), hiddenCount, children: agents.map(agentNode) };
+      const agents = top.filter((a) => orchPhaseOf(a, orch) === i);
+      const hiddenCount = allTop.filter((a) => orchPhaseOf(a, orch) === i).reduce((n, a) => n + (hiddenByRoot.get(a.id) || 0), 0);
+      return { id: `p${i}`, kind: 'phase', name, index: i, status: orchPhaseStatus(allTop.filter((a) => orchPhaseOf(a, orch) === i)), hiddenCount, children: agents.map(agentNode) };
     })
     : top.map(agentNode);
   return { id: 'm', kind: 'master', status: masterStatus, hiddenCount: orchUi.byPhase && orch.phases.length ? 0 : hidden.size, children };
@@ -82,7 +87,7 @@ function orchNodeHtml(box, orch, pick) {
     const n = orch.counts.working + orch.counts.starting;
     return `<div class="${cls}" style="${style}" data-orch-node="m"><div class="orch-line">${orchGear(node.status)}<b>◆ Maître</b>${toggle}</div>
       <div class="orch-sub">${orch.paused ? 'En pause' : `${n} actif${n > 1 ? 's' : ''} / ${orch.settings.maxAgents} max`}${node.hiddenCount ? ` · ${node.hiddenCount} terminé${node.hiddenCount > 1 ? 's' : ''}` : ''}</div>
-      <div class="orch-act">${esc(orch.phases.length ? `Phase ${orch.phase + 1}/${orch.phases.length} · ${orch.phases[orch.phase] || ''}` : 'Pas encore de plan')}</div></div>`;
+      <div class="orch-act">${esc(orch.phases.length ? `Phase ${orchShownPhase(orch) + 1}/${orch.phases.length} · ${orch.phases[orchShownPhase(orch)] || ''}` : 'Pas encore de plan')}</div></div>`;
   }
   if (node.kind === 'phase') {
     return `<div class="${cls}" style="${style}" data-orch-node="${node.id}"><div class="orch-line"><b>${node.index + 1}. ${esc(node.name)}</b>${toggle}</div>
@@ -117,7 +122,7 @@ function orchInspector(orch, pick) {
   if (pick === 'm') {
     const events = orch.events.slice(-14).reverse().map((e) => `<li><span class="orch-time">${new Date(e.at).toTimeString().slice(0, 5)}</span>${esc(e.text)}</li>`).join('');
     return `<h4>Maître</h4><p class="orch-goal">${esc(oneLineText(orch.goal, 400))}</p>
-      <dl class="orch-kv"><dt>Phase</dt><dd>${orch.phases.length ? `${orch.phase + 1}/${orch.phases.length} · ${esc(orch.phases[orch.phase] || '')}` : 'pas de plan'}</dd>
+      <dl class="orch-kv"><dt>Phase</dt><dd>${orch.phases.length ? `${orchShownPhase(orch) + 1}/${orch.phases.length} · ${esc(orch.phases[orchShownPhase(orch)] || '')}` : 'pas de plan'}</dd>
       <dt>Agents</dt><dd>${orch.counts.working + orch.counts.starting} actifs · ${orch.counts.total} lancés · ${orch.settings.maxAgents} max</dd>
       <dt>Me solliciter</dt><dd>${ORCH_AUTONOMY[orch.settings.autonomy] || orch.settings.autonomy}</dd>
       <dt>Profondeur</dt><dd>${orch.settings.maxDepth} niveau${orch.settings.maxDepth > 1 ? 'x' : ''}</dd>
@@ -127,7 +132,7 @@ function orchInspector(orch, pick) {
   }
   if (pick.startsWith('p')) {
     const index = Number(pick.slice(1));
-    const agents = orch.agents.filter((a) => a.phase === index);
+    const agents = orch.agents.filter((a) => orchPhaseOf(a, orch) === index);
     return `<h4>Phase ${index + 1} · ${esc(orch.phases[index] || '')}</h4><div class="orch-list">${agents.map((a) => `<button class="orch-item" data-orch-pick="${a.id}">${orchGear(a.status)}<span>${esc(a.id)} · ${esc(a.name)}</span><span class="orch-state orch-c-${a.status}">${ORCH_WORD[a.status]}</span></button>`).join('') || '<p class="orch-muted">Le maître n’a pas encore lancé d’agent pour cette phase.</p>'}</div>`;
   }
   const a = orch.agents.find((x) => x.id === pick);
@@ -171,7 +176,7 @@ function orchHistoryButton(orch) {
 }
 
 function orchFinishedButton(orch) {
-  const n = hiddenAgentIds(orch.agents).size;
+  const n = hiddenAgentIds(orch.agents, { done: true }).size;
   return n || (finishedUi.show && orch.counts.stopped) ? `<button class="orch-btn" data-finished-toggle aria-pressed="${finishedUi.show}">${finishedLabel(n)}</button>` : '';
 }
 
@@ -180,9 +185,11 @@ function renderOrchestration(force = false) {
   const orch = currentOrch();
   if (!orch || tab !== 'orch') return;
   const master = orch.masterSessionId;
-  const pick = orchUi.pick[master] || null;
+  const rawPick = orchUi.pick[master] || null;
+  const pick = rawPick && /^p\d+$/.test(rawPick) && Number(rawPick.slice(1)) >= orch.phases.length ? null : rawPick;
   const inspector = orchUi.inspector[master] && pick;
-  const signature = JSON.stringify([orch, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings, orchUi.history]);
+  const settling = orch.agents.some((a) => a.status === 'done') ? Math.floor(Date.now() / 10000) : 0;
+  const signature = JSON.stringify([orch, settling, orchUi.byPhase, finishedUi.show, orchUi.zoom, [...orchUi.collapsed], pick, inspector, orchUi.compose, orchUi.settings, orchUi.history]);
   if (!force && signature === orchUi.signature) return;
   orchUi.signature = signature;
   const layout = orchLayout(orchTree(orch));
