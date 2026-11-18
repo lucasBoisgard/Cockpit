@@ -10,7 +10,7 @@ const { run } = require('../io/exec');
 const { readJson } = require('../io/store');
 const core = require('../core/matrix-publish');
 const { combineRatings } = require('../core/matrix');
-const { SHARED_EDITS_FILE, SHARED_RATINGS_FILE, editsText, ratingsText } = require('./matrix');
+const { SHARED_EDITS_FILE, SHARED_RATINGS_FILE, SHARED_VERDICTS_FILE, editsText, ratingsText, verdictsText } = require('./matrix');
 const { pushEvent } = require('./events');
 
 async function gitIn(root, args, { input, env } = {}) {
@@ -39,27 +39,30 @@ async function operationInProgress(root) {
 }
 
 // One publication: returns { published: false } when the remote already has everything.
-async function publishMatrix({ root = ROOT, branch = 'main', editsFile = SHARED_EDITS_FILE, ratingsFile = SHARED_RATINGS_FILE } = {}) {
+async function publishMatrix({ root = ROOT, branch = 'main', editsFile = SHARED_EDITS_FILE, ratingsFile = SHARED_RATINGS_FILE, verdictsFile = SHARED_VERDICTS_FILE } = {}) {
   const rel = (file) => path.relative(root, file);
   await gitIn(root, ['fetch', '-q', 'origin', branch]);
   const base = await gitIn(root, ['rev-parse', `origin/${branch}`]);
-  const side = async (ref) => ({ edits: await remoteJson(root, ref, rel(editsFile), {}), ratings: await remoteJson(root, ref, rel(ratingsFile), []) });
+  const side = async (ref) => ({ edits: await remoteJson(root, ref, rel(editsFile), {}), ratings: await remoteJson(root, ref, rel(ratingsFile), []), verdicts: await remoteJson(root, ref, rel(verdictsFile), []) });
   const remote = await side(base);
   const ancestor = await side('HEAD');
   const localEdits = readJson(editsFile);
   const localRatings = readJson(ratingsFile);
+  const localVerdicts = readJson(verdictsFile);
   const local = {
     edits: localEdits && typeof localEdits === 'object' && !Array.isArray(localEdits) ? localEdits : ancestor.edits,
     ratings: Array.isArray(localRatings) ? localRatings : ancestor.ratings,
+    verdicts: Array.isArray(localVerdicts) ? localVerdicts : ancestor.verdicts,
   };
-  const { edits, ratings, added, categories } = core.mergeForPublish({ ancestor, local, remote });
-  if (!added.length && !categories.length) return { published: false };
+  const { edits, ratings, added, verdicts, addedVerdicts, categories, proposals } = core.mergeForPublish({ ancestor, local, remote });
+  if (!added.length && !addedVerdicts.length && !categories.length && !proposals.length) return { published: false };
   const texts = { [rel(editsFile)]: editsText(edits), [rel(ratingsFile)]: ratingsText(combineRatings(ratings, [])) };
+  if (verdicts.length || Array.isArray(localVerdicts)) texts[rel(verdictsFile)] = verdictsText(verdicts);
 
   const index = path.join(os.tmpdir(), `cockpit-matrix-index-${process.pid}-${Date.now()}`);
   const env = { GIT_INDEX_FILE: index };
   let commit;
-  const message = core.commitMessage({ ratings: added, categories });
+  const message = core.commitMessage({ ratings: added, verdicts: addedVerdicts, categories, proposals });
   try {
     await gitIn(root, ['read-tree', base], { env });
     for (const [file, text] of Object.entries(texts)) {
@@ -125,7 +128,7 @@ async function defaultBranch() {
 
 const publishMatrixIfDue = createPublishScheduler({
   enabled: MATRIX_MAINTAINER,
-  files: [SHARED_EDITS_FILE, SHARED_RATINGS_FILE],
+  files: [SHARED_EDITS_FILE, SHARED_RATINGS_FILE, SHARED_VERDICTS_FILE],
   publish: async () => publishMatrix({ branch: await defaultBranch() }),
   notify: pushEvent,
 });

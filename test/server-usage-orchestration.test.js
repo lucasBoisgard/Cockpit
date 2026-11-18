@@ -103,3 +103,17 @@ test('F5: a group is partial when a row lacks data and empty when none has any',
   const [empty] = groupOrchestrations(store, new Map(), NOW);
   assert.strictEqual(empty.hasUsage, false);
 });
+
+test('workEndedAt is the last done event of the agent, else its stop time, else null', () => {
+  const { workEndedAt } = require('../server/core/usage-orchestration');
+  const orch = { events: [{ type: 'done', agent: 'w1', at: 5 }, { type: 'done', agent: 'w1', at: 9 }, { type: 'done', agent: 'w2', at: 99 }, { type: 'needs', agent: 'w3', at: 50 }] };
+  assert.strictEqual(workEndedAt(orch, { id: 'w1', stoppedAt: 200 }), 9);
+  assert.strictEqual(workEndedAt(orch, { id: 'w3', stoppedAt: 200 }), 200);
+  assert.strictEqual(workEndedAt(orch, { id: 'w3' }), null);
+  assert.strictEqual(workEndedAt({}, { id: 'w1' }), null);
+});
+
+test('workEndedAt prefers the last turn end kept on the agent over the trimmed events', () => {
+  const { workEndedAt } = require('../server/core/usage-orchestration');
+  assert.strictEqual(workEndedAt({ events: [] }, { id: 'w1', lastDoneAt: 70, stoppedAt: 200 }), 70);
+});

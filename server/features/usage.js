@@ -3,7 +3,8 @@ const path = require('node:path');
 const { REPO, PROJECTS_DIR, USAGE_DIR } = require('../config');
 const { readJson } = require('../io/store');
 const { jsonlFiles, readTail } = require('../io/files');
-const { usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, newCodexEntry, addCodexLines, codexModelLabel, aggregateUsage } = require('../core/usage');
+const { totalOf, usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, newCodexEntry, addCodexLines, codexModelLabel, aggregateUsage, workSince } = require('../core/usage');
+const { indexAction } = require('../core/session-index');
 const { groupOrchestrations, transcriptSessionId, sessionUsageMap, withoutOrchestrated } = require('../core/usage-orchestration');
 const { CODEX_SESSIONS_DIR } = require('./providers');
 const { readStore } = require('./orchestration');
@@ -80,6 +81,61 @@ function usageHistory(tzOffsetMin) {
   return data;
 }
 
+let sessionIndex = null;
+let indexBuilding = false;
+
+function buildSessionIndex() {
+  const since = Date.now() - (USAGE_DAYS + 1) * 86400000;
+  const files = [
+    ...jsonlFiles(PROJECTS_DIR, since).map((f) => ({ ...f, codex: false })),
+    ...jsonlFiles(CODEX_SESSIONS_DIR, since).map((f) => ({ ...f, codex: true })),
+  ];
+  const bySession = new Map();
+  for (const { file, size, codex } of files) {
+    const entry = scanTranscript(file, size, 0, codex);
+    if (!entry.sessionId) continue;
+    bySession.set(entry.sessionId, [...(bySession.get(entry.sessionId) || []), { file, codex }]);
+  }
+  sessionIndex = { at: Date.now(), bySession };
+}
+
+function rebuildSessionIndexLater() {
+  indexBuilding = true;
+  setImmediate(() => {
+    try {
+      buildSessionIndex();
+    } catch (error) {
+      console.error('session index failed', error);
+    } finally {
+      indexBuilding = false;
+    }
+  });
+}
+
+// Cumulated tokens of one session (sub-agent transcripts included, cache reads too): the measure of the usage views.
+// The file index is built once on first use, then refreshed in the background at most once a minute; a request only re-reads the session's own transcripts.
+function sessionTotals(sessionId) {
+  if (!sessionId) return null;
+  const action = indexAction({ builtAt: sessionIndex?.at ?? null, building: indexBuilding, now: Date.now() });
+  if (action === 'build-now') buildSessionIndex();
+  else if (action === 'rebuild-later') rebuildSessionIndexLater();
+  const entries = (sessionIndex.bySession.get(sessionId) || []).flatMap(({ file, codex }) => {
+    const stat = fs.statSync(file, { throwIfNoEntry: false });
+    return stat ? [scanTranscript(file, stat.size, 0, codex)] : [];
+  });
+  return sessionUsageMap(entries, []).get(sessionId)?.totals || null;
+}
+
+function sessionTokens(sessionId) {
+  const totals = sessionTotals(sessionId);
+  return totals ? totalOf(totals) : 0;
+}
+
+function providerWork(sinceMs) {
+  const claude = jsonlFiles(PROJECTS_DIR, Date.now() - (USAGE_DAYS + 1) * 86400000).map(({ file, size }) => scanTranscript(file, size, 0));
+  return { claude: workSince(claude, sinceMs.claude), codex: workSince(codexEntries(0), sinceMs.codex) };
+}
+
 const currentLimits = () => ({ claude: latestLimits(readUsageSnapshots()), codex: codexUsage().limits });
 
-module.exports = { readUsageSnapshots, codexUsage, usageHistory, currentLimits };
+module.exports = { sessionTotals, sessionTokens, readUsageSnapshots, codexUsage, usageHistory, currentLimits, providerWork };

@@ -147,8 +147,13 @@ const writeActions = {
   '/api/automations/run': (body) => runAutomation(String(body.id || '')),
   '/api/ask/answer': (body) => answerAsk(body),
   '/api/matrix/category': (body) => modelMatrix.saveCategory(body),
+  // Only the Matrice page decides: the CLI and agents always send a `caller`. A convention, not a security boundary.
+  '/api/matrix/proposal': (body) => (body.caller ? { error: 'Seule la page Matrice valide ou rejette une proposition.' } : body.decision === 'revert' ? modelMatrix.revertProposal(body) : modelMatrix.decideProposal(body)),
   '/api/matrix/reset': (body) => modelMatrix.resetCategory(body),
   '/api/orch/rate': (body) => orchestration.rateAgent(body),
+  '/api/orch/outcome': (body) => orchestration.outcomeAgent(body),
+  '/api/orch/verifies': (body) => orchestration.verifyAgent(body),
+  '/api/orch/verdicts/capture': (body) => orchestration.captureAgent(body),
   '/api/orch/rescore': (body) => orchestration.rescorePick(body),
   '/api/orch/arena': arenaBreaker.guarded.arena(orchestration.setArena),
   '/api/mcp/add': (body) => mcp.addMcp(body),
@@ -283,6 +288,10 @@ const readRoutes = {
   '/api/orch/read': async (res, q) => {
     const result = await orchestration.readAgent({ caller: q.get('caller'), id: q.get('id') });
     return json(res, result.error ? 404 : 200, result);
+  },
+  '/api/orch/verdicts': async (res, q) => {
+    const result = orchestration.verdictsView({ caller: q.get('caller'), id: q.get('id') });
+    json(res, result.error ? 400 : 200, result);
   },
   '/api/orch/skills': async (res) => json(res, 200, await orchestration.skillsForAgents()),
   '/api/providers': async (res) => json(res, 200, await providersInfo()),

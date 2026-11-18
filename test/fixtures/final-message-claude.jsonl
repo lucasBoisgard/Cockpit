@@ -1,0 +1,8 @@
+{"type": "user", "uuid": "u1", "timestamp": "2026-01-01T00:00:00.000Z", "message": {"role": "user", "content": "first task"}}
+{"type": "assistant", "uuid": "a1", "timestamp": "2026-01-01T00:00:00.000Z", "message": {"id": "msg_1", "role": "assistant", "content": [{"type": "text", "text": "working on it"}], "stop_reason": "tool_use"}}
+{"type": "assistant", "uuid": "a2", "timestamp": "2026-01-01T00:00:00.000Z", "message": {"id": "msg_1", "role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}], "stop_reason": "tool_use"}}
+{"type": "user", "uuid": "u2", "timestamp": "2026-01-01T00:00:00.000Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}}
+{"type": "assistant", "uuid": "a3", "timestamp": "2026-01-01T00:00:00.000Z", "message": {"id": "msg_2", "role": "assistant", "content": [{"type": "thinking", "thinking": "x"}], "stop_reason": "end_turn"}}
+{"type": "assistant", "uuid": "a4", "timestamp": "2026-01-01T00:00:00.000Z", "message": {"id": "msg_2", "role": "assistant", "content": [{"type": "text", "text": "done\n<verdict-report v=\"1\">\non w1\nclean\n</verdict-report>"}], "stop_reason": "end_turn"}}
+{"type": "system", "uuid": "s1", "timestamp": "2026-01-01T00:00:00.000Z", "subtype": "turn_duration"}
+{"type": "last-prompt"}

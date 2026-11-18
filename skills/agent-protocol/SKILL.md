@@ -22,7 +22,7 @@ Role skills (`role-*`) say *what* a role does; this file says *how every agent t
 Permission mode · Autonomy · Parent · Can launch · Run dir · Framing · Grants · Agent budget
 ```
 Grants are a list of actions with their scope: `analyse` (read, judge, draft), `fix` (edit the worktree, unstaged), `update-base` (merge the base, never rebase), `commit`, `push` (existing branch), `pr` (open or edit a PR). Missing grant: stop and report `BLOQUÉ`. A grant never covers publishing (H1) or prod; `pr` only covers opening the PR and editing its own description.
-**Single transition for any patch produced during delivery** (merge, conflict fix, CI fix): report to the parent → delta review (reviewer + challenger) → resume of the producer → check that `git diff <base> HEAD` has the reviewed fingerprint → push (only with `push`).
+**Single transition for any patch produced during delivery** (merge, conflict fix, CI fix): report to the parent → delta review (reviewer + challenger) → resume of the producer (unless it is over its token budget: then a fresh agent with a short handover replaces it, see `orchestrate`) → check that `git diff <base> HEAD` has the reviewed fingerprint → push (only with `push`).
 
 ## Report format (your last message of the turn)
 It is the whole assistant text of the last turn; the parent's wake-up is cut at 1500 characters. Detail goes in a file of the run dir; the message stays under 1200 characters. No narration during the turn.
@@ -51,8 +51,30 @@ Decision needed :               (BLOQUÉ only)
 - **Snapshot** heads any review or verification: `Snapshot: base=<sha> head=<sha> worktree=<hash of git diff <base> + untracked files> scope=<paths>`. Any code change makes a new snapshot; a CONFIRMED stays open until its fix is re-verified on the new one; a DISMISSED is re-judged if the lines of its proof or a context file it cites changed.
 - **Successful loop exit** ("delivery recommended"): every CANDIDATE has a status (new ones from the last cycle included), every CONFIRMED (suggestions too) is fixed and re-verified on the last snapshot, 0 blocking PLAUSIBLE, local checks green. At the bound, report `À REPRENDRE` listing every unverified CANDIDATE.
 
-## Run directory
-Absolute path in the brief. One file = one author, named at its top.
+## Verdict envelope (verifiers only)
+Single home of the format. The cockpit scores agents from the findings of agents that verified them; nothing else feeds the quality score. Write the envelope only if your brief says you were launched with a verification mission (`--verifies <role>:<ids>`: reviewer, challenger, judge, consumer) and only about the agents it names. Never about yourself or an ancestor (your parent chain). A line outside your mission is rejected and reported to your parent.
+- **Where**: the end of your **final message of the turn**, after the report. The last non-blank line is `</verdict-report>`; the opening `<verdict-report v="1">` starts a line outside any code fence. Only that trailing envelope is read: quotes and examples earlier in the message are ignored, and an envelope that is not last is ignored whole. An agent that forgets it gets no verdict. Only the final message of a finished turn is read, and a message already processed is never accepted again. Claim texts are cleaned before storage (home paths, UUIDs): keep personal data out of them.
+```
+<verdict-report v="1">
+on w1
+F1 blocking: <claim, file:line>
+F2 to-fix dup=w10:F3: <claim, file:line>
+F3 to-fix missed=w8: <claim, file:line>
+F4 suggestion: <claim, file:line>
+on w2
+clean
+triage w8:F5 false: <why, file:line>
+triage w8:F2 confirmed suggestion
+rank w21 1/3
+</verdict-report>
+```
+- **`on <agent>`** opens a block for one judged agent; `F<n>`, `clean` and `rank` lines belong to the last `on`. One line per finding: `F<n>` is unique across all your turns (repeating a number changes nothing; never renumber), then the severity `blocking` | `to-fix` | `suggestion` (suggestions are recorded and shown, never scored), optional `dup=<agent>:F<n>` and `missed=<agent>`, then `:` and a claim of at most 300 characters with `file:line`. Report only what you can defend: a finding is scored against its target.
+- **`clean`** (inside a block) says you checked the target and found nothing. Without a finding or a `clean`, you said nothing.
+- **`triage <agent>:F<n> <status> [severity]: <why>`** judges someone's finding: `confirmed` (optionally with the corrected severity, which replaces the stated one), `false`, or `plausible`. A finding you could neither prove nor refute is `plausible`, never `confirmed`. `plausible` changes no score. A finding about your own work may be triaged by you as its author: `confirmed` is an admission, `false` is only a contest, which keeps counting until an independent verifier triages it. `pre-existing` and `out of scope` are `false`, with the reason in the text.
+- **`dup=<agent>:F<n>`**: the same defect already recorded on the same delivery of the same target; it counts once. A residual after a new delivery is a new finding, not a `dup`.
+- **`missed=<agent>`**: a defect that a reviewer you were given the review of should have found in the snapshot and scope it reviewed. Only for a reviewer that judged this target and is also named in your own mission (`--verifies`): a second reviewer's brief must list the first reviewer too.
+- **`rank <agent> <k>/<n>`** (judge only): the position in a competition, recorded apart from the score.
+- **Facts per kind of judged agent**: a `review` agent is judged on whether its findings hold (triage) and what it missed (`missed=`), so a clean review is judged by a later verifier; a work agent (implement, tests, refactor, docs…) on the defects found in its delivery; an exploration or summary on the false or missing claims you checked against the code. Say which in the claim. One file = one author, named at its top.
 `cadrage-v<n>.md` framer · `plan.md`, `journal.md`, `briefs/<wN>.md` master · `<sub>/journal.md`, `<sub>/final.md` SO · `<sub>/<role>-r<k>.md` leaves. Write only your own output file and the files of your scope. No empty folders.
 
 ## Loop bounds and progress
@@ -74,7 +96,7 @@ P1 scope or business ambiguity · P2 missing grant · P3 QA in the app · P4 mer
 ## Briefing a child
 Brief template: `## Role` (skills to load: agent-protocol, role skill, domain skills) · `## Goal` (2-3 sentences, the why) · `## Inputs` (absolute paths, snapshot id, framing version) · `## Output` (path + format) · `## Inherited settings` · `## Loop` (cycle k of N, exit criterion) · `## Out of scope / forbidden`.
 - A **challenger** gets the claims, snapshot, where to look and already-seen ids, never the author's reasoning.
-- A **GPT** leaf has no skills and no Cockpit: paste the role's contract, the report format, the applicable house rules, the settings and bound; give files, not `gh`/Jira commands; give the output path plus the fallback "in your last message"; keep the brief under 40,000 characters.
+- A **GPT** leaf has no skills and no Cockpit: paste the role's contract, the report format (plus the verdict envelope above, verbatim, when it verifies), the applicable house rules, the settings and bound; give files, not `gh`/Jira commands; give the output path plus the fallback "in your last message"; keep the brief under 40,000 characters.
 - Name the framing version; the child re-reads it before each round.
 
 ## Generic leaf contract

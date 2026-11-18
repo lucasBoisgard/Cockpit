@@ -21,6 +21,14 @@ function sessionUsageMap(entries, snapshots) {
 
 const withoutOrchestrated = (sessions, orchestratedIds, max) => sessions.filter((s) => !orchestratedIds.has(s.sessionId)).slice(0, max);
 
+// When an agent last finished a turn (`lastDoneAt`, kept on the agent; else its last `done` event), else when it was
+// stopped: the end of its work, not of the master's wait before rating or stopping it. Null while it has not finished one.
+function workEndedAt(orch, agent) {
+  if (agent.lastDoneAt) return agent.lastDoneAt;
+  const done = (orch.events || []).filter((e) => e.type === 'done' && e.agent === agent.id).map((e) => e.at);
+  return done.length ? Math.max(...done) : agent.stoppedAt || null;
+}
+
 const providerOf = (p) => (p === 'codex' ? 'codex' : 'claude');
 const effortOf = (e) => e || null;
 
@@ -37,10 +45,10 @@ function agentRows(orch, usageOf, seen) {
       if (a.sessionId) seen.add(a.sessionId);
       const u = a.sessionId && !shared ? usageOf.get(a.sessionId) : null;
       rows.push({
-        id: a.id, name: a.name, job: orch.job || 1, depth, parentId: a.parentId || null, role: 'agent',
+        id: a.id, obs: a.obs || null, name: a.name, master: orch.masterSessionId, job: orch.job || 1, depth, parentId: a.parentId || null, role: 'agent',
         provider: providerOf(a.provider), model: a.model || null, effort: effortOf(a.effort), kind: a.kind || null, rating: a.rating?.score ?? null,
         totals: u ? u.totals : null, costUsd: u?.costUsd ?? null,
-        shared, sessionId: a.sessionId || null, startedAt: a.createdAt || null, endedAt: a.stoppedAt || null,
+        shared, sessionId: a.sessionId || null, startedAt: a.createdAt || null, endedAt: a.stoppedAt || null, workEndedAt: workEndedAt(orch, a),
       });
       walk(a.id, depth + 1);
     }
@@ -115,4 +123,4 @@ function groupOrchestrations(store, usageOf, now) {
   return out.sort((a, b) => Number(b.active) - Number(a.active) || b.at - a.at);
 }
 
-module.exports = { groupOrchestrations, transcriptSessionId, sessionUsageMap, withoutOrchestrated };
+module.exports = { workEndedAt, groupOrchestrations, transcriptSessionId, sessionUsageMap, withoutOrchestrated };

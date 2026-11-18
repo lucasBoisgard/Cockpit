@@ -1,5 +1,6 @@
 const providers = require('./providers');
 const permissionMode = require('./permission-mode');
+const { DEFAULT_TOKEN_BUDGET_M, MAX_TOKEN_BUDGET_M, budgetState, wakeBudgetLine } = require('./agent-budget');
 
 // Pure decisions of the agent orchestration: a master session plans phases and launches agents
 // (real Claude sessions in tmux), the cockpit tracks them and wakes the master when one finishes.
@@ -12,7 +13,7 @@ const AUTONOMY = {
   milestones: 'Ask the user to validate the plan before launching the first agents, then at each milestone (a phase that lands, the end). Independent phases keep running between those points: decide alone.',
   decisions: 'Ask the user before every meaningful decision: the plan, each agent you launch (task, model, effort), and how to resolve each blocked agent.',
 };
-const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 10, agentMode: 'auto', maxDepth: 2, arena: false, strictMaster: true };
+const DEFAULT_SETTINGS = { autonomy: 'blocking', maxAgents: 10, agentMode: 'auto', maxDepth: 2, arena: false, strictMaster: true, agentTokenBudget: DEFAULT_TOKEN_BUDGET_M };
 const MASTER_DISALLOWED_TOOLS = ['Edit', 'Write', 'NotebookEdit', 'Agent'];
 const MAX_AGENTS_LIMIT = 20;
 const MAX_DEPTH_LIMIT = 4;
@@ -43,6 +44,11 @@ function normalizeSettings(input = {}, base = DEFAULT_SETTINGS) {
     const n = Number(input.maxDepth);
     if (!Number.isFinite(n)) return { error: `Profondeur entre 1 et ${MAX_DEPTH_LIMIT}.` };
     out.maxDepth = Math.min(MAX_DEPTH_LIMIT, Math.max(1, Math.round(n)));
+  }
+  if (input.agentTokenBudget !== undefined && input.agentTokenBudget !== null && input.agentTokenBudget !== '') {
+    const n = Number(input.agentTokenBudget);
+    if (!Number.isFinite(n) || n < 0 || n > MAX_TOKEN_BUDGET_M) return { error: `Budget de tokens par agent entre 0 (sans plafond) et ${MAX_TOKEN_BUDGET_M} millions.` };
+    out.agentTokenBudget = n;
   }
   if (input.arena !== undefined) out.arena = input.arena === true || input.arena === 'true';
   if (input.strictMaster !== undefined) out.strictMaster = !(input.strictMaster === false || input.strictMaster === 'false');
@@ -120,6 +126,7 @@ function agentStatus(agent, session, { live, now }) {
   return 'done';
 }
 
+const tokenBudget = (settings) => settings?.agentTokenBudget ?? DEFAULT_SETTINGS.agentTokenBudget;
 const maxDepth = (settings) => settings?.maxDepth || DEFAULT_SETTINGS.maxDepth;
 
 function launchQuotaRefusal(orch, statuses) {
@@ -199,11 +206,16 @@ function excerpt(text, max = WAKE_EXCERPT_CHARS) {
 
 const oneLine = (text, max) => excerpt(String(text || '').replace(/\s+/g, ' '), max);
 
-function wakeText(agent, kind, report) {
+function wakeText(agent, kind, report, budgetLine = '', extraLines = []) {
   const head = kind === 'stopped' ? `[cockpit] L'agent ${agent.id} « ${agent.name} » s'est arrêté.` : `[cockpit] L'agent ${agent.id} « ${agent.name} » a fini son tour.`;
   const body = report ? `\nSon dernier message :\n${excerpt(report)}` : '';
   const close = kind === 'stopped' ? '' : `\nValidé par tous, plus d'aller-retour ? Ferme-le : orchestrate stop ${agent.id}`;
-  return `${head}${body}\n(rapport complet : orchestrate read ${agent.id})${close}`;
+  return `${head}${body}\n(rapport complet : orchestrate read ${agent.id})${budgetLine ? `\n${budgetLine}` : ''}${extraLines.length ? `\n${extraLines.join('\n')}` : ''}${close}`;
+}
+
+function doneWakeText(agent, report, tokens, settings, verdictLines = []) {
+  const state = budgetState(tokens, tokenBudget(settings));
+  return wakeText(agent, 'done', report, state.over ? wakeBudgetLine(agent.id, state) : '', verdictLines);
 }
 
 function resumeText(pending) {
@@ -247,10 +259,11 @@ function masterSystemPrompt({ settings, root, restricted = settings.strictMaster
     ...(restricted ? ['Edit, Write, NotebookEdit and Agent are disabled for you by the cockpit; a refusal means you must delegate.']
       : strict ? ['Edit, Write, NotebookEdit and Agent are NOT disabled in this session (the cockpit could not apply it to a running session): only the rule holds, never use them. The cockpit disables them the next time this session is resumed.']
         : ['Edit, Write, NotebookEdit and Agent are not disabled for you, but the rule still holds: never use them, delegate.']),
-    'Use Claude and GPT evenly: they must get an equal share of the agents, for relevance and for the load on each account. Before choosing an agent\'s provider run `orchestrate balance` and follow the provider parity rule of the pick-agent-model skill; never default to Claude out of habit.',
+    'Balance Claude and GPT by quota, not by agent count: the GPT account is smaller, so an even split exhausts it. Before choosing an agent\'s provider run `orchestrate balance` and follow it: it favors the provider whose usage windows are the less full and never the one whose quota burns faster per unit of work; never default to Claude out of habit.',
     `Before anything else, read the orchestrate skill at ${root}/skills/orchestrate/SKILL.md and follow it. Your command line tool is: ${cliCommand(root)}`,
     `How often to involve the user: ${AUTONOMY[settings.autonomy]}`,
     `At most ${settings.maxAgents} agents may be active at the same time; the cockpit refuses more. If that cap blocks a useful fan-out, tell the user and suggest raising it in the Réglages instead of serializing silently.`,
+    ...(tokenBudget(settings) === 0 ? [] : [`An agent that cumulates more than ${tokenBudget(settings)} M tokens is over budget (its whole context is re-read at every turn): the cockpit flags it in its wake-up message and in orchestrate status. Do not send/resume it; launch a fresh agent with a short handover (goal, state, what is left).`]),
     `The agent tree may go ${maxDepth(settings)} level${maxDepth(settings) > 1 ? 's' : ''} deep below you; the cockpit refuses a launch beyond that.`,
     ...(settings.arena ? ['Arena mode is ON: run every task that needs a model as a competition between several models in parallel, have a judge agent compare and rate them (orchestrate rate / rescore), and follow orchestrate calibration until every relevant combination has enough ratings. Slower and costlier on purpose.'] : []),
     'Choose each agent\'s provider, model and effort from the relevance matrix (orchestrate matrix), launch it with --kind, and rate its work once checked (orchestrate rate).',
@@ -364,7 +377,7 @@ function findBySession(store, sessionId) {
 module.exports = {
   agentDepth, canLaunchSubAgents, autonomyNotice, noticeRoute,
   MODELS, EFFORTS, AGENT_MODES, AUTONOMY, DEFAULT_SETTINGS, MAX_DEPTH_LIMIT, START_GRACE_MS,
-  isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, agentStatus, canLaunch, launchQuotaRefusal,
-  currentPhase, activePhases, shownPhases, phaseSummary, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, wakeTarget, stopRefusal, resumeText, cliCommand,
+  isActive, normalizeSettings, validatePhases, validateLaunch, nextAgentId, depthOf, maxDepth, tokenBudget, agentStatus, canLaunch, launchQuotaRefusal,
+  currentPhase, activePhases, shownPhases, phaseSummary, masterState, counts, agentRefs, pushEvent, excerpt, oneLine, wakeText, doneWakeText, wakeTarget, stopRefusal, resumeText, cliCommand,
   masterSystemPrompt, masterDisallowedTools, agentSystemPrompt, findBySession, newJobRefusal, jobNumber, archiveKey, freshJob, nextJobNumber, agentTag, jobHistory,
 };

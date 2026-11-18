@@ -6,10 +6,13 @@ const { run, git, tmux } = require('../io/exec');
 const { loadStore, saveStore, readSession, readSessions, writeSessionOverride } = require('../io/store');
 const { paneOf, validName, tmuxSessionName, turnStatus, effectiveStatus } = require('../core/sessions');
 const core = require('../core/orchestration');
+const capture = require('../core/verdict-capture');
+const { finalMessage } = require('../core/final-message');
+const budget = require('../core/agent-budget');
 const { invalidateSnapshot } = require('../cache');
 const { descendantsOf } = require('../core/agents');
 const { listWorktrees, worktreeName, livePanes } = require('./worktrees');
-const { readChat } = require('./chat');
+const { readChat, transcriptFor } = require('./chat');
 const { deliver, enqueueMerged, dropQueued } = require('./queue');
 const { skillEntries } = require('./skills');
 const { launchClaude, launchProcess } = require('./sessions');
@@ -17,6 +20,7 @@ const matrix = require('./matrix');
 const { registerCodexLaunch } = require('./codex-screens');
 const { cycleSessionMode, modeShownBy } = require('./agent-mode');
 const matrixCore = require('../core/matrix');
+const usageCore = require('../core/usage-orchestration');
 const providerCore = require('../core/providers');
 const modeCore = require('../core/permission-mode');
 const { binOf, codexHookCommand, codexInfo, codexCatalog } = require('./providers');
@@ -132,12 +136,12 @@ function newOrchestration(sessionId, fields, settings, now) {
 }
 
 // Master: a normal Claude session with the orchestrator system prompt and the CLI allowed.
-async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster }) {
+async function startMaster({ worktree, prompt, model, effort, mode, autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster, agentTokenBudget }) {
   const name = String(worktree || '').trim();
   if (!validName(name)) return { error: 'Nom de worktree invalide (lettres, chiffres, . _ -).' };
   const goal = String(prompt || '').trim();
   if (!goal) return { error: 'Décris l\'objectif du maître.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster, agentTokenBudget });
   if (normalized.error) return normalized;
   const setting = core.validateLaunch({ name: 'maître', brief: goal, model, effort, mode: mode || normalized.settings.agentMode }, { settings: normalized.settings, phases: [], agents: [] });
   if (setting.error) return setting;
@@ -169,10 +173,10 @@ function masterResumeDisallowed(sessionId) {
 }
 
 // Turns an existing session into a master: it gets the orchestrator instructions as a message.
-async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster }) {
+async function promote({ sessionId, autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster, agentTokenBudget }) {
   const session = readSession(String(sessionId || ''));
   if (!session) return { error: 'Session inconnue.' };
-  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster });
+  const normalized = core.normalizeSettings({ autonomy, maxAgents, agentMode, maxDepth, arena, strictMaster, agentTokenBudget });
   if (normalized.error) return normalized;
   const store = load();
   if (core.findBySession(store, session.sessionId)) return { error: 'Cette session orchestre déjà, ou est un agent.' };
@@ -223,6 +227,25 @@ async function paneOfTmux(name) {
   return out.ok ? out.stdout.trim() : null;
 }
 
+// An exploration launch is the coverage candidate of its category with a banked credit; in a quality category it is a duel,
+// which needs a short task and a provider whose 7-day window is under half full.
+async function exploreRefusal(pick, minutes, bySubOrchestrator) {
+  if (!pick.kind) return 'Une exploration demande la catégorie de la tâche (--kind).';
+  if (!(matrix.readCoverage().credits > 0)) return 'Aucun crédit d\'exploration : un crédit tombe tous les 5 lancements (orchestrate matrix <catégorie> le signale).';
+  const category = (await matrix.getMatrix()).categories.find((c) => c.id === pick.kind);
+  const candidate = category?.coverageCandidate;
+  if (!candidate) return `Aucun candidat de couverture en ${pick.kind} : lance le premier choix de orchestrate matrix ${pick.kind}.`;
+  const verdicts = require('../core/verdicts');
+  if (candidate.key !== verdicts.keyOf({ category: pick.kind, provider: pick.provider, model: pick.model, effort: pick.effort })) {
+    const [, provider, model, effort] = candidate.key.split('|');
+    return `En ${pick.kind}, le candidat de couverture est ${provider === 'codex' ? 'GPT ' : ''}${model}·${effort || '-'} : --explore ne lance que lui (--provider, --model, --effort).`;
+  }
+  if (candidate.mode !== 'duel') return null;
+  const balance = await require('./provider-balance').balanceState();
+  const allowed = verdicts.duelAllowed({ timeBudgetMin: minutes, windowPct: balance[pick.provider === 'codex' ? 'codex' : 'claude'].weekPercent, subOrchestrator: bySubOrchestrator });
+  return allowed ? null : 'Duel refusé : il faut une tâche courte (--minutes ≤ 15), lancée par le maître, tant que la fenêtre 7 j du fournisseur du candidat est sous 50 % (orchestrate balance).';
+}
+
 function launchAgent({ caller, ...input }) {
   return locked(async () => {
     const found = resolveCaller(load(), caller);
@@ -241,13 +264,19 @@ function launchAgent({ caller, ...input }) {
     const kind = input.kind ? String(input.kind) : null;
     if (kind && !matrix.categoryIds().includes(kind)) return { error: `Catégorie inconnue : ${kind} (${matrix.categoryIds().join(', ')}).` };
     checked.agent.kind = kind;
+    const mission = capture.parseMissions(input.verifies, orch);
+    if (mission.error) return mission;
+    if (input.explore === true) {
+      const refusedExplore = await exploreRefusal({ kind, provider: checked.agent.provider, model: checked.agent.model, effort: checked.agent.effort }, input.minutes, !!found.agent);
+      if (refusedExplore) return { error: refusedExplore, refused: true };
+    }
     const { statuses } = liveStatuses(orch, await livePanes());
     const refused = core.canLaunch(orch, statuses, parentId);
     if (refused) return { error: refused, refused: true };
     const parentCwd = found.agent ? found.agent.cwd : readSession(orch.masterSessionId)?.cwd;
     if (!parentCwd || !fs.existsSync(parentCwd)) return { error: 'Le worktree du maître est introuvable.' };
     const id = core.nextAgentId(orch);
-    const agent = { id, ...checked.agent, parentId, sessionId: checked.agent.provider === 'codex' ? null : crypto.randomUUID(), createdAt: Date.now(), cwd: await toplevel(parentCwd), worktree: found.agent?.worktree || orch.worktree };
+    const agent = { id, ...checked.agent, parentId, sessionId: checked.agent.provider === 'codex' ? null : crypto.randomUUID(), createdAt: Date.now(), cwd: await toplevel(parentCwd), worktree: found.agent?.worktree || orch.worktree, obs: capture.newObs(crypto.randomBytes), missions: mission.missions, explore: input.explore === true, deliveries: 0, rounds: 0 };
     if (agent.isolated) {
       const made = await isolatedWorktree(agent.cwd, orch.worktree, core.agentTag(orch, id));
       if (made.error) return made;
@@ -257,9 +286,11 @@ function launchAgent({ caller, ...input }) {
     const result = await launchFor(agent, agent.tmux, agent.cwd, agentArgs(orch, agent, { resume: false, prompt: agent.brief }));
     if (!result.ok) return { error: result.stderr.trim() };
     if (agent.provider === 'codex') agent.pane = await paneOfTmux(agent.tmux);
+    matrix.recordLaunch();
+    if (agent.explore) matrix.spendCredit();
     mutate(orch.masterSessionId, (o) => {
       o.agents.push(agent);
-      core.pushEvent(o, { type: 'launch', agent: id, parent: parentId, text: `${parentId ? `${parentId} lance` : 'Lance'} ${id} « ${agent.name} » (${[agent.model || 'modèle par défaut', agent.effort, ...agent.skills].filter(Boolean).join(' · ')})` }, Date.now());
+      core.pushEvent(o, { type: 'launch', agent: id, parent: parentId, text: `${parentId ? `${parentId} lance` : 'Lance'} ${id} « ${agent.name} » (${[agent.model || 'modèle par défaut', agent.effort, ...agent.skills].filter(Boolean).join(' · ')})${agent.missions.length ? ` — mission : ${capture.missionText(agent.missions)}` : ''}${agent.explore ? ' — exploration' : ''}` }, Date.now());
     });
     return { id, sessionId: agent.sessionId, cwd: agent.cwd, branch: agent.branch || null };
   });
@@ -288,7 +319,13 @@ function stopAgent({ caller, id, by }) {
   });
 }
 
-async function deliverToAgent(found, text, by) {
+// A message after the first delivery is a correction round, unless the sender says it is only information.
+function countRound(found, info) {
+  if (info || !found.agent.deliveries) return;
+  mutate(found.orch.masterSessionId, (o) => { const a = o.agents.find((x) => x.id === found.agent.id); a.rounds = (a.rounds || 0) + 1; });
+}
+
+async function deliverToAgent(found, text, by, info = false) {
   const message = String(text || '').trim();
   if (!message) return { error: 'Message vide.' };
   const fromUser = by === 'user';
@@ -296,13 +333,20 @@ async function deliverToAgent(found, text, by) {
   const outcome = await deliver(found.agent.sessionId, `${notice}${fromUser ? message : `[${found.by}] ${message}`}`, true);
   if (notice && ['sent', 'queued'].includes(outcome)) mutate(found.orch.masterSessionId, (o) => delete o.agents.find((a) => a.id === found.agent.id).noticePending);
   if (outcome === 'offline' || outcome === 'unknown') return { error: `${found.agent.id} ne tourne plus : relance-le avec resume.` };
+  countRound(found, info);
   mutate(found.orch.masterSessionId, (o) => core.pushEvent(o, { type: 'message', agent: found.agent.id, from: fromUser ? 'user' : found.by, text: core.oneLine(message, 300) }, Date.now()));
   return { ok: true, delivery: outcome };
 }
 
-async function sendToAgent({ caller, id, text, by }) {
+function withBudgetWarning(found, result) {
+  if (result?.error) return result;
+  const state = agentBudget(found.orch, found.agent);
+  return state.over ? { ...result, warning: budget.budgetWarning(found.agent.id, state) } : result;
+}
+
+async function sendToAgent({ caller, id, text, by, info }) {
   const found = agentOf(load(), caller, id);
-  return found.error ? found : deliverToAgent(found, text, by);
+  return found.error ? found : withBudgetWarning(found, await deliverToAgent(found, text, by, info === true));
 }
 
 function resumeAgent({ caller, id, text, by }) {
@@ -316,9 +360,11 @@ function resumeAgent({ caller, id, text, by }) {
     const message = String(text || '').trim();
     if (paneOf(session, panes) || (!session && agent.pane && panes.has(agent.pane))) {
       if (!session) return { error: `${agent.id} tourne encore mais le cockpit ne voit pas sa session : valide le hook avec /hooks dans son terminal.` };
-      return message ? deliverToAgent(found, message, by) : { ok: true, running: true };
+      return withBudgetWarning(found, message ? await deliverToAgent(found, message, by) : { ok: true, running: true });
     }
-    return restartAgent(orch, agent, message, `${by === 'user' ? 'Tu relances' : `${found.by} relance`} ${agent.id}`);
+    const restarted = await restartAgent(orch, agent, message, `${by === 'user' ? 'Tu relances' : `${found.by} relance`} ${agent.id}`);
+    if (restarted.ok && message) countRound(found, false);
+    return withBudgetWarning(found, restarted);
   });
 }
 
@@ -385,15 +431,21 @@ async function readAgent({ caller, id }) {
   return { id: agent.id, name: agent.name, status: statuses[agent.id], report: lastReport(agent.sessionId), files: editedFiles(sessions[agent.id]), branch: agent.branch || null, cwd: agent.cwd };
 }
 
-function agentView(agent, status, session) {
+function agentBudget(orch, agent) {
+  const limit = core.tokenBudget(orch.settings);
+  return budget.budgetState(limit > 0 ? require('./usage').sessionTokens(agent.sessionId) : 0, limit);
+}
+
+function agentView(agent, status, session, tokenBudget = null) {
   return {
-    id: agent.id, name: agent.name, status, provider: agent.provider || 'claude', kind: agent.kind || null, rating: agent.rating || null, model: agent.model, effort: agent.effort, mode: agent.mode, modePending: !!agent.modePending, skills: agent.skills, phase: agent.phase,
+    id: agent.id, name: agent.name, status, provider: agent.provider || 'claude', kind: agent.kind || null, outcome: agent.outcome || null, missions: agent.missions || [], explore: !!agent.explore, unverifiedExploration: !!agent.explore && agent.deliveries > 0 && !agent.verified, rating: agent.rating || null, model: agent.model, effort: agent.effort, mode: agent.mode, modePending: !!agent.modePending, skills: agent.skills, phase: agent.phase,
     parentId: agent.parentId, sessionId: agent.sessionId, worktree: agent.worktree, isolated: agent.isolated, branch: agent.branch || null,
     createdAt: agent.createdAt, stoppedAt: agent.stoppedAt || null, lost: !!agent.lostAt, lostAt: agent.lostAt || null, brief: core.excerpt(agent.brief, 4000),
     unattached: agent.provider === 'codex' && !agent.sessionId && status === 'starting' && Date.now() - agent.createdAt > 20000,
     action: session?.actions?.[0] ? `${session.actions[0].tool} · ${session.actions[0].detail || ''}` : null,
     lastAssistant: session?.lastAssistant || null, message: session?.status === 'needs_input' ? session.message || null : null,
     files: editedFiles(session),
+    tokens: tokenBudget?.tokens || 0, overBudget: !!tokenBudget?.over, budgetLabel: tokenBudget?.over ? budget.overBudgetLabel(tokenBudget) : null,
   };
 }
 
@@ -410,7 +462,7 @@ function view(orch, panes, store = load()) {
     goal: orch.goal,
     masterRestricted: !!orch.masterRestricted,
     masterRestrictionPending: (orch.settings.strictMaster !== false) !== !!orch.masterRestricted,
-    settings: { ...orch.settings, maxDepth: core.maxDepth(orch.settings) },
+    settings: { ...orch.settings, maxDepth: core.maxDepth(orch.settings), agentTokenBudget: core.tokenBudget(orch.settings) },
     masterModePending: orch.masterModePending || null,
     paused: !!orch.paused,
     phases: orch.phases,
@@ -419,7 +471,7 @@ function view(orch, panes, store = load()) {
     state: core.masterState(orch, masterStatus, statuses),
     masterStatus,
     counts: core.counts(orch, statuses),
-    agents: orch.agents.map((a) => agentView(a, statuses[a.id], sessions[a.id])),
+    agents: orch.agents.map((a) => agentView(a, statuses[a.id], sessions[a.id], agentBudget(orch, a))),
     events: orch.events.slice(-60),
     pendingWake: orch.pendingWake?.length || 0,
     createdAt: orch.createdAt,
@@ -665,7 +717,7 @@ async function updateSettings({ master, reason, ...input }) {
   const notified = autonomyChanged ? await notifyAutonomy(load()[orch.masterSessionId] || orch) : null;
   mutate(orch.masterSessionId, (o) => {
     const autonomy = `autonomie ${normalized.settings.autonomy}${notified === null ? '' : ` (${notifiedText(notified)})`}`;
-    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : `désactivé${reason ? ` automatiquement : ${reason}` : ''}`}` : ''}` }, Date.now());
+    core.pushEvent(o, { type: 'settings', text: `Réglages : ${normalized.settings.maxAgents} agents max, profondeur ${normalized.settings.maxDepth}, budget ${budget.budgetLabel(core.tokenBudget(normalized.settings))} par agent, ${autonomy}, permissions ${modeText || modeName(mode)}${arenaChanged ? `, mode Arène ${normalized.settings.arena ? 'activé' : `désactivé${reason ? ` automatiquement : ${reason}` : ''}`}` : ''}` }, Date.now());
   });
   const arenaNote = arenaChanged ? `\nMode Arène ${normalized.settings.arena ? 'activé' : 'désactivé'} : ${normalized.settings.arena ? 'à partir de maintenant, chaque tâche qui demande un modèle devient une compétition entre plusieurs modèles, notée par un juge' : `reviens au fonctionnement normal, un seul agent par tâche${reason ? `. Le cockpit l'a coupé lui-même (${reason}) pour éviter de toucher la limite d'utilisation : ne le réactive pas, seul ${USER_NAME || 'l’utilisateur'} peut le refaire` : ''}`}.` : '';
   const strictNote = normalized.settings.strictMaster !== false !== (orch.settings.strictMaster !== false) ? `\nMaître strict ${normalized.settings.strictMaster ? 'activé' : 'désactivé'} : les outils de cette session ne changent pas, seule la consigne compte ; le cockpit applique le réglage au prochain lancement d'un maître et à la prochaine reprise de cette session.` : '';
@@ -689,11 +741,21 @@ function endOrchestration({ master, stopAgents }) {
     const orch = load()[String(master || '')];
     if (!orch) return { error: 'Maître inconnu.' };
     if (stopAgents) for (const agent of orch.agents) if (!agent.stoppedAt) await killAgent(orch, agent, 'Tu as arrêté');
+    closeOutcomes(orch.masterSessionId);
     mutate(orch.masterSessionId, (o) => {
       o.endedAt = Date.now();
     });
     return { ok: true };
   });
+}
+
+// Agents the master never gave an outcome still count: outcome null, with their rounds, deliveries and measure.
+function closeOutcomes(masterId) {
+  const orch = ensureObs(masterId);
+  const open = orch.agents.filter((a) => !a.outcome && !a.outcomeClosed);
+  if (!open.length) return;
+  matrix.appendVerdictRecords(open.map((a) => capture.outcomeRecord(a, { outcome: null, measure: agentMeasure(orch, a) })));
+  mutate(masterId, (o) => { for (const a of o.agents) if (open.some((x) => x.id === a.id)) a.outcomeClosed = true; });
 }
 
 // A new job on the same master: the current orchestration is archived (readable as history, kept 7 days
@@ -710,6 +772,7 @@ function newJob({ caller, goal }) {
     const refusal = core.newJobRefusal(orch, liveStatuses(orch, await livePanes()).statuses);
     if (refusal) return { error: refusal, refused: true };
     for (const agent of orch.agents) if (!agent.stoppedAt) await killAgent(orch, agent, 'Nouveau job : arrêt de');
+    closeOutcomes(orch.masterSessionId);
     const store = load();
     const current = store[orch.masterSessionId];
     if (!current || current.endedAt) return { error: 'Orchestration introuvable.' };
@@ -725,40 +788,153 @@ function newJob({ caller, goal }) {
   });
 }
 
-// The master rates an agent's work once it has checked it: the rating feeds the relevance matrix.
-async function rateAgent({ caller, id, score, note, kind }) {
+// Every agent gets its obs (the key between verdict records) the first time it matters; old agents lazily.
+function ensureObs(masterId) {
+  return mutate(masterId, (o) => {
+    for (const a of o.agents) {
+      if (!a.obs) a.obs = capture.newObs(crypto.randomBytes);
+      a.deliveries ||= 0;
+      a.rounds ||= 0;
+    }
+    return o;
+  });
+}
+
+function agentMeasure(orch, agent) {
+  try {
+    return matrixCore.ratingMeasure({ totals: require('./usage').sessionTotals(agent.sessionId), startedAt: agent.createdAt, workEndedAt: usageCore.workEndedAt(orch, agent) });
+  } catch (error) {
+    console.error('outcome measure failed', error);
+    return {};
+  }
+}
+
+const rateAgent = async () => ({ error: capture.RATE_REPLACED });
+
+// The master records how an agent's work was integrated: the quality itself comes from the verifiers' verdicts.
+async function outcomeAgent({ caller, id, outcome, note }) {
   const found = agentOf(load(), caller, id);
   if (found.error) {
     const live = resolveCaller(load(), caller);
     const archived = !live.error && Object.values(load()).some((o) => o.archivedOf === live.orch.masterSessionId && o.agents.some((a) => a.id === String(id)));
-    return archived ? { error: `${id} appartient à un job archivé : note les agents avant « orchestrate new ».` } : found;
+    return archived ? { error: `${id} appartient à un job archivé : enregistre les résultats avant « orchestrate new ».` } : found;
   }
-  const checked = matrixCore.validateRating({ score, note });
+  if (found.self) return { error: 'Seul le maître ou le sous-orchestrateur qui a lancé un agent enregistre son résultat.' };
+  const checked = capture.validateOutcome(outcome);
   if (checked.error) return checked;
-  const category = kind ? String(kind) : found.agent.kind;
-  if (!category) return { error: `Donne la catégorie de tâche de ${found.agent.id} (--kind, voir orchestrate matrix).` };
-  if (!matrix.categoryIds().includes(category)) return { error: `Catégorie inconnue : ${category}.` };
-  const { agent, orch } = found;
-  const rating = { at: Date.now(), category, provider: agent.provider || 'claude', model: agent.model || null, effort: agent.effort || null, score: checked.score, note: checked.note, agent: agent.id, master: orch.masterSessionId, job: core.jobNumber(orch), worktree: orch.worktree };
-  matrix.recordRating(rating);
+  const orch = ensureObs(found.orch.masterSessionId);
+  const agent = orch.agents.find((a) => a.id === found.agent.id);
+  const record = capture.outcomeRecord(agent, { outcome: checked.outcome, note: require('../core/verdicts').redactText(note), measure: agentMeasure(orch, agent) });
+  matrix.appendVerdictRecords([record]);
   mutate(orch.masterSessionId, (o) => {
     const target = o.agents.find((a) => a.id === agent.id);
-    target.rating = { score: checked.score, note: checked.note, at: rating.at };
-    if (!target.kind) target.kind = category;
-    core.pushEvent(o, { type: 'rating', agent: agent.id, text: `${found.by} note ${agent.id} ${checked.score}/5${checked.note ? ` : ${core.oneLine(checked.note, 120)}` : ''}` }, Date.now());
+    target.outcome = checked.outcome;
+    core.pushEvent(o, { type: 'outcome', agent: agent.id, text: `${found.by} : ${agent.id} ${checked.outcome}${record.note ? ` — ${core.oneLine(record.note, 120)}` : ''}` }, Date.now());
   });
-  return { ok: true };
+  return { ok: true, outcome: checked.outcome, rounds: record.rounds, deliveries: record.deliveries };
+}
+
+async function verifyAgent({ caller, id, verifies }) {
+  const found = agentOf(load(), caller, id);
+  if (found.error) return found;
+  if (found.self) return { error: 'Seul le maître ou le sous-orchestrateur qui a lancé un agent change sa mission.' };
+  const mission = capture.parseMissions(verifies, found.orch, found.agent.id);
+  if (mission.error) return mission;
+  if (!mission.missions.length) return { error: 'Usage : orchestrate verifies <id> <rôle>:<id>[,<id>…]' };
+  const missions = capture.mergeMissions(found.agent.missions, mission.missions);
+  mutate(found.orch.masterSessionId, (o) => {
+    o.agents.find((a) => a.id === found.agent.id).missions = missions;
+    core.pushEvent(o, { type: 'mission', agent: found.agent.id, text: `${found.agent.id} : mission ${capture.missionText(mission.missions)}` }, Date.now());
+  });
+  return { ok: true, mission: capture.missionText(missions) };
+}
+
+const TRANSCRIPT_TAIL_BYTES = 1024 * 1024;
+
+// Only the end of the transcript is read: the final message is the last text of a possibly huge file.
+function readTail(file) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const { size } = fs.fstatSync(fd);
+    const length = Math.min(size, TRANSCRIPT_TAIL_BYTES);
+    const buffer = Buffer.alloc(length);
+    fs.readSync(fd, buffer, 0, length, size - length);
+    const text = buffer.toString('utf8');
+    return length < size ? text.slice(text.indexOf('\n') + 1) : text;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function readFinalMessage(agent) {
+  const file = transcriptFor(readSession(agent.sessionId));
+  return file ? finalMessage(agent.provider, readTail(file)) : null;
+}
+
+// Parses the trailing envelope of an agent's final message, stores the accepted records (idempotent by record id)
+// and returns the wake lines. The message id is remembered only once it was processed, so a failure is retried.
+function captureVerdicts(masterId, agentId, message) {
+  const verdicts = require('../core/verdicts');
+  const orch = ensureObs(masterId);
+  const agent = orch.agents.find((a) => a.id === agentId);
+  const parsed = verdicts.parseEnvelope(message.text);
+  let lines = [];
+  if (parsed) {
+    const { accepted: records, rejected } = verdicts.acceptLines(parsed.lines, capture.captureContext(orch, agent, matrix.readVerdictRecords()));
+    rejected.push(...parsed.errors);
+    if (records.length) matrix.appendVerdictRecords(records);
+    const judged = new Set(records.filter((r) => r.type === 'finding' || r.type === 'clean').map((r) => r.target.agent));
+    lines = capture.verdictWakeLines(records, rejected);
+    mutate(masterId, (o) => { for (const a of o.agents) if (judged.has(a.id)) a.verified = true; });
+  }
+  mutate(masterId, (o) => { o.agents.find((a) => a.id === agentId).finalMessage = { id: message.id, text: message.text.slice(-capture.FINAL_MESSAGE_MAX) }; });
+  return lines;
+}
+
+// The fallback of a late transcript: only the final message of a finished turn, never one already processed.
+async function captureAgent({ caller, id }) {
+  const found = agentOf(load(), caller, id);
+  if (found.error) return found;
+  const { statuses } = liveStatuses(found.orch, await livePanes());
+  if (['working', 'starting'].includes(statuses[found.agent.id])) return { error: `${found.agent.id} travaille encore : relance la capture quand son tour est fini.` };
+  const message = readFinalMessage(found.agent);
+  if (!message) return { ok: true, lines: [], reason: 'pending' };
+  if (message.id === found.agent.finalMessage?.id) return { ok: true, lines: [], reason: 'known' };
+  return { ok: true, lines: captureVerdicts(found.orch.masterSessionId, found.agent.id, message) };
+}
+
+function verdictsView({ caller, id }) {
+  const found = resolveCaller(load(), caller);
+  if (found.error) return found;
+  const wanted = id ? String(id) : null;
+  const byObs = new Map(found.orch.agents.filter((a) => a.obs).map((a) => [a.obs, a.id]));
+  const mine = (pick) => byObs.has(pick?.obs);
+  const severity = { blocking: 'bloquant', 'to-fix': 'à corriger', suggestion: 'suggestion' };
+  const status = { confirmed: 'confirmé', false: 'écarté', plausible: 'plausible' };
+  const label = (p) => `${p.agent} ${p.role ? `${p.role} ` : ''}${p.provider === 'codex' ? 'GPT ' : ''}${p.model || 'défaut'}·${p.effort || '-'}`;
+  const records = matrix.readVerdictRecords();
+  const findings = records.filter((r) => r.type === 'finding' && mine(r.target) && (!wanted || r.target.agent === wanted || r.judge.agent === wanted));
+  const ids = new Set(findings.map((f) => f.id));
+  const triages = records.filter((r) => r.type === 'triage' && ids.has(r.finding));
+  const lines = [];
+  for (const f of findings) {
+    const own = triages.filter((t) => t.finding === f.id);
+    const marks = [f.dup ? `doublon de ${f.dup}` : null, f.missed ? 'manqué par un relecteur' : null, ...own.map((t) => (t.by.role === 'author' && t.status === 'false' ? `contesté par ${t.by.agent}, non arbitré` : `${status[t.status] || t.status} par ${label(t.by)}`))].filter(Boolean);
+    lines.push(`${f.id} → ${f.target.agent} [${severity[f.severity] || f.severity}] ${f.text}\n     ${label(f.judge)}${marks.length ? ` · ${marks.join(' · ')}` : ''}`);
+  }
+  for (const c of records.filter((r) => r.type === 'clean' && mine(r.target) && (!wanted || r.target.agent === wanted || r.judge.agent === wanted))) lines.push(`${c.target.agent} propre selon ${label(c.judge)}`);
+  return { ok: true, lines };
 }
 
 async function rescorePick(body = {}) {
-  const result = await matrix.rescorePick(body);
-  if (result.error) return result;
   const live = resolveCaller(load(), body.caller);
+  const result = await matrix.rescorePick({ ...body, author: live.error ? null : live.agent?.id || 'maître' });
+  if (result.error) return result;
   if (!live.error) {
     const label = `${body.provider === 'codex' ? 'GPT ' : ''}${body.model}·${body.effort || '-'}`;
-    mutate(live.orch.masterSessionId, (o) => core.pushEvent(o, { type: 'rescore', text: `${live.agent?.id || 'maître'} réévalue ${label} à ${body.score}/5 en ${result.category} : ${core.oneLine(String(body.why), 120)}` }, Date.now()));
+    mutate(live.orch.masterSessionId, (o) => core.pushEvent(o, { type: 'rescore', text: `${live.agent?.id || 'maître'} propose ${label} à ${body.score}/5 en ${result.category} (en attente de validation) : ${core.oneLine(String(body.why), 120)}` }, Date.now()));
   }
-  return { ok: true, category: result.category };
+  return { ok: true, pending: true, category: result.category };
 }
 
 async function arenaState({ caller }) {
@@ -791,6 +967,16 @@ function wake(orch, agent, text) {
   return target.sessionId;
 }
 
+// The budget is a warning: a failure to measure it never stops the end-of-turn handling.
+function safeTokens(found) {
+  try {
+    return core.tokenBudget(found.orch.settings) > 0 ? require('./usage').sessionTokens(found.agent.sessionId) : 0;
+  } catch (error) {
+    console.error('token budget failed', error);
+    return 0;
+  }
+}
+
 // Called by the tick on each session transition: reports an agent's finished turn to whoever launched it.
 function onSessionEvent(sessionId, event, session) {
   if (!['done', 'question', 'permission', 'needs_input'].includes(event.type)) return;
@@ -800,16 +986,54 @@ function onSessionEvent(sessionId, event, session) {
   if (found.agent.modePending && ['done', 'permission'].includes(event.type)) applyPendingMode(found.orch.masterSessionId, found.agent.id, event.type).catch((error) => console.error('agent mode failed', error));
   const now = Date.now();
   const report = event.type === 'done' ? lastReport(sessionId) || session?.lastAssistant : null;
+  const verdictLines = event.type === 'done' ? captureDone(found.orch.masterSessionId, found.agent) : [];
+  const tokens = event.type === 'done' ? safeTokens(found) : 0;
   const target = mutate(found.orch.masterSessionId, (orch) => {
     const agent = orch.agents.find((a) => a.id === found.agent.id);
     if (event.type !== 'done') {
       core.pushEvent(orch, { type: 'needs', agent: agent.id, text: `${agent.id} attend ta réponse : ${core.oneLine(event.message, 160)}` }, now);
       return null;
     }
+    agent.lastDoneAt = now;
+    agent.deliveries = (agent.deliveries || 0) + 1;
     core.pushEvent(orch, { type: 'done', agent: agent.id, text: `${agent.id} a fini : ${core.oneLine(report, 160)}` }, now);
-    return wake(orch, agent, core.wakeText(agent, 'done', report));
+    return wake(orch, agent, core.doneWakeText(agent, report, tokens, orch.settings, verdictLines));
   });
-  if (target) enqueueMerged(target, core.wakeText(found.agent, 'done', report), 'orchestration');
+  if (target) enqueueMerged(target, core.doneWakeText(found.agent, report, tokens, found.orch.settings, verdictLines), 'orchestration');
+}
+
+const CAPTURE_RETRY_MS = [5000, 20000];
+
+// Only an agent that can write verdicts is read: one with a mission, or one that was itself judged (it answers findings about itself).
+const writesVerdicts = (agent) => (agent.missions || []).length > 0 || !!agent.verified;
+
+// The transcript can land after the done event: while no finished-turn message newer than the captured one is there, it is
+// read again 5 s then 20 s later, and the verdicts found then reach the master in a message of their own.
+function captureDone(masterId, agent, attempt = 0) {
+  if (!writesVerdicts(agent)) return [];
+  let message = null;
+  try {
+    message = readFinalMessage(agent);
+    if (message && message.id !== agent.finalMessage?.id) return captureVerdicts(masterId, agent.id, message);
+  } catch (error) {
+    console.error('verdict capture failed', error);
+  }
+  if (attempt < CAPTURE_RETRY_MS.length) setTimeout(() => lateCapture(masterId, agent.id, attempt + 1), CAPTURE_RETRY_MS[attempt]).unref();
+  return [];
+}
+
+function lateCapture(masterId, agentId, attempt) {
+  try {
+    const agent = load()[masterId]?.agents.find((a) => a.id === agentId);
+    if (!agent) return;
+    const lines = captureDone(masterId, agent, attempt);
+    if (!lines.length) return;
+    const text = `[cockpit] Verdicts de ${agentId} (transcript arrivé après la fin du tour) :\n${lines.join('\n')}`;
+    const target = mutate(masterId, (o) => wake(o, o.agents.find((a) => a.id === agentId), text));
+    if (target) enqueueMerged(target, text, 'orchestration');
+  } catch (error) {
+    console.error('late verdict capture failed', error);
+  }
 }
 
 // Called by the tick: an agent whose session died without being stopped (crash, closed pane) is
@@ -844,6 +1068,6 @@ function activeAgentsBySession(views) {
 module.exports = {
   modeChecks: () => Promise.all([...modeChecks]),
   startMaster, promote, setPlan, launchAgent, stopAgent, resumeAgent, sendToAgent, readAgent, status, orchestrations, orchestrationViews, launchedAgents,
-  setPaused, updateSettings, switchTeamToAuto, endOrchestration, newJob, skillsForAgents, rateAgent, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
+  setPaused, updateSettings, switchTeamToAuto, endOrchestration, newJob, skillsForAgents, rateAgent, outcomeAgent, verifyAgent, captureAgent, verdictsView, rescorePick, arenaState, setArena, onSessionEvent, checkLostAgents, activeAgentsBySession,
   lastReport, isolatedWorktree, readStore: load, masterResumeDisallowed,
 };

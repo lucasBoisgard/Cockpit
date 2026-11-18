@@ -45,6 +45,8 @@ File `review-r<k>.md` in the run dir, headed by the snapshot line. Contains:
 
 Then the report per `agent-protocol`; every finding stays CANDIDATE in it (light mode: see `role-sub-orchestrator/topologies.md`).
 
+End the final message with the verdict envelope (`agent-protocol`, "Verdict envelope"), one `on <agent>` block per reviewed target named by your mission: one `F<n>` line per finding with its severity, or `clean` when you found nothing. Pre-existing defects are not findings. In delta mode a residual after the fix is a new `F<n>`, and a defect the earlier review should have caught carries `missed=<earlier reviewer>`. Never triage your own findings. Without the mission flag in your brief, write no envelope.
+
 ## Escalate
 
 - `BLOQUÉ`: the base or snapshot cannot be determined, the ticket is required but unreachable, a criterion in the framing is ambiguous.

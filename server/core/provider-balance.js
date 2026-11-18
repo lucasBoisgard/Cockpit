@@ -1,15 +1,14 @@
-// Claude and GPT should both get their share of the agents a master launches: the choice must rest on relevance and on
-// how full each account is, not on habit. Pure decisions: who has had how many agents lately, how full each provider's
-// usage windows are, and which one the next agent should go to.
+// Claude and GPT accounts differ in size: the choice rests on how full each provider's usage windows are and how fast each
+// burns its quota per unit of work, never on an even split of agents. Pure decisions.
 const { highestUsage } = require('./arena-breaker');
 
 const WINDOW_MS = 7 * 86400000;
-const DEFAULT_TARGET = 0.5;
-// A gap smaller than this is a tie: the provider alternates instead of being pushed.
-const TIE = 0.1;
+// A fill gap smaller than this many points is a tie; a burn rate must exceed the other by this ratio to count as faster.
+const TIE_POINTS = 3;
+const BURN_RATIO = 1.25;
 // A provider this full in any window is avoided whatever its share.
 const FULL_PERCENT = 90;
-const WINDOW_NAMES = { five_hour: '5 h', seven_day: '7 jours' };
+const WINDOW_NAMES = { five_hour: '5 h', seven_day: '7 j' };
 
 const round = (n) => Math.round(n * 1000) / 1000;
 
@@ -39,48 +38,69 @@ function choosableAgents(store) {
   return rows;
 }
 
-// launches: [{ provider, createdAt }] of the agents launched, whatever the orchestration (newest last or not: sorted here);
-// available: { claude, codex } booleans; target: the GPT share wanted (0.5 = even).
-function providerBalance({ launches = [], limits = {}, available = {}, target = DEFAULT_TARGET, now = Date.now(), windowMs = WINDOW_MS } = {}) {
+// Both providers should fill their usage windows evenly, weekly window first, the 5 h window as a guard. The account that is
+// the less full gets the next agent, unless it burns its quota faster per unit of work: that one is never pushed.
+// launches: [{ provider, createdAt }] of the agents launched; work: { claude, codex } units of work done over the same
+// 7 days (tokens); available: { claude, codex } booleans.
+function providerBalance({ launches = [], limits = {}, available = {}, work = {}, now = Date.now(), windowMs = WINDOW_MS } = {}) {
   const recent = launches.filter((l) => Number.isFinite(l.createdAt) && now - l.createdAt <= windowMs).sort((a, b) => a.createdAt - b.createdAt);
   const count = { claude: recent.filter((l) => l.provider !== 'codex').length, codex: recent.filter((l) => l.provider === 'codex').length };
   const total = count.claude + count.codex;
   const last = recent.length ? (recent[recent.length - 1].provider === 'codex' ? 'codex' : 'claude') : null;
   const usage = providerUsage(limits, now);
   const share = (p) => (total ? round(count[p] / total) : 0);
-  const side = (p) => ({ agents: count[p], share: share(p), usedPercent: usage[p].worst, weekPercent: usage[p].seven_day });
-  const out = { target, windowDays: Math.round(windowMs / 86400000), total, last, claude: side('claude'), codex: side('codex') };
+  const useTokens = work.claude > 0 && work.codex > 0;
+  const burn = (p) => {
+    const units = useTokens ? work[p] : count[p] > 0 && count.claude > 0 && count.codex > 0 ? count[p] : null;
+    return usage[p].seven_day !== null && units ? usage[p].seven_day / units : null;
+  };
+  const side = (p) => ({ agents: count[p], share: share(p), usedPercent: usage[p].worst, weekPercent: usage[p].seven_day, shortPercent: usage[p].five_hour, burn: burn(p) });
+  const out = { windowDays: Math.round(windowMs / 86400000), total, last, claude: side('claude'), codex: side('codex') };
   if (available.claude === false && available.codex === false) return { ...out, prefer: null, reason: 'Aucun fournisseur disponible.' };
   if (available.codex === false) return { ...out, prefer: 'claude', reason: 'GPT indisponible (Codex non connecté).' };
   if (available.claude === false) return { ...out, prefer: 'codex', reason: 'Claude indisponible.' };
+  const name = (p) => (p === 'codex' ? 'GPT' : 'Claude');
+  const other = (p) => (p === 'codex' ? 'claude' : 'codex');
+  const pct = (p, w) => Math.round(usage[p][w]);
   const fullWindow = (p) => Object.keys(WINDOW_NAMES).find((w) => usage[p][w] !== null && usage[p][w] >= FULL_PERCENT) || null;
   const fullC = fullWindow('claude');
   const fullG = fullWindow('codex');
-  const name = (p) => (p === 'codex' ? 'GPT' : 'Claude');
-  const pct = (p, w) => Math.round(usage[p][w]);
   if (fullG && !fullC) return { ...out, prefer: 'claude', reason: `GPT à ${pct('codex', fullG)} % de sa limite ${WINDOW_NAMES[fullG]}.` };
   if (fullC && !fullG) return { ...out, prefer: 'codex', reason: `Claude à ${pct('claude', fullC)} % de sa limite ${WINDOW_NAMES[fullC]}.` };
-  if (fullC && fullG) {
-    const prefer = (usage.codex.seven_day ?? usage.codex.worst) <= (usage.claude.seven_day ?? usage.claude.worst) ? 'codex' : 'claude';
-    return { ...out, prefer, reason: `Les deux comptes sont presque pleins : ${name(prefer)} a le plus de marge sur 7 jours.` };
+  const lessFull = (w) => {
+    const c = usage.claude[w];
+    const g = usage.codex[w];
+    if (c === null || g === null || Math.abs(c - g) < TIE_POINTS) return null;
+    return g < c ? 'codex' : 'claude';
+  };
+  const windowLine = (w) => `${WINDOW_NAMES[w]} : Claude ${pct('claude', w)} %, GPT ${pct('codex', w)} %`;
+  const unknown = ['seven_day', 'five_hour'].filter((w) => usage.claude[w] === null || usage.codex[w] === null);
+  const week = unknown.includes('seven_day') ? null : lessFull('seven_day');
+  const fast = burn('claude') !== null && burn('codex') !== null && burn('claude') > 0 && burn('codex') > 0
+    ? (burn('codex') > burn('claude') * BURN_RATIO ? 'codex' : burn('claude') > burn('codex') * BURN_RATIO ? 'claude' : null)
+    : null;
+  const note = unknown.includes('seven_day') ? ' Fenêtre 7 jours inconnue pour un des comptes.' : '';
+  if (week) {
+    if (fast === week) {
+      return { ...out, prefer: other(week), reason: `${name(week)} est moins plein (${windowLine('seven_day')}) mais se vide plus vite par tâche : ${name(other(week))} privilégié.` };
+    }
+    return { ...out, prefer: week, reason: `${name(week)} est le moins plein (${windowLine('seven_day')}).` };
   }
-  const deficit = total ? target - share('codex') : 0;
-  const week = (p) => usage[p].seven_day;
-  const headroom = week('claude') !== null && week('codex') !== null ? (week('claude') - week('codex')) / 100 : 0;
-  const score = round(deficit + 0.5 * headroom);
-  const parts = [];
-  if (total) parts.push(`GPT ${Math.round(share('codex') * 100)} % des agents sur ${out.windowDays} j (cible ${Math.round(target * 100)} %)`);
-  if (headroom) parts.push(`utilisation 7 jours : Claude ${Math.round(week('claude'))} %, GPT ${Math.round(week('codex'))} %`);
-  if (score > TIE) return { ...out, prefer: 'codex', reason: parts.join(' · ') };
-  if (score < -TIE) return { ...out, prefer: 'claude', reason: parts.join(' · ') };
+  if (!unknown.includes('seven_day') && fast) {
+    return { ...out, prefer: other(fast), reason: `Remplissage 7 jours équivalent (${windowLine('seven_day')}) : ${name(fast)} se vide plus vite par tâche.` };
+  }
+  const short = unknown.includes('five_hour') ? null : lessFull('five_hour');
+  if (short) return { ...out, prefer: short, reason: `${name(short)} a le plus de marge sur la fenêtre courte (${windowLine('five_hour')}).${note}` };
   const prefer = last === 'claude' ? 'codex' : 'claude';
-  return { ...out, prefer, reason: `Équilibre correct : alterne${last ? ` (le dernier agent était ${name(last)})` : ''}, sauf si l'autre pick est nettement meilleur.` };
+  const known = unknown.length < 2;
+  return { ...out, prefer, reason: `${known ? 'Remplissage équivalent' : 'Fenêtres de limite inconnues'} : alterne${last ? ` (le dernier agent était ${name(last)})` : ''}.${note}` };
 }
 
 function balanceText(b) {
-  const pct = (p) => (p.usedPercent === null ? '' : ` · limite à ${Math.round(p.usedPercent)} %`);
-  const line = `Équilibre Claude/GPT sur ${b.windowDays} j : Claude ${b.claude.agents} agents (${Math.round(b.claude.share * 100)} %)${pct(b.claude)}, GPT ${b.codex.agents} (${Math.round(b.codex.share * 100)} %)${pct(b.codex)}.`;
+  const w = (p) => (p.weekPercent === null ? '7 j inconnu' : `7 j ${Math.round(p.weekPercent)} %`);
+  const s = (p) => (p.shortPercent === null ? '5 h inconnu' : `5 h ${Math.round(p.shortPercent)} %`);
+  const line = `Remplissage des limites : Claude ${w(b.claude)}, ${s(b.claude)} (${b.claude.agents} agents sur ${b.windowDays} j) · GPT ${w(b.codex)}, ${s(b.codex)} (${b.codex.agents} agents).`;
   return `${line}\n${b.prefer ? `Prochain agent : ${b.prefer === 'codex' ? 'GPT' : 'Claude'}. ${b.reason}` : b.reason}`;
 }
 
-module.exports = { providerBalance, providerUsage, choosableAgents, balanceText, DEFAULT_TARGET, TIE, FULL_PERCENT, WINDOW_MS };
+module.exports = { providerBalance, providerUsage, choosableAgents, balanceText, TIE_POINTS, BURN_RATIO, FULL_PERCENT, WINDOW_MS };

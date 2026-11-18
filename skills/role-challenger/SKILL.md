@@ -43,6 +43,14 @@ Head with the snapshot line, then:
 3. Separate section **New CANDIDATEs**: things you noticed outside the list. They are not statused; the next cycle handles them.
 4. For each PLAUSIBLE: the exact check that would settle it.
 
+## Verdict envelope
+End the final message with the envelope (`agent-protocol`, "Verdict envelope") when your brief gives you a mission: one `triage <agent>:F<n>` line per claim.
+- CONFIRMED → `confirmed`, adding the recalibrated severity when it differs from the stated one.
+- PLAUSIBLE → `plausible`: it settles nothing and is not confirmed; never write `confirmed` without proof.
+- DISMISSED (false, pre-existing, out of scope, house or repo rule) → `false`, the reason in the text.
+- An author's answer "false" to a finding about its own work is only a contest: you settle it with your own triage.
+A new defect you notice in a judged agent's work is an `F<n>` line under `on <agent>`.
+
 ## Done when
 Every `F<n>` of the batch has a status and a proof or a settling check, and the first line adds up. Report `TERMINÉ`.
 

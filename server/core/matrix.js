@@ -1,14 +1,19 @@
 // Relevance matrix of providers × models × efforts per kind of task, without I/O. The versioned default
-// (server/data/model-matrix.json) is overlaid by the maintainer's published edits, then by the user's local edits; masters rate their agents, and the
-// observed average weighs on the ranking as ratings accumulate.
+// (server/data/model-matrix.json) is overlaid by the maintainer's published edits, then by the user's local edits;
+// the score out of 100 of a pick comes from the verdicts of verifying agents (verdicts.js), the reference being its prior.
 const providers = require('./providers');
+const verdicts = require('./verdicts');
 
-const PRIOR_WEIGHT = 2;
 const MAX_PICKS = 8;
 const RATINGS_MAX = 2000;
-// A combination the masters used outside the matrix shows up once rated this often, starting from a neutral prior.
-const OFF_MATRIX_MIN = 2;
-const OFF_MATRIX_PRIOR = 3;
+// A combination the masters used outside the matrix shows up once verifiers have covered it with this much weight.
+const OFF_MATRIX_MIN_WEIGHT = 1;
+const { GOOD_ENOUGH, COVERAGE_TARGET: COVERED_AT } = verdicts;
+// Measured medians count from this many agents; below it the model's static cost and speed stand in.
+const MIN_MEASURED = 2;
+const DEFAULT_TIER = 2;
+// Tokens assumed, in millions, for a pick without measurement when its category has none either.
+const ASSUMED_MTOK = 0.5;
 
 const keyOf = (category, p) => `${category}|${p.provider}|${p.model}|${p.effort || ''}`;
 const clip = (text, max) => String(text ?? '').trim().slice(0, max);
@@ -64,62 +69,147 @@ function validateCategory(input = {}, catalogs = {}) {
   return { category: { id, label, description: clip(input.description, 200), picks: out } };
 }
 
-function validateRating(input = {}) {
-  const score = Number(input.score);
-  if (!Number.isInteger(score) || score < 1 || score > 5) return { error: 'Note entre 1 et 5.' };
-  return { score, note: clip(input.note, 300) };
+// Legacy ratings (the masters' 1-5 opinions, frozen: nothing writes them any more) as the records the scoring reads;
+// their weight is capped by the scoring, so ratings that older installs keep publishing change little.
+const legacyRatings = (ratings = []) => ratings.filter((r) => r.category);
+
+const median = (values) => {
+  const v = values.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const mid = v.length >> 1;
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+};
+
+const legacyKey = (r) => `${r.master}|${r.job}|${r.agent ?? r.id}`;
+// Cache reads are billed about a tenth of a fresh token: counting them in full would make a model that re-reads its
+// context look dearer than its quota weight.
+const CACHE_READ_WEIGHT = 0.1;
+const billedTokens = (t) => Math.round(t.input + t.cacheWrite + t.output + CACHE_READ_WEIGHT * t.cacheRead);
+
+// What a rating records of the agent it rates, when known.
+function ratingMeasure({ totals, startedAt, workEndedAt } = {}) {
+  return { ...(totals ? { tokens: billedTokens(totals) } : {}), ...(startedAt && workEndedAt > startedAt ? { durationMs: workEndedAt - startedAt } : {}) };
 }
 
-function addRating(ratings, rating) {
-  return [...(ratings || []), rating].slice(-RATINGS_MAX);
-}
-
-// Observed results per (category, provider, model, effort): average, count and the latest notes.
-function aggregateRatings(ratings = []) {
-  const out = {};
-  for (const r of ratings) {
-    if (!r.category) continue;
-    const k = keyOf(r.category, r);
-    const a = out[k] || (out[k] = { category: r.category, provider: r.provider, model: r.model, effort: r.effort || null, sum: 0, n: 0, notes: [] });
-    a.sum += r.score;
-    a.n += 1;
-    if (r.note) a.notes = [{ at: r.at, score: r.score, note: r.note, agent: r.agent }, ...a.notes].slice(0, 3);
+// Past agents per (category, provider, model, effort): how many were measured, their median billed tokens and duration.
+// Each agent is counted once, keyed by its `obs` (legacy ratings, which have none, by master, job and agent): the
+// measures kept in outcome records and legacy ratings first (they outlive the orchestration store; the latest one
+// of an agent counts), then the store rows of agents not covered that way. An agent without a category or without
+// tokens is not measured.
+function aggregateMeasured(rows = [], records = []) {
+  const latest = new Map();
+  records.forEach((r, i) => {
+    if (!r.category || !(r.tokens > 0)) return;
+    const key = r.obs || (r.agent && r.master ? legacyKey(r) : `#${i}`);
+    if (!latest.has(key) || (r.at || 0) >= (latest.get(key).at || 0)) latest.set(key, r);
+  });
+  const counted = new Set(latest.keys());
+  const items = [...latest.values()].map((r) => ({ key: keyOf(r.category, r), tokens: r.tokens, durationMs: r.durationMs > 0 ? r.durationMs : null }));
+  for (const r of rows) {
+    if (r.role === 'master' || r.shared || !r.kind || !r.totals || !(billedTokens(r.totals) > 0) || (r.obs && counted.has(r.obs)) || (r.id && counted.has(legacyKey(r)))) continue;
+    if (r.obs) counted.add(r.obs);
+    items.push({ key: keyOf(r.kind, r), tokens: billedTokens(r.totals), durationMs: r.startedAt && r.workEndedAt > r.startedAt ? r.workEndedAt - r.startedAt : null });
   }
-  for (const a of Object.values(out)) a.avg = Math.round((a.sum / a.n) * 10) / 10;
+  const groups = {};
+  for (const i of items) (groups[i.key] || (groups[i.key] = [])).push(i);
+  const out = {};
+  for (const [k, list] of Object.entries(groups)) {
+    const durations = list.map((i) => i.durationMs).filter((d) => d != null);
+    out[k] = { n: list.length, tokens: median(list.map((i) => i.tokens)), durationMs: durations.length ? median(durations) : null };
+  }
   return out;
 }
 
-// The reference score counts as PRIOR_WEIGHT ratings, so a few observations move it and many dominate it.
-function blended(score, observed) {
-  return observed?.n ? Math.round(((score * PRIOR_WEIGHT + observed.sum) / (PRIOR_WEIGHT + observed.n)) * 10) / 10 : score;
+const cardOf = (models, p) => models.find((m) => m.provider === p.provider && m.model === p.model) || {};
+
+const isMeasured = (p) => p.measured && p.measured.n >= MIN_MEASURED && p.measured.tokens > 0;
+
+// Quota cost of a pick, higher = dearer: its measured median billed tokens times the model's quota weight (how fast it
+// fills the usage limit per token); an unmeasured pick takes the median of the category's measured picks
+// (`typicalTokens`, in millions) so it is not favoured.
+function expectedCost(p, card, typicalTokens) {
+  return (isMeasured(p) ? p.measured.tokens / 1e6 : typicalTokens) * (card.cost ?? DEFAULT_TIER);
 }
 
-function recommend(matrix, categoryId, { available = {}, ratings = {} } = {}) {
+// Duration in minutes when measured, else the median of the category's measured picks (like the tokens) so that an
+// unmeasured pick is not favoured; without any measure in the category, 4 - speed (3 = fast) orders by static speed.
+function expectedDuration(p, card, typicalMinutes) {
+  if (isMeasured(p) && p.measured.durationMs != null) return p.measured.durationMs / 60000;
+  return typicalMinutes ?? 4 - (card.speed ?? DEFAULT_TIER);
+}
+
+const LAST_OBSERVATIONS = 3;
+
+// What the page needs of a pick's verdicts, bounded whatever the number of observations: the score, the weight and
+// confidence, the counters and indicators, and the last verified observations (outcomes and legacy ratings stay in the counters).
+function slimEvidence(e) {
+  if (!e) return null;
+  const { observations = [], legacy = [], ...rest } = e;
+  const { findings, records, ...kept } = rest;
+  return { ...kept, observationCount: observations.length, legacyCount: legacy.length, observations: observations.filter((o) => o.level !== 'outcome' && o.level !== 'legacy').slice(-LAST_OBSERVATIONS) };
+}
+
+// `scores`: per pick key, the entry of verdicts.pickScores ({ category, provider, model, effort, S, V, confidence, ... }).
+// A pick without evidence keeps its reference (1-5 score through the legacy map) as its score out of 100.
+function recommend(matrix, categoryId, { available = {}, scores = {}, measured = {} } = {}) {
   const category = matrix.categories.find((c) => c.id === categoryId);
   if (!category) return null;
-  const picks = category.picks.map((p) => {
-    const observed = ratings[keyOf(category.id, p)] || null;
-    return { ...p, observed: observed ? { avg: observed.avg, n: observed.n, notes: observed.notes } : null, rank: blended(p.score, observed), available: available[p.provider] !== false };
-  });
-  const listed = new Set(picks.map((p) => keyOf(category.id, p)));
-  for (const [key, o] of Object.entries(ratings)) {
-    if (o.category !== category.id || !o.model || listed.has(key) || o.n < OFF_MATRIX_MIN) continue;
-    picks.push({ provider: o.provider, model: o.model, effort: o.effort, score: null, why: 'Observé hors matrice : choisi par des maîtres sans figurer dans la catégorie.', offMatrix: true,
-      observed: { avg: o.avg, n: o.n, notes: o.notes }, rank: blended(OFF_MATRIX_PRIOR, o), available: available[o.provider] !== false });
+  const shape = (p, ref) => {
+    const key = keyOf(category.id, p);
+    const evidence = slimEvidence(scores[key]);
+    const quality = Number.isFinite(evidence?.S) ? evidence.S : ref;
+    return { ...p, key, evidence, quality, verified: evidence?.V || 0, confidence: evidence?.confidence || verdicts.confidence(0), measured: measured[key] || null, available: available[p.provider] !== false };
+  };
+  const picks = category.picks.map((p) => shape(p, verdicts.refScore(p.score)));
+  const listed = new Set(picks.map((p) => p.key));
+  for (const [key, o] of Object.entries(scores)) {
+    if (o.category !== category.id || !o.model || listed.has(key) || !(o.V >= OFF_MATRIX_MIN_WEIGHT)) continue;
+    picks.push(shape({ provider: o.provider, model: o.model, effort: o.effort || null, score: null, why: 'Observé hors matrice : choisi par des maîtres sans figurer dans la catégorie.', offMatrix: true }, verdicts.refScore(null)));
   }
-  picks.sort((a, b) => (b.available - a.available) || (b.rank - a.rank) || ((b.score || 0) - (a.score || 0)));
-  return { ...category, picks };
+  const models = matrix.models || [];
+  const typicalTokens = (median(picks.filter(isMeasured).map((p) => p.measured.tokens)) ?? ASSUMED_MTOK * 1e6) / 1e6;
+  const typicalMinutes = median(picks.filter((p) => isMeasured(p) && p.measured.durationMs != null).map((p) => p.measured.durationMs / 60000));
+  for (const p of picks) {
+    const card = cardOf(models, p);
+    p.goodEnough = p.quality >= GOOD_ENOUGH;
+    p.expectedCost = expectedCost(p, card, typicalTokens);
+    p.expectedMinutes = expectedDuration(p, card, typicalMinutes);
+  }
+  const orderOf = (group) => verdicts.orderPicks(group.map((p) => ({ key: p.key, S: p.quality, quotaCost: p.expectedCost, durationMs: p.expectedMinutes })), category.rankBy);
+  const byKey = new Map(picks.map((p) => [p.key, p]));
+  const ranked = [...orderOf(picks.filter((p) => p.available)), ...orderOf(picks.filter((p) => !p.available))].map((o) => byKey.get(o.key));
+  return { ...category, picks: ranked };
 }
 
-// Every available pick worth using (score >= minScore) needs `target` ratings before calibration is complete.
-function calibrationCoverage(matrix, ratings = {}, { available = {}, target = 2, minScore = 3 } = {}) {
+const byId = (...lists) => [...new Map(lists.flat().filter((r) => r && r.id).map((r) => [r.id, r])).values()];
+
+// Stores incoming verdict records among the stored ones by id (a later one replaces an earlier one), within the
+// retention; `added` counts the incoming records that are new or changed and survived the retention.
+function addVerdicts(stored = [], incoming = [], max) {
+  const known = new Map(byId(stored).map((r) => [r.id, JSON.stringify(r)]));
+  const fresh = byId(incoming).filter((r) => known.get(r.id) !== JSON.stringify(r));
+  if (!fresh.length) return { records: byId(stored), added: 0 };
+  const records = verdicts.retain(byId(stored, fresh), max);
+  const kept = new Set(records.map((r) => r.id));
+  return { records, added: fresh.filter((r) => kept.has(r.id)).length };
+}
+
+// A coverage file that was hand-edited or truncated falls back to zeros instead of poisoning the counters.
+function cleanCoverage(raw) {
+  const n = (v) => (Number.isInteger(v) && v >= 0 ? v : 0);
+  return { launches: n(raw?.launches), credits: n(raw?.credits), spent: n(raw?.spent) };
+}
+
+// Every available pick worth using (reference >= minScore) must have been verified with COVERED_AT weight before
+// calibration is complete.
+function calibrationCoverage(matrix, scores = {}, { available = {}, target = COVERED_AT, minScore = 3 } = {}) {
   const missing = [];
   let total = 0;
   for (const c of matrix.categories) {
     for (const p of c.picks) {
       if (available[p.provider] === false || !(p.score >= minScore)) continue;
       total += 1;
-      const n = ratings[keyOf(c.id, p)]?.n || 0;
+      const n = scores[keyOf(c.id, p)]?.V || 0;
       if (n < target) missing.push({ category: c.id, provider: p.provider, model: p.model, effort: p.effort || null, n });
     }
   }
@@ -136,4 +226,4 @@ function rescorePicks(picks = [], target = {}) {
   return { picks: [...picks, entry] };
 }
 
-module.exports = { calibrationCoverage, rescorePicks, PRIOR_WEIGHT, OFF_MATRIX_MIN, OFF_MATRIX_PRIOR, keyOf, ratingKey, applyEdits, combineRatings, mergeMatrix, validateCategory, validateRating, addRating, aggregateRatings, blended, recommend };
+module.exports = { calibrationCoverage, rescorePicks, OFF_MATRIX_MIN_WEIGHT, COVERED_AT, addVerdicts, cleanCoverage, slimEvidence, keyOf, ratingKey, applyEdits, combineRatings, mergeMatrix, validateCategory, legacyRatings, aggregateMeasured, ratingMeasure, billedTokens, CACHE_READ_WEIGHT, recommend, GOOD_ENOUGH, MIN_MEASURED };

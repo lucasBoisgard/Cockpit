@@ -27,7 +27,22 @@ function dayKeys(now, tzOffsetMs, count) {
 }
 
 function newUsageEntry(tzOffsetMs) {
-  return { offset: 0, tzOffsetMs, cwd: null, seen: new Set(), days: new Map() };
+  return { offset: 0, tzOffsetMs, cwd: null, seen: new Set(), days: new Map(), hours: new Map() };
+}
+
+// Tokens that count against a quota (cache reads left out), bucketed by hour: what a usage window consumed since its start.
+const workOf = (t) => t.input + t.cacheWrite + t.output;
+const HOUR_MS = 3600000;
+
+function addHour(entry, at, totals) {
+  const hour = Math.floor(at / HOUR_MS);
+  entry.hours.set(hour, (entry.hours.get(hour) || 0) + workOf(totals));
+}
+
+function workSince(entries, sinceMs) {
+  let n = 0;
+  for (const e of entries) for (const [hour, work] of e.hours) if ((hour + 1) * HOUR_MS > sinceMs) n += work;
+  return n;
 }
 
 function addUsageLines(entry, text) {
@@ -45,14 +60,17 @@ function addUsageLines(entry, text) {
     const id = row.message.id || row.requestId;
     if (id && entry.seen.has(id)) continue;
     if (id) entry.seen.add(id);
-    const day = new Date(Date.parse(row.timestamp) - entry.tzOffsetMs).toISOString().slice(0, 10);
+    const at = Date.parse(row.timestamp);
+    const day = new Date(at - entry.tzOffsetMs).toISOString().slice(0, 10);
     if (!entry.days.has(day)) entry.days.set(day, emptyTotals());
-    addTotals(entry.days.get(day), {
+    const totals = {
       input: usage.input_tokens || 0,
       cacheWrite: usage.cache_creation_input_tokens || 0,
       cacheRead: usage.cache_read_input_tokens || 0,
       output: usage.output_tokens || 0,
-    });
+    };
+    addTotals(entry.days.get(day), totals);
+    addHour(entry, at, totals);
   }
   return entry;
 }
@@ -103,7 +121,9 @@ function addCodexLines(entry, text) {
     const day = new Date(at - entry.tzOffsetMs).toISOString().slice(0, 10);
     if (!entry.days.has(day)) entry.days.set(day, emptyTotals());
     const cached = delta('cached_input_tokens');
-    addTotals(entry.days.get(day), { input: Math.max(0, delta('input_tokens') - cached), cacheWrite: delta('cache_write_input_tokens'), cacheRead: cached, output: delta('output_tokens') });
+    const totals = { input: Math.max(0, delta('input_tokens') - cached), cacheWrite: delta('cache_write_input_tokens'), cacheRead: cached, output: delta('output_tokens') };
+    addTotals(entry.days.get(day), totals);
+    addHour(entry, at, totals);
   }
   return entry;
 }
@@ -134,4 +154,4 @@ function aggregateUsage(entries, keys, repo) {
   };
 }
 
-module.exports = { emptyTotals, addTotals, totalOf, usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, codexLimits, codexModelLabel, newCodexEntry, addCodexLines, aggregateUsage };
+module.exports = { emptyTotals, addTotals, totalOf, usageWorktree, latestLimits, tzOffsetMsOf, dayKeys, newUsageEntry, addUsageLines, codexLimits, codexModelLabel, newCodexEntry, addCodexLines, aggregateUsage, workSince };

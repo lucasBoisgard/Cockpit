@@ -85,7 +85,7 @@ function orchNodeHtml(box, orch, pick) {
   const { node } = box;
   const toggle = node.children.length ? `<button class="orch-toggle" data-orch-toggle="${node.id}" title="${orchUi.collapsed.has(node.id) ? 'Déplier' : 'Replier'}">${orchUi.collapsed.has(node.id) ? `+${node.children.length}` : '−'}</button>` : '';
   const style = `left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px`;
-  const cls = `orch-node orch-${node.kind} orch-s-${node.status} ${pick === node.id ? 'is-picked' : ''}`;
+  const cls = `orch-node orch-${node.kind} orch-s-${node.status} ${pick === node.id ? 'is-picked' : ''} ${node.agent?.overBudget ? 'orchbudget-over' : ''}`;
   if (node.kind === 'master') {
     const n = orch.counts.working + orch.counts.starting;
     return `<div class="${cls}" style="${style}" data-orch-node="m"><div class="orch-line">${orchGear(node.status)}<b>◆ Maître</b>${toggle}</div>
@@ -99,7 +99,7 @@ function orchNodeHtml(box, orch, pick) {
   const a = node.agent;
   const setting = [a.provider === 'codex' ? 'GPT' : null, a.model || 'défaut', a.effort, a.mode ? `${a.modePending ? '⏳ ' : ''}${ORCH_MODE_SHORT[a.mode] || a.mode}` : null, ...(a.skills || [])].filter(Boolean).join(' · ');
   const act = a.unattached ? 'Hook à valider avec /hooks' : a.status === 'needs' ? a.message || 'Attend ta réponse' : a.status === 'working' ? a.action || 'Travaille' : a.status === 'done' ? oneLineText(a.lastAssistant, 80) || 'A fini' : ORCH_WORD[a.status];
-  return `<div class="${cls}" style="${style}" data-orch-node="${a.id}"><div class="orch-line">${orchGear(a.status)}<b>${esc(a.id)} · ${esc(a.name)}</b>${toggle}</div>
+  return `<div class="${cls}" style="${style}" data-orch-node="${a.id}"><div class="orch-line">${orchGear(a.status)}<b>${esc(a.id)} · ${esc(a.name)}</b>${a.overBudget ? `<span class="orchbudget-badge" title="Budget de tokens dépassé (${esc(a.budgetLabel)}) : relance le travail dans un agent neuf avec un court passage de relais">⚠ budget</span>` : ''}${toggle}</div>
     <div class="orch-sub">${esc(setting)}${a.isolated ? ' · ⎇ isolé' : ''}</div><div class="orch-act" title="${esc(act)}">${esc(oneLineText(act, 70))}</div></div>`;
 }
 
@@ -161,6 +161,7 @@ function orchSettings(orch) {
     <label>Me solliciter<select name="autonomy">${Object.entries(ORCH_AUTONOMY).map(([k, l]) => `<option value="${k}" ${orch.settings.autonomy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Agents actifs au maximum<input type="number" name="maxAgents" min="1" max="20" value="${orch.settings.maxAgents}"></label>
     <label>Profondeur maximale des agents<input type="number" name="maxDepth" min="1" max="4" value="${orch.settings.maxDepth}"><small>Niveaux de sous-orchestrateurs sous le maître (plafond 4). Plus c’est profond, plus le coût en tokens grimpe.</small></label>
+    <label>Budget de tokens par agent (millions)<input type="number" name="agentTokenBudget" min="0" max="500" step="1" value="${orch.settings.agentTokenBudget}"><small>Au-delà, le maître est invité à relancer le travail dans un agent neuf avec un court passage de relais plutôt qu’à reprendre celui-ci. 0 : pas de plafond.</small></label>
     <label class="orch-check"><input type="checkbox" name="arena" ${orch.settings.arena ? 'checked' : ''}> Mode Arène<small>Chaque tâche est confiée à plusieurs modèles en parallèle, un juge les compare et les note. Plus lent et plus coûteux, pour apprendre la matrice.</small></label>
     <label>Permissions de tous les agents, maître compris<select name="agentMode">${[['acceptEdits', 'Accepter les modifs'], ['auto', 'Auto'], ['default', 'Par défaut'], ['plan', 'Plan']].map(([k, l]) => `<option value="${k}" ${orch.settings.agentMode === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="orch-row"><button class="btn primary">Appliquer</button><button type="button" class="btn orch-danger" data-orch-end>Terminer l’orchestration</button></div></form>`;
@@ -282,7 +283,7 @@ $('orch-view').addEventListener('submit', async (e) => {
   const form = e.target;
   if (form.matches('[data-orch-settings]')) {
     const data = Object.fromEntries(new FormData(form));
-    if (await orchPost('/api/orch/settings', { master: orch.masterSessionId, autonomy: data.autonomy, maxAgents: Number(data.maxAgents), agentMode: data.agentMode, maxDepth: data.maxDepth === '' ? undefined : Number(data.maxDepth), arena: data.arena === 'on' }, (r) => (r.modes ? `Permissions : ${r.modes}` : 'Réglages appliqués, le maître est prévenu.'))) { orchUi.settings = false; renderOrchestration(true); }
+    if (await orchPost('/api/orch/settings', { master: orch.masterSessionId, autonomy: data.autonomy, maxAgents: Number(data.maxAgents), agentMode: data.agentMode, maxDepth: data.maxDepth === '' ? undefined : Number(data.maxDepth), agentTokenBudget: data.agentTokenBudget === '' ? undefined : Number(data.agentTokenBudget), arena: data.arena === 'on' }, (r) => (r.modes ? `Permissions : ${r.modes}` : 'Réglages appliqués, le maître est prévenu.'))) { orchUi.settings = false; renderOrchestration(true); }
     return;
   }
   if (form.matches('[data-orch-send]')) {

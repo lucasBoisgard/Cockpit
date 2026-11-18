@@ -1,0 +1,2 @@
+.orch-node.orchbudget-over { border: 2px solid var(--rose); }
+.orchbudget-badge { margin-left: 6px; padding: 0 6px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--rose); background: var(--rose-bg); white-space: nowrap; }

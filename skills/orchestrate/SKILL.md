@@ -22,7 +22,7 @@ You delegate: any search beyond two lookups per new task; any file edit; any tes
 any review; any investigation; deciding what to open when it is unclear (`role-dispatcher`). Obtain a dispatch before the first wave of work, unless the request is a catalogue topology with an obvious single agent.
 
 Never use Claude Code's internal Agent/subagent tool: `orchestrate launch` only, so the work shows in
-the graph and gets rated.
+the graph and gets verified.
 
 Self-check before every action: "suis-je en train de travailler au lieu d'orchestrer ?" If the action
 is not in the first list, launch an agent.
@@ -42,12 +42,14 @@ Use the command given in your system prompt (`node <cockpit>/bin/orchestrate.js`
 | `orchestrate plan "Explorer" "Implémenter" "Vérifier" "Livrer"` | Sets the phases: named workstreams, not gates. Their order is only the display order and several can be active at once (re-run to change them) |
 | `orchestrate skills` | Skills an agent can load, with their description |
 | `orchestrate models` | Providers (Claude, GPT through Codex), whether they are available, their models and efforts |
-| `orchestrate balance` | Claude/GPT balance: each provider's share of the agents over seven days, how full their usage windows are, and which one to favor for the next agent. Read it before choosing a provider |
-| `orchestrate matrix [category]` | The relevance matrix: which provider, model and effort for which kind of task, with the ratings observed on earlier agents |
-| `orchestrate rate w3 4 "…"` | Rates an agent's work (1 to 5) once you have checked it; it feeds the matrix |
-| `orchestrate launch --name "…" --kind implement --phase Implémenter --model sonnet --effort high --skill <s> <<'EOF' … EOF` | Launches an agent with that brief (stdin, `--brief` or `--brief-file`). `--phase` takes the phase name, or its number counted from 1 |
+| `orchestrate balance` | Claude/GPT balance: how full each provider's usage windows are (7 days, 5 hours) and which one to favor for the next agent. Read it before choosing a provider |
+| `orchestrate matrix [category]` | The relevance matrix: which provider, model and effort for which kind of task, with each pick's score /100, confidence and the coverage queue |
+| `orchestrate outcome w3 as-is\|fixed\|partial\|redone ["note"]` | Records how you integrated an agent's work. It is not a quality score: quality comes from the verdicts of verifying agents (below) |
+| `orchestrate verdicts [w3]` | The job's findings, triages and contests: who judged whom, role, model·effort. `verdicts --capture w3` re-reads the agent's final message when its transcript arrived late |
+| `orchestrate verifies w8 reviewer:w3` | Adds targets to a live verifier's mission (delta review, duel) |
+| `orchestrate launch --name "…" --kind implement --phase Implémenter --model sonnet --effort high --skill <s> <<'EOF' … EOF` | Launches an agent with that brief (stdin, `--brief` or `--brief-file`). `--phase` takes the phase name, or its number counted from 1. A verifier adds `--verifies <role>:<id>[,<id>…]` (roles `reviewer`, `challenger`, `judge`, `consumer`; repeatable) |
 | `orchestrate read w3` | The agent's full last report and the files it changed |
-| `orchestrate send w3 "…"` | Writes to an agent (queued until its turn ends if it is working) |
+| `orchestrate send w3 "…"` | Writes to an agent (queued until its turn ends if it is working); each message after its first delivery counts as a round trip. `send w3 --info "…"` for a message that is not a correction (added scope, clarification, resend): not counted |
 | `orchestrate stop w3` | Closes an agent's session (its conversation is kept, `resume` brings it back). Keep it open while its work may still come back (review, verification, challenge, fixes to make): close it once the work is validated by every agent that had to check it and no further round trip is expected, without waiting for the end of the job. A closed agent leaves the graph. The master can close any agent, a sub-orchestrator only the agents below it. The report of an agent whose parent is closed goes to the next open ancestor |
 | `orchestrate new "<goal>"` | Starts a blank board (no plan, no agent, ids from `w1` again). **Only when the user explicitly asks for it**; never to handle a follow-up request (see "Follow-up requests"). Refused while an agent is still working |
 | `orchestrate resume w3 "…"` | Restarts a stopped agent with a message |
@@ -69,7 +71,7 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
    (`[cockpit] L'agent w3 … a fini son tour`) when an agent ends a turn, and merges several
    notifications into one message when they arrive together.
 4. **On each notification**, read the report (`orchestrate read`), then:
-   - the work is done and good → note it, launch what depends on it;
+   - the work is done and good → launch what depends on it and its verifier (below);
    - the result reopens an earlier phase (an implementation finding reopens exploration) → relaunch
      there with `--phase`. At most 2 returns per edge (phase → earlier phase), counted in your `journal.md`;
      past that, ask or report. Review/fix loops keep the bounds of `agent-protocol`;
@@ -78,7 +80,7 @@ can answer), `a fini` (its turn ended, read its report), `arrêté`.
    - the work is wrong or partial → `orchestrate send` precise corrections, or stop it and launch a
      better-suited agent (another model, more effort, another skill).
 5. **Verify as pieces land**, not after the whole phase. Launch a reviewer agent (`--skill code-review`,
-   a different model from the implementer when possible) and/or a verification agent that runs the checks.
+   a different model from the implementer when possible, `--verifies reviewer:<id>`) and/or a verification agent that runs the checks.
    Start with one low-effort pass; add a targeted high pass only for risky diffs (see "Review passes" in `pick-agent-model`).
 6. **Deliver.** Summarize for the user: what was done, by which agents, what was checked, what is
    left. Pushing, opening a pull request or anything irreversible needs the user's go unless the goal
@@ -91,8 +93,8 @@ the plan, the journal and the agent ids, and never run `orchestrate new` on your
 after the existing ones (re-running `orchestrate plan` replaces the list, so repeat the existing phases and add the new ones) and new agents
 in the right phase. Only the agents are closed, as soon as their work is validated (below); everything else stays.
 
-Run `orchestrate new "<goal>"` only when the user explicitly asks to start over with a clean board. Rate the agents first: an archived agent
-can no longer be rated. It stops the agents that only finished their turn and refuses while one is still working: wait for it or stop it, then retry.
+Run `orchestrate new "<goal>"` only when the user explicitly asks to start over with a clean board. Record the outcomes first (`orchestrate outcome`): an archived agent
+can no longer get one. It stops the agents that only finished their turn and refuses while one is still working: wait for it or stop it, then retry.
 
 Close delivered topics yourself: stop each agent once its work is validated by all the agents that had to check it and no round trip remains (an agent whose work is still under review or fixes stays open; finished agents left open clutter the graph and bury the new ones), remove merged worktrees (`git worktree remove`) and delete their merged branches.
 
@@ -101,25 +103,23 @@ Close delivered topics yourself: stop each agent once its work is validated by a
 Make each choice deliberately, and say it in one line when you launch: the user sees it in the tree.
 
 1. **Classify the task** into a matrix category (`orchestrate matrix` lists them: explore, summarize,
-   implement, frontend, tests, refactor, debug, delicate, architecture, review, large-context).
-2. **Read its row** with `orchestrate matrix <category>` and the balance with `orchestrate balance`. Picks are
-   ranked by their reference score blended with the ratings of earlier agents; unavailable providers come
-   last. Choose the provider by the parity rule of `pick-agent-model` §2 (Claude and GPT get an even share),
-   then take that provider's first available pick unless the task gives a reason not to (budget, a second
-   opinion from another family, context size), and say that reason. `role-dispatcher` applies `pick-agent-model` when it proposes models; you still check each proposed pick against `orchestrate matrix <kind>` before launching, and rate every agent.
-   **Effort**: calibrate it with section 2b of the `pick-agent-model` skill (default `low`/`medium`, `high` only with a stated reason, a time budget per phase). Use the chosen provider's first pick as a starting point and check its effort against that section.
-3. **Launch with `--kind <category>`**, so the rating you give later lands in the right row.
-4. **Rate it** with `orchestrate rate <id> <1-5> "<one sentence>"` once you have checked its work: 5 =
-   nothing to fix, 3 = usable after corrections, 1 = had to redo it. Say what went well or wrong, not the
-   task itself. Rate every agent you integrate or discard; ratings are how the matrix learns.
+   implement, frontend, tests, refactor, debug, delicate, architecture, review, large-context; `large-context` only when the agent must hold more than about 150 k tokens at once). Fable only with a named reason said at launch.
+2. **Read its row** with `orchestrate matrix <category>` and the balance with `orchestrate balance`. Rank, score /100, confidence and the threshold are read per `pick-agent-model` §2; take the first pick unless you name a reason.
+   Choose the provider by quota fill, per `pick-agent-model` §2 (`orchestrate balance`),
+   then take that provider's first available pick unless the task gives a reason not to (time or token budget, a second
+   opinion from another family, context size), and say that reason. `role-dispatcher` applies `pick-agent-model` when it proposes models; you still check each proposed pick against `orchestrate matrix <kind>` before launching, and give every agent a verifier or an outcome.
+   **Coverage queue**: when `orchestrate matrix <category>` shows a credit and a candidate, `pick-agent-model` §2 says when to spend it (`launch --explore`, which is accepted only for that candidate and needs `--kind`); every exploration launch needs a verifier planned.
+   **Effort**: calibrate it with section 2b of the `pick-agent-model` skill (default `low`/`medium`, `high` only with a stated reason, a time budget per phase; a short task that needs deep thinking takes the strongest model at `high` without hesitation). Use the chosen provider's first pick as a starting point and check its effort against that section.
+3. **Launch with `--kind <category>`**, so the verdicts land in the right row.
+4. **Get it verified, then record the outcome.** Quality is not your opinion: it comes from a verifying agent launched with `--verifies <role>:<id>` whose final message ends with the verdict envelope (`agent-protocol`). The cockpit captures it when that agent finishes and puts `Verdicts : 4 constats sur w1, w2 propre, 2 triages` in your wake-up, plus a line per rejected line (`Ligne ignorée : …`); a missing envelope shows at once, then `orchestrate verdicts --capture <id>` re-reads it (refused while the agent is still working; an already processed message is never accepted twice) or you ask the verifier. Plan a verifier for every agent whose pick you want evidence on, and for **every exploration launch**: an exploration without a verdict stays listed by `orchestrate status` as `exploration non vérifiée`, even after its outcome. Brief a verifier with the ids of its mission, earlier reviews of the same target, and list the earlier reviewer in its `--verifies` too (`missed=` is accepted only for a reviewer named there), and for a GPT verifier the envelope format pasted verbatim. A blocking finding is when a `role-challenger` should run: untriaged findings count at the severity the reviewer gave. When a finding concerns an agent's own work, send it the finding; its answer (`triage … confirmed|false`) is an admission or a contest, not a verdict. After integrating or discarding the work, record `orchestrate outcome <id> as-is|fixed|partial|redone "<note>"` (as-is: integrated untouched; fixed: after corrections; partial: only partly reused; redone: discarded). Use `send --info` for anything that is not a correction, so it is not counted as a round. At `orchestrate new` or the end of the job, agents without an outcome get an empty one.
+5. **Budget**: the budget wins over resuming the producer. An agent past its token budget (`orchestrate status` shows `⚠`, its wake-up says so), judge and sub-orchestrator included, is never resumed or written to: launch a fresh agent with a short handover (goal, state, what is left; a sub-orchestrator's loop counters too) and stop the old one.
 
-- **Provider**: Claude and GPT get an even share, decided by the parity rule of `pick-agent-model` §2 with
-  `orchestrate balance`. `--provider codex --model <gpt model>` runs the agent on GPT through Codex (run
+- **Provider**: balanced by quota fill, not by agent count (`pick-agent-model` §2, `orchestrate balance`). `--provider codex --model <gpt model>` runs the agent on GPT through Codex (run
   `orchestrate models` first: GPT is only there when Codex is installed and logged in), for example
   `--provider codex --model gpt-6.1-sol --effort medium`. GPT works as well as Claude for implementing,
   exploring, testing, debugging and reviewing, and is also the independent second opinion on Claude's work.
   A GPT agent works in a sandbox: it cannot reach the cockpit, so it never launches sub-agents, and Claude
-  skills are not available to it: paste the skill's sheet in its brief.
+  skills are not available to it: paste the skill's sheet in its brief, and the verdict envelope (`agent-protocol`) verbatim when it verifies.
 - **Skills**: run `orchestrate skills` once, then give an agent the skills that match its task
   (`--skill` may be repeated). The agent loads them before starting.
 - **Permission mode**: agents default to the mode set by the user for this master (usually
@@ -143,10 +143,10 @@ Make each choice deliberately, and say it in one line when you launch: the user 
 ## Arène mode
 
 The user turns the Arène mode on or off per orchestration (at creation or in the session's Réglages); it is slower and costlier, so never assume it. Run `orchestrate calibration` at the start of every job and again when the cockpit tells you the mode changed. While it says **Arène : active**, the user wants every model compared instead of the best one picked:
-- **Every task that needs a model** (anything you would give one agent) goes to a judge instead: launch one `role-model-judge` sub-orchestrator with `--kind review --provider claude --model fable --effort high` (fallback `opus`/`high`), `--skill role-model-judge` (no `--mode`: it inherits the session's mode, and the cockpit refuses a looser one), the task brief exactly as you would give one agent, its category, whether it writes files, a budget, and "at most 4 competitors". It runs the competition, rates every competitor and hands you the winner's result. Integrate that result as if one agent had produced it; for a writing task, integrate the winner's branch and delete the others.
+- **Every task that needs a model** (anything you would give one agent) goes to a judge instead: launch one `role-model-judge` sub-orchestrator with `--kind review --provider claude --model opus --effort medium` (it never competes and never runs on Fable; it launches the competitors and a scoring sheet under its own `--verifies judge:<ids>` mission, GPT when all competitors are Claude and GPT is available, and checks the sheet's verdict), `--skill role-model-judge` (no `--mode`: it inherits the session's mode, and the cockpit refuses a looser one), the task brief exactly as you would give one agent, its category, whether it writes files, a budget, and "at most 4 competitors". It runs the competition, has every competitor judged and hands you the winner's result. Integrate that result as if one agent had produced it; for a writing task, integrate the winner's branch and delete the others.
 - **Never duplicated**: actions with effects outside the repo (push, PR, PR comment, message, prod query, deploy) and the framing step (`role-framer`) and the dispatch step (`role-dispatcher`). Those keep one agent.
-- **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors). Run one competition at a time unless the user's agent limit allows more (count each competition as 5 agents when planning waves; parallel phases must not each start one), and keep tasks sequential rather than shrinking the competitor count below 2.
-- You do not rate the competitors yourself; the judge does. Rate the judge (category `review`) on how well it judged: evidence, blindness, a usable winner.
+- **Capacity**: a competition uses up to 5 agents (the judge and 4 competitors), 6 with the scoring sheet. Run one competition at a time unless the user's agent limit allows more (count each competition as 6 agents when planning waves; parallel phases must not each start one), and keep tasks sequential rather than shrinking the competitor count below 2.
+- You do not judge the competitors yourself; the sheet's envelope does. Record the judge's outcome (category `review`) on how well it judged: evidence, blindness, a usable winner.
 - When `orchestrate calibration` says coverage is complete, tell the user in one `@user` line and suggest turning the Arène mode off for this session; do not turn it off yourself. When it is inactive, pick one model per task as below.
 
 ## Sub-orchestrators (depth)
@@ -157,7 +157,7 @@ Default: launch flat agents yourself, wide fan-outs included, while the `maxAgen
 - explicit right to launch agents, with `--mode auto` (if the cockpit refuses it, it stops and reports), and a cap: at most 3 agents at once, at most N agents launched in total, stopped ones included (usually 4 to 6; the sub-orchestrator itself is not counted), at most 2 review/fix rounds;
 - a wall-clock budget for the whole sub-task, covering its own work and every agent it launches (it replaces the per-agent budgets of `pick-agent-model` §2b), and the rule to stop and report when it is exceeded;
 - the same effort discipline: low/medium by default, `high` justified in one line;
-- what comes back: result, files changed, tests run, agents launched with model/effort and rating, what remains uncertain. One report, not a log;
+- what comes back: result, files changed, tests run, agents launched with model/effort, score /100 and confidence when known, and outcome, what remains uncertain. One report, not a log;
 - no push, no merge, no irreversible action; those stay with you.
 
 **Model and effort of the orchestrator**: `sonnet` at `medium`. It plans, briefs and checks reports; it does not need deep reasoning. Use `opus`/`high` only when the sub-task is itself an architecture or delicate decision with no suitable oracle, and say why. Never give the orchestrator a higher effort than its workers need.

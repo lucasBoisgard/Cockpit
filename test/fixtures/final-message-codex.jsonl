@@ -1,0 +1,8 @@
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 1, "type": "session_meta", "payload": {"id": "s"}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 2, "type": "event_msg", "payload": {"type": "task_started"}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 3, "type": "response_item", "payload": {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "<permissions>x</permissions>"}]}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 4, "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "do the task"}]}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 5, "type": "response_item", "payload": {"type": "message", "id": "msg_c1", "role": "assistant", "phase": "commentary", "content": [{"type": "output_text", "text": "checking files"}]}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 6, "type": "response_item", "payload": {"type": "custom_tool_call", "name": "exec_command", "call_id": "c", "input": "ls"}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 7, "type": "response_item", "payload": {"type": "message", "id": "msg_f1", "role": "assistant", "phase": "final_answer", "content": [{"type": "output_text", "text": "TERMIN\u00c9\n<verdict-report v=\"1\">\non w1\nclean\n</verdict-report>"}]}}
+{"timestamp": "2026-01-01T00:00:00.000Z", "ordinal": 8, "type": "event_msg", "payload": {"type": "task_complete", "turn_id": "turn-1", "root_turn_id": "turn-1", "last_agent_message": "TERMIN\u00c9\n<verdict-report v=\"1\">\non w1\nclean\n</verdict-report>", "duration_ms": 1200, "time_to_first_token_ms": 300, "started_at": 1, "completed_at": 2}}

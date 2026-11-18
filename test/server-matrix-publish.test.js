@@ -25,7 +25,7 @@ function setup() {
   git(repo, 'config', 'user.name', 't');
   git(repo, 'config', 'user.email', 't@t');
   fs.mkdirSync(path.join(repo, 'server', 'data'), { recursive: true });
-  const files = { editsFile: path.join(repo, 'server', 'data', 'model-matrix-edits.json'), ratingsFile: path.join(repo, 'server', 'data', 'model-ratings.json') };
+  const files = { editsFile: path.join(repo, 'server', 'data', 'model-matrix-edits.json'), ratingsFile: path.join(repo, 'server', 'data', 'model-ratings.json'), verdictsFile: path.join(repo, 'server', 'data', 'model-verdicts.json') };
   fs.writeFileSync(files.editsFile, '{}\n');
   fs.writeFileSync(files.ratingsFile, ratingsText([rating(1)]));
   fs.writeFileSync(path.join(repo, 'README.md'), 'x\n');
@@ -50,11 +50,11 @@ test('commitMessage summarises the new ratings and the edited categories', () =>
 });
 
 test('publishMatrix pushes only the matrix files, keeps other work local and moves the checkout along', async () => {
-  const { repo, remote, editsFile, ratingsFile } = setup();
+  const { repo, remote, editsFile, ratingsFile, verdictsFile } = setup();
   fs.writeFileSync(ratingsFile, ratingsText([rating(1), rating(2, 'debug')]));
   fs.writeFileSync(editsFile, `${JSON.stringify({ categories: { explore: { id: 'explore', label: 'E', picks: [] } } }, null, 2)}\n`);
   fs.writeFileSync(path.join(repo, 'README.md'), 'work in progress\n');
-  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile });
+  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile, verdictsFile });
   assert.strictEqual(result.published, true);
   assert.strictEqual(result.synced, true);
   assert.strictEqual(result.message, 'chore(matrix): publish 1 rating (debug) and 1 category edit (explore)');
@@ -62,7 +62,7 @@ test('publishMatrix pushes only the matrix files, keeps other work local and mov
   assert.strictEqual(git(remote, 'show', 'main:README.md'), 'x');
   assert.strictEqual(git(repo, 'rev-parse', 'HEAD'), git(remote, 'rev-parse', 'main'));
   assert.strictEqual(git(repo, 'status', '--porcelain'), 'M README.md');
-  assert.deepStrictEqual(await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile }), { published: false });
+  assert.deepStrictEqual(await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile, verdictsFile }), { published: false });
 });
 
 function pushFromElsewhere(repo, remote, edits, ratings) {
@@ -77,10 +77,10 @@ function pushFromElsewhere(repo, remote, edits, ratings) {
 }
 
 test('a checkout behind the remote publishes only its own changes and never reverts the remote', async () => {
-  const { repo, remote, editsFile, ratingsFile } = setup();
+  const { repo, remote, editsFile, ratingsFile, verdictsFile } = setup();
   pushFromElsewhere(repo, remote, { categories: { review: { id: 'review', label: 'R', picks: [] } } }, [rating(5)]);
   fs.writeFileSync(ratingsFile, ratingsText([rating(1), rating(3)]));
-  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile });
+  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile, verdictsFile });
   assert.strictEqual(result.published, true);
   assert.strictEqual(result.synced, false);
   assert.strictEqual(result.message, 'chore(matrix): publish 1 rating (review)');
@@ -91,11 +91,11 @@ test('a checkout behind the remote publishes only its own changes and never reve
 });
 
 test('a checkout in the middle of a merge is published but not moved', async () => {
-  const { repo, editsFile, ratingsFile } = setup();
+  const { repo, editsFile, ratingsFile, verdictsFile } = setup();
   fs.writeFileSync(ratingsFile, ratingsText([rating(1), rating(2)]));
   const head = git(repo, 'rev-parse', 'HEAD');
   fs.writeFileSync(path.join(repo, '.git', 'MERGE_HEAD'), `${head}\n`);
-  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile });
+  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile, verdictsFile });
   assert.deepStrictEqual([result.published, result.synced], [true, false]);
   assert.strictEqual(git(repo, 'rev-parse', 'HEAD'), head);
 });
@@ -139,4 +139,42 @@ test('the scheduler publishes at startup, waits for quiet, retries after a delay
   const disabled = createPublishScheduler({ enabled: false, files: [file], notify() {}, log: silent, publish: async () => calls.push(1) });
   await disabled({ now });
   assert.strictEqual(calls.length, 6);
+});
+
+const finding = (n, extra = {}) => ({ id: `j1:F${n}`, type: 'finding', judge: { obs: 'j1', role: 'reviewer' }, target: { obs: 't1', category: 'implement' }, delivery: 1, severity: 'to-fix', text: 'x', ...extra });
+const outcomeRecord = (outcome) => ({ id: 't1:outcome', type: 'outcome', pick: { obs: 't1', category: 'implement' }, outcome, rounds: 0, deliveries: 1 });
+
+test('commitMessage counts the new verdicts', () => {
+  assert.strictEqual(core.commitMessage({ verdicts: [finding(1), finding(2)], categories: ['explore'] }), 'chore(matrix): publish 2 verdicts and 1 category edit (explore)');
+  assert.strictEqual(core.commitMessage({ verdicts: [finding(1)] }), 'chore(matrix): publish 1 verdict');
+});
+
+test('mergeVerdicts adds new records by id, replaces a changed outcome and never reverts the remote', () => {
+  const ancestor = [finding(1), outcomeRecord(null)];
+  const local = [finding(1), finding(2), outcomeRecord('fixed')];
+  const remote = [finding(1), finding(3), outcomeRecord(null)];
+  const merged = core.mergeVerdicts({ ancestor, local, remote });
+  assert.deepStrictEqual(merged.added.map((r) => r.id), ['j1:F2', 't1:outcome']);
+  assert.deepStrictEqual(merged.verdicts.map((r) => r.id).sort(), ['j1:F1', 'j1:F2', 'j1:F3', 't1:outcome']);
+  assert.strictEqual(merged.verdicts.find((r) => r.id === 't1:outcome').outcome, 'fixed');
+  assert.deepStrictEqual(core.mergeVerdicts({ ancestor: local, local, remote: local }).added, []);
+  assert.deepStrictEqual(core.mergeVerdicts({}), { verdicts: [], added: [] });
+});
+
+test('publishMatrix publishes the verdicts file with the matrix files and counts them in the commit message', async () => {
+  const { repo, remote, editsFile, ratingsFile, verdictsFile } = setup();
+  fs.writeFileSync(editsFile, `${JSON.stringify({ categories: {} }, null, 2)}\n`);
+  fs.writeFileSync(verdictsFile, ratingsText([finding(1), finding(2)]));
+  const result = await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile, verdictsFile });
+  assert.deepStrictEqual([result.published, result.synced, result.message], [true, true, 'chore(matrix): publish 2 verdicts']);
+  assert.deepStrictEqual(JSON.parse(git(remote, 'show', 'main:server/data/model-verdicts.json')).map((r) => r.id), ['j1:F1', 'j1:F2']);
+  assert.deepStrictEqual(await publishMatrix({ root: repo, branch: 'main', editsFile, ratingsFile, verdictsFile }), { published: false });
+});
+
+test('mergeVerdicts applies the retention and keeps an install without verdicts empty', () => {
+  const outcomes = Array.from({ length: 5001 }, (_, i) => ({ id: `o${i}:outcome`, type: 'outcome', pick: { obs: `o${i}`, category: 'implement' }, outcome: null }));
+  const merged = core.mergeVerdicts({ ancestor: [], local: outcomes, remote: [] });
+  assert.strictEqual(merged.verdicts.length, 5000);
+  assert.ok(!merged.verdicts.some((r) => r.id === 'o0:outcome'), 'the oldest observation is dropped');
+  assert.deepStrictEqual(core.mergeVerdicts({ ancestor: undefined, local: undefined, remote: undefined }), { verdicts: [], added: [] });
 });

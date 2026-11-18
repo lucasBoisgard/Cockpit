@@ -27,7 +27,7 @@ const delivered = [];
 const queue = require('../server/features/queue');
 queue.sendToSession = async (sessionId, text) => { sent.push({ sessionId, text }); return true; };
 queue.deliver = async (sessionId, text) => { delivered.push({ sessionId, text }); return 'sent'; };
-const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks, newJob, orchestrationViews, rateAgent, onSessionEvent } = require('../server/features/orchestration');
+const { updateSettings, sendToAgent, resumeAgent, launchAgent, modeChecks, newJob, orchestrationViews, rateAgent, outcomeAgent, onSessionEvent } = require('../server/features/orchestration');
 require('../server/features/agent-mode').timing.attempts = 2;
 require('../server/features/agent-mode').timing.gapMs = 1;
 const core = require('../server/core/orchestration');
@@ -81,7 +81,7 @@ test('settings that leave the autonomy as it was notify no agent', async () => {
   const result = await updateSettings({ master: 'm1', autonomy: 'milestones', maxAgents: 3 });
   assert.strictEqual(result.notified, null);
   assert.deepStrictEqual(sent, []);
-  assert.match(saved().events.at(-1).text, /3 agents max, profondeur 2, autonomie milestones, permissions/);
+  assert.match(saved().events.at(-1).text, /3 agents max, profondeur 2, budget 15 M tok par agent, autonomie milestones, permissions/);
 });
 
 test('saving the same mode again touches no session', async () => {
@@ -300,14 +300,14 @@ test('F2: a new job keeps the pause, and is refused while reports are held', asy
   assert.strictEqual(store()['m1#job1'], undefined);
 });
 
-test('F3: rating an archived agent says so, and ratings carry their job', async () => {
+const verdictRecords = () => [].concat(JSON.parse(fs.readFileSync(path.join(home, '.claude', 'worktree-matrix-verdicts.json'), 'utf8')));
+
+test('F3: an outcome for an archived agent says so, rate is replaced, and a job without outcome closes with null ones', async () => {
   seed([agent('w1', { kind: 'implement' })]);
   await newJob({ caller: 'm1', goal: 'next' });
-  assert.match((await rateAgent({ caller: 'm1', id: 'w1', score: 4, kind: 'implement' })).error, /job archivé/);
-  seed([agent('w1')], { job: 3 });
-  await rateAgent({ caller: 'm1', id: 'w1', score: 4, kind: 'implement' });
-  const rated = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'worktree-matrix-ratings.json'), 'utf8'));
-  assert.strictEqual([].concat(rated).pop().job, 3);
+  assert.match((await outcomeAgent({ caller: 'm1', id: 'w1', outcome: 'as-is' })).error, /job archivé/);
+  assert.match((await rateAgent({ caller: 'm1', id: 'w1', score: 4 })).error, /orchestrate outcome/);
+  assert.strictEqual(verdictRecords().filter((r) => r.type === 'outcome').at(-1).outcome, null);
 });
 
 test('F4: reports queued for the master before a new job are dropped, and an archived agent wakes nobody', async () => {
@@ -394,4 +394,21 @@ test('settings stored before strictMaster existed read as strict and do not anno
   assert.deepStrictEqual(core.masterDisallowedTools(legacy), core.masterDisallowedTools());
   await updateSettings({ master: 'm1', maxAgents: 4 });
   assert.ok(!delivered.at(-1).text.includes('Maître strict'));
+});
+
+test('an outcome records the billed tokens, the work time up to the last finished turn, the rounds and the deliveries', async () => {
+  const usage = require('../server/features/usage');
+  const original = usage.sessionTotals;
+  usage.sessionTotals = (id) => (id === 's-w1' ? { input: 100, cacheWrite: 0, cacheRead: 1000, output: 50 } : null);
+  try {
+    seed([agent('w1', { createdAt: 1000, kind: 'implement', deliveries: 2, rounds: 1 }), agent('w2', { createdAt: 1000, kind: 'implement', sessionId: null })], { events: [{ at: 20000, type: 'done', agent: 'w1' }, { at: 61000, type: 'done', agent: 'w1' }] });
+    assert.ok((await outcomeAgent({ caller: 'm1', id: 'w1', outcome: 'fixed', note: 'two fixes' })).ok);
+    await outcomeAgent({ caller: 'm1', id: 'w2', outcome: 'as-is' });
+    const [w1, w2] = verdictRecords().filter((r) => r.type === 'outcome').slice(-2);
+    assert.deepStrictEqual([w1.pick.agent, w1.outcome, w1.tokens, w1.durationMs, w1.rounds, w1.deliveries], ['w1', 'fixed', 250, 60000, 1, 2]);
+    assert.deepStrictEqual([w2.pick.agent, w2.tokens ?? null, w2.durationMs ?? null], ['w2', null, null]);
+    assert.match(w1.id, /^[0-9a-f]{32}:outcome$/);
+  } finally {
+    usage.sessionTotals = original;
+  }
 });
