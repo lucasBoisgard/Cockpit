@@ -1,0 +1,3 @@
+[
+{"id":"e61a24af67e1062e890bfac0599c1e42:outcome","type":"outcome","pick":{"obs":"e61a24af67e1062e890bfac0599c1e42","agent":"w124","category":"large-context","provider":"codex","model":"gpt-6.1-terra","effort":"low"},"outcome":"as-is","note":"","rounds":0,"deliveries":1,"explore":false,"tokens":null,"durationMs":21927}
+]
