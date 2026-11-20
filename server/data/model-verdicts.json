@@ -1,4 +1,5 @@
 [
 {"id":"e61a24af67e1062e890bfac0599c1e42:outcome","type":"outcome","pick":{"obs":"e61a24af67e1062e890bfac0599c1e42","agent":"w124","category":"large-context","provider":"codex","model":"gpt-6.1-terra","effort":"low"},"outcome":"as-is","note":"","rounds":0,"deliveries":1,"explore":false,"tokens":null,"durationMs":21927},
-{"id":"0e6a30fd606ca6b8fbe2309ee1f0e31b:outcome","type":"outcome","pick":{"obs":"0e6a30fd606ca6b8fbe2309ee1f0e31b","agent":"w125","category":"large-context","provider":"codex","model":"gpt-6.1-terra","effort":"low"},"outcome":"as-is","note":"","rounds":0,"deliveries":1,"explore":false,"tokens":18693,"durationMs":24698}
+{"id":"0e6a30fd606ca6b8fbe2309ee1f0e31b:outcome","type":"outcome","pick":{"obs":"0e6a30fd606ca6b8fbe2309ee1f0e31b","agent":"w125","category":"large-context","provider":"codex","model":"gpt-6.1-terra","effort":"low"},"outcome":"as-is","note":"","rounds":0,"deliveries":1,"explore":false,"tokens":18693,"durationMs":24698},
+{"id":"0eff7686f38c37e6589c54fe8a078fcf:outcome","type":"outcome","pick":{"obs":"0eff7686f38c37e6589c54fe8a078fcf","agent":"w118","category":"summarize","provider":"claude","model":"opus","effort":"medium"},"outcome":"as-is","note":"","rounds":2,"deliveries":4,"explore":false,"tokens":1922678,"durationMs":173417801}
 ]
