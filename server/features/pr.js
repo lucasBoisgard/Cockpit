@@ -1,12 +1,10 @@
 const { REPO, CONFIG } = require('../config');
 const { run, git, gh, ghAvailable } = require('../io/exec');
-const { readReview, sessionsIn } = require('../io/store');
-const { summarizePr, prEvents, summarizeReviews, runIdsOf, checkFailureText, draftOf, prCreateArgs, verifyCreatedPr } = require('../core/pr');
-const { stripAnsi } = require('../core/app');
+const { readReview } = require('../io/store');
+const { summarizePr, prEvents, draftOf, prCreateArgs, verifyCreatedPr } = require('../core/pr');
 const { invalidateSnapshot } = require('../cache');
 const { listWorktrees, worktreeName, isMainCheckout, baseBranchOf } = require('./worktrees');
 const { pushEvent } = require('./events');
-const { deliver } = require('./queue');
 
 const PR_REFRESH_MS = 60000;
 const PR_FIELDS = 'number,url,title,state,isDraft,reviewDecision,mergeStateStatus,statusCheckRollup,baseRefName';
@@ -43,37 +41,6 @@ async function refreshPrs(worktrees) {
     for (const event of prEvents(before, pr)) pushEvent({ type: event.type, worktree: worktreeName(wt.path), path: wt.path, message: event.message });
   }
   invalidateSnapshot();
-}
-
-async function prDetails(wtPath) {
-  const wt = (await listWorktrees()).find((w) => w.path === wtPath);
-  if (!wt?.branch || !ghAvailable) return null;
-  const result = await gh(wt.repo || REPO, ['pr', 'view', wt.branch, '--json', `${PR_FIELDS},reviews,mergeable,baseRefName,headRefName`]);
-  if (!result.ok) return { none: true };
-  try {
-    const raw = JSON.parse(result.stdout);
-    const pr = summarizePr(raw);
-    prCache.set(prKey(wt.branch, wt.repo), { at: Date.now(), pr });
-    return { ...pr, mergeable: raw.mergeable, base: raw.baseRefName, head: raw.headRefName, reviews: summarizeReviews(raw.reviews) };
-  } catch {
-    return null;
-  }
-}
-
-async function sendCheckFailure({ path: wtPath, check }) {
-  const details = await prDetails(wtPath);
-  const failing = details?.checks?.find((c) => c.name === check && c.state === 'failing');
-  if (!failing) return { error: 'Check introuvable ou plus en échec.' };
-  const session = sessionsIn(wtPath).sort((a, b) => b.updatedAt - a.updatedAt)[0];
-  if (!session) return { error: 'Aucune session Claude dans ce worktree.' };
-  const ids = runIdsOf(failing.url);
-  let log = '';
-  if (ids) {
-    const result = await gh(wtPath, ['run', 'view', ids.run, ...(ids.job ? ['--job', ids.job] : []), '--log-failed']);
-    log = stripAnsi(result.stdout).split('\n').slice(-60).join('\n');
-  }
-  const outcome = await deliver(session.sessionId, checkFailureText(failing, details.number, log), true);
-  return outcome === 'offline' || outcome === 'unknown' ? { error: 'La session ne tourne pas dans tmux.' } : { ok: true, outcome };
 }
 
 async function pushBranch({ path: wtPath }) {
@@ -113,4 +80,4 @@ async function createPr({ path: wtPath, title, body, labels, assignee, draft }) 
   return { ok: true, url: check?.url || created.stdout.trim(), check };
 }
 
-module.exports = { cachedPr, prRefreshDue, refreshPrs, prDetails, sendCheckFailure, pushBranch, prDraft, createPr };
+module.exports = { cachedPr, prRefreshDue, refreshPrs, pushBranch, prDraft, createPr };

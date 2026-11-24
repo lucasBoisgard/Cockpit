@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { checkState, summarizePr, prEvents, runIdsOf, checkFailureText, draftOf, prCreateArgs, verifyCreatedPr } = require('../server/core/pr');
+const { checkState, summarizePr, prEvents, draftOf, prCreateArgs, verifyCreatedPr } = require('../server/core/pr');
 const { stripAnsi, shellQuote, parsePm2List, parseBuildPane, appVerdict, startRefusal, launchCommand, survivorsError, appWentKo } = require('../server/core/app');
 
 test('checkState classifies check runs and status contexts', () => {
@@ -37,17 +37,6 @@ test('prEvents reports a CI turning red and a merge, never on first sight', () =
   assert.deepStrictEqual(prEvents({ failing: 0, state: 'OPEN' }, { number: 1, failing: 1, state: 'OPEN' }).map((e) => e.type), ['ci_failed']);
   assert.deepStrictEqual(prEvents({ failing: 1, state: 'OPEN' }, { number: 1, failing: 2, state: 'MERGED' }).map((e) => e.type), ['merged']);
   assert.deepStrictEqual(prEvents({ failing: 0, state: 'OPEN' }, null), []);
-});
-
-test('runIdsOf extracts run and job ids from an Actions url', () => {
-  assert.deepStrictEqual(runIdsOf('https://github.com/a/b/actions/runs/12/job/34'), { run: '12', job: '34' });
-  assert.deepStrictEqual(runIdsOf('https://github.com/a/b/actions/runs/12'), { run: '12', job: null });
-  assert.strictEqual(runIdsOf(null), null);
-});
-
-test('checkFailureText includes the url and log only when present', () => {
-  assert.strictEqual(checkFailureText({ name: 'lint' }, 3, ''), 'Le check « lint » échoue sur la PR #3.\n\nAnalyse la cause et corrige-la.');
-  assert.match(checkFailureText({ name: 'lint', url: 'u' }, 3, 'boom'), /PR #3 \(u\)\.\n\nFin du log en échec :\n```\nboom\n```/);
 });
 
 test('draftOf titles from the commits and fills the ticket', () => {

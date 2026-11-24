@@ -17,7 +17,7 @@ New to it? Take the **[guided tour](docs/visite-guidee.md)** (10 minutes, in Fre
 
 ## Get started
 
-You need **Node 20+**, **git**, **tmux** and **Claude Code** (signed in). `start.sh` installs tmux itself only with `apt`; elsewhere install it first. For PRs (checks, "Pousser et ouvrir la PR", reviews), sign in the GitHub CLI: `gh auth login`.
+You need **Node 20+**, **git**, **tmux** and **Claude Code** (signed in). `start.sh` installs tmux itself only with `apt`; elsewhere install it first. For the PR status on cards and "Pousser et ouvrir la PR", sign in the GitHub CLI: `gh auth login`.
 
 ```bash
 git clone https://github.com/lucasBoisgard/Cockpit ~/.claude/cockpit

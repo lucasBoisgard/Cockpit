@@ -33,19 +33,6 @@ function prEvents(before, pr) {
   ].filter(Boolean);
 }
 
-function summarizeReviews(reviews) {
-  return (reviews || []).map((r) => ({ author: r.author?.login || '?', state: r.state, body: String(r.body || '').slice(0, 400), at: r.submittedAt }));
-}
-
-function runIdsOf(url) {
-  const ids = String(url || '').match(/actions\/runs\/(\d+)(?:\/job\/(\d+))?/);
-  return ids ? { run: ids[1], job: ids[2] || null } : null;
-}
-
-function checkFailureText(failing, number, log) {
-  return `Le check « ${failing.name} » échoue sur la PR #${number}${failing.url ? ` (${failing.url})` : ''}.${log ? `\n\nFin du log en échec :\n\`\`\`\n${log}\n\`\`\`` : ''}\n\nAnalyse la cause et corrige-la.`;
-}
-
 const DEFAULT_PR_TEMPLATE = '## TL;DR\n\n\n## Ticket\n\n{ticket}\n\n## Points d\'attention\n\n\n## Comment tester\n\n';
 
 function draftOf(branch, commits, template) {
@@ -71,4 +58,4 @@ function verifyCreatedPr(pr, labels, assignee) {
   };
 }
 
-module.exports = { checkState, summarizePr, prEvents, summarizeReviews, runIdsOf, checkFailureText, draftOf, prCreateArgs, verifyCreatedPr };
+module.exports = { checkState, summarizePr, prEvents, draftOf, prCreateArgs, verifyCreatedPr };
