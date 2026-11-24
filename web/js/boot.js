@@ -27,7 +27,6 @@ async function refresh() {
   checkEvents();
   if (selected === USAGE) loadUsage();
   if (currentWt() && tab === 'chat') loadChat(false);
-  if (currentWt() && tab === 'checks' && Date.now() - checksLoadedAt > 20000) loadChecks();
   if (currentWt()) refreshSinceFiles();
 }
 

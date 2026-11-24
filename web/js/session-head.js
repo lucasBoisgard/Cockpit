@@ -36,7 +36,7 @@ function headMenu(wt, s) {
   if (!isBase(wt) && state.pr?.enabled) {
     if (wt.pr?.state === 'OPEN' && wt.ahead) item(`data-push="${esc(wt.path)}"`, `Pousser ${wt.ahead} commit${wt.ahead > 1 ? 's' : ''}`, 'sans add ni commit');
     else if (wt.pr?.state !== 'OPEN' && wt.pr?.state !== 'MERGED' && (wt.ahead || !wt.upstream) && wt.lastCommit) item(`data-pr="${esc(wt.path)}"`, 'Pousser et ouvrir la PR');
-    if (wt.pr) item('data-head-tab="checks"', `PR #${wt.pr.number}`, 'checks, reviews, CI');
+    if (wt.pr?.url) item(`data-head-pr-url="${esc(wt.pr.url)}"`, `PR #${wt.pr.number} ↗`, 'ouvrir sur GitHub');
   }
   if (s) item(`data-head-read="${esc(s.sessionId)}"`, 'Lire la dernière réponse', '', '');
   if (s) item(`data-head-delegate="${esc(s.sessionId)}"`, 'Déléguer une sous-tâche', 'nouvelle session liée à celle-ci');
@@ -104,7 +104,16 @@ $('panel-head').addEventListener('click', (e) => {
   const stop = t.closest('[data-head-interrupt]');
   if (stop) { headKey(stop.dataset.headInterrupt, [{ key: 'Escape' }], 'Interruption envoyée.'); return; }
   const tabBtn = t.closest('[data-head-tab]');
-  if (tabBtn) { closeMenu(); document.querySelector(`#tabs [data-tab="${tabBtn.dataset.headTab}"]`)?.click(); if (tabBtn.dataset.headTab === 'chat') $('composer-input').focus(); return; }
+  if (tabBtn) {
+    closeMenu();
+    const wanted = tabBtn.dataset.headTab;
+    if (FILE_MODES.includes(wanted)) setFileMode(wanted);
+    else document.querySelector(`#tabs [data-tab="${wanted}"]`)?.click();
+    if (wanted === 'chat') $('composer-input').focus();
+    return;
+  }
+  const prUrl = t.closest('[data-head-pr-url]');
+  if (prUrl) { closeMenu(); renderPanel(); window.open(prUrl.dataset.headPrUrl, '_blank', 'noopener'); return; }
   const read = t.closest('[data-head-read]');
   if (read) { closeMenu(); renderPanel(); openReaderFor(read.dataset.headRead, currentWt()?.name); return; }
   const delegateBtn = t.closest('[data-head-delegate]');

@@ -9,7 +9,6 @@ function renderTabs() {
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
   const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
   if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${typeof orchOpenCount === 'function' ? orchOpenCount(orch) : orch.counts.total}</span>`]);
-  if (currentWt() && !isBase(currentWt()) && state.pr?.enabled) tabs.push(['checks', currentWt().pr ? `PR #${currentWt().pr.number}` : 'PR']);
   if (isAppSession(currentWt())) tabs.unshift(['app', `App<span class="tab-dot ${esc(state.app.state)}"></span>`]);
   if (!tabs.some(([id]) => id === tab)) tab = tabs[0][0];
   $('tabs').innerHTML = tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? 'on' : ''}">${label}</button>`).join('');
@@ -23,7 +22,6 @@ function renderTabs() {
   $('panel').classList.toggle('wide', (tab === 'changes' || tab === 'files') && changesWide);
   $('usage-view').hidden = tab !== 'usage';
   $('app-view').hidden = tab !== 'app';
-  $('checks-view').hidden = tab !== 'checks';
   const changed = diffWt?.files?.length || 0;
   for (const b of document.querySelectorAll('[data-fmode]')) {
     b.classList.toggle('on', b.dataset.fmode === tab);
@@ -120,7 +118,7 @@ function renderPanelBody() {
 function select(target) {
   freshDone.delete(target);
   selected = target; selectedFile = null; chatSession = null; chatLane = 'conversation'; chatAgentsOpen = false; chatSignature = null; chatBarSignature = null; reportSignature = null;
-  since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; checksLoadedAt = 0; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = ''; resetFiles();
+  since = null; sinceFiles = null; changesRepo = null; lastDiffText = ''; ticket = null; fileFilter = ''; collapsedDirs.clear(); $('file-filter').value = ''; resetFiles();
   markReadAfterDwell(currentWt());
   if (target === SHELL && tab !== 'app') tab = 'term';
   if (target === USAGE) tab = 'usage';
@@ -129,7 +127,7 @@ function select(target) {
   renderBoard(); renderPanel();
   if (tab === 'app') loadScreen();
   if (target === USAGE) loadUsage();
-  else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'checks') loadChecks(); if (tab === 'changes') openChanges(); if (tab === 'files') openFiles(); if (tab === 'agents') loadAgents(); }
+  else if (target !== SHELL) { loadDiff(); if (tab === 'chat') loadChat(true); if (tab === 'changes') openChanges(); if (tab === 'files') openFiles(); if (tab === 'agents') loadAgents(); }
   if (tab === 'term') { loadScreen(); $('screen').focus(); }
 }
 

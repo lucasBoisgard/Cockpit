@@ -76,7 +76,6 @@ let delegateParent = null;
 let editingAutomation = null;
 let paletteItems = [];
 let paletteIndex = 0;
-let checksLoadedAt = 0;
 let chatItems = [];
 let chatLane = 'conversation';
 let chatAgentsOpen = false;

@@ -44,14 +44,6 @@ $('panel').addEventListener('click', async (e) => {
     document.querySelector(`#diff .line[data-ln="${Number(b.line)}"]`)?.scrollIntoView({ block: 'center' });
     return;
   }
-  const sendCheck = t.closest('[data-sendcheck]');
-  if (sendCheck) {
-    sendCheck.disabled = true;
-    const result = await post('/api/checks/send', { path: selected, check: sendCheck.dataset.sendcheck });
-    sendCheck.disabled = false;
-    toast(result.ok ? (result.data.outcome === 'queued' ? 'Échec mis en file pour Claude.' : 'Échec envoyé à Claude.') : result.data.error || 'Envoi impossible.', result.ok ? '' : 'error');
-    return;
-  }
   const prBtn = t.closest('[data-pr]');
   if (prBtn) { openPrDialog(prBtn.dataset.pr); return; }
   const pushBtn = t.closest('[data-push]');
