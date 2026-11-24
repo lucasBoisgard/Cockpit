@@ -87,7 +87,7 @@ function fxViewerHtml(marks) {
   const head = `<div class="fx-head">
     <span class="fx-path" title="${esc(fx.file)}">&lrm;${esc(fx.file)}</span>
     ${c && !c.missing && !c.error ? `<span class="fx-size">${humanSize(c.size)}</span>` : ''}
-    ${marks.exact.has(fx.file) ? '<button class="btn" data-fx-diff title="Ouvrir ce fichier dans Changements">Voir le diff</button>' : ''}
+    ${marks.exact.has(fx.file) ? '<button class="btn" data-fx-diff title="Voir ce fichier dans Modifiés">Voir le diff</button>' : ''}
     ${isMd && c?.content !== undefined ? `<button class="btn" data-fx-render>${fx.rendered ? 'Source' : 'Rendu'}</button>` : ''}
     <button class="btn" data-fx-cite title="Mentionner ce fichier dans le message à Claude">Citer</button>
     <button class="btn" data-fx-copy title="Copier le chemin du fichier">Copier le chemin</button>
@@ -150,10 +150,7 @@ $('files-view').addEventListener('click', async (e) => {
   if (e.target.closest('[data-fx-copy]')) { copyText(fx.file).then((ok) => toast(ok ? 'Chemin copié.' : 'Copie impossible.', ok ? '' : 'error')); return; }
   if (e.target.closest('[data-fx-cite]')) { citeFile(fx.file); return; }
   if (e.target.closest('[data-fx-wide]')) { changesWide = !changesWide; localSet('changesWide', changesWide ? '1' : '0'); renderTabs(); renderFiles(); return; }
-  if (e.target.closest('[data-fx-diff]')) {
-    resetChanges(); selectedFile = fx.file;
-    tab = 'changes'; localSet('tab', tab); renderTabs(); openChanges();
-  }
+  if (e.target.closest('[data-fx-diff]')) setFileMode('changes', fx.file);
 });
 
 $('fx-filter').addEventListener('input', (e) => { fx.query = e.target.value.trim(); renderFiles(); });

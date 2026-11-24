@@ -51,7 +51,7 @@ Les pastilles en haut sont cliquables, `j` / `k` parcourent la file au clavier.
 
 ![Une session terminée, à relire](screenshots/03-relire.png)
 
-L'onglet **Changements** montre le diff non commité, fichier par fichier, et le compte de lignes `+15 −3` directement dans l'onglet :
+L'onglet **Fichiers**, en mode *Modifiés*, montre le diff non commité, fichier par fichier, et le compte de lignes `+15 −3` directement dans l'onglet :
 
 ![Le diff des changements](screenshots/04-changements.png)
 

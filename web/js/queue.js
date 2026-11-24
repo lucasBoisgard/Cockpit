@@ -40,7 +40,7 @@ function queueRow(item) {
   const current = selected === wt.path;
   const master = orchestrationOf(wt);
   const age = s ? statusAge(s, status) : wt.lastCommit ? ago(wt.lastCommit.at) : '';
-  const where = isAppSession(wt) ? '' : wt.otherRepo ? `${wt.repoName} · ${wt.branch || ''}` : wt.branch || (wt.head ? `@ ${wt.head}` : '');
+  const where = isAppSession(wt) || !wt.otherRepo ? '' : wt.repoName;
   const trash = wt.mainCheckout || wt.locked ? '' : `<button type="button" class="queue-trash" data-queue-trash="${esc(wt.path)}" title="Supprimer le worktree" aria-label="${esc(`Supprimer ${wt.label || wt.name}`)}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.1c.05.8.7 1.4 1.5 1.4h2.8c.8 0 1.45-.6 1.5-1.4l.6-8.1M6.8 7v4.5M9.2 7v4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
   return `<div class="queue-rowbox"><button class="queue-row queue-${group} ${item.fixed ? 'is-fixed' : ''} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
     <span class="queue-title">${master ? '<span class="queue-master" title="Maître orchestrateur">◆</span>' : ''}${wt.review ? '<span class="queue-tag">REVIEW</span>' : ''}${isGpt(s) ? '<span class="queue-tag queue-gpt">GPT</span>' : ''}<span class="queue-name">${esc(wt.label || wt.name)}</span>${item.pinned ? '<span class="queue-pin" title="Épinglé">★</span>' : ''}</span>

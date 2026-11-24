@@ -152,6 +152,7 @@ function renderDiff(editLine) {
     <span class="pos">${pos + 1} / ${files.length}</span>
     <button class="btn" data-step="1" title="Fichier suivant (j)" ${pos < 0 || pos >= files.length - 1 ? 'disabled' : ''}>›</button>
     <span class="dpath" title="${esc(selectedFile)}">&lrm;${esc(selectedFile)}</span>
+    ${changesRepo ? '' : '<button class="btn" data-diff-file title="Voir le fichier entier dans Tous">Voir le fichier</button>'}
     <button class="btn" data-copy-path title="Copier le chemin du fichier">Copier le chemin</button>
     <button class="btn" data-wide title="${changesWide ? 'Revenir à la largeur normale' : 'Afficher le panneau en plein écran'}">${changesWide ? 'Réduire' : 'Agrandir'}</button>
   </div>`;

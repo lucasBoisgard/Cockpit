@@ -1,9 +1,11 @@
+const FILE_MODES = ['changes', 'files'];
 const headEnd = (extra = '') => `<div class="head-end">${extra}<button class="close" id="close" title="Fermer">×</button></div>`;
 
 function renderTabs() {
   const diffWt = currentWt();
-  const changes = diffWt && (diffWt.added || diffWt.deleted) ? `Changements<span class="tab-diff" title="Lignes ajoutées et retirées, non commitées"><span class="plus">+${diffWt.added}</span><span class="minus">−${diffWt.deleted}</span></span>` : 'Changements';
-  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], ['changes', changes], ['agents', 'Agents'], ['files', 'Fichiers']];
+  const fileLabel = diffWt && (diffWt.added || diffWt.deleted) ? `Fichiers<span class="tab-diff" title="Lignes ajoutées et retirées, non commitées"><span class="plus">+${diffWt.added}</span><span class="minus">−${diffWt.deleted}</span></span>` : 'Fichiers';
+  const fileTab = FILE_MODES.includes(tab) ? tab : localGet('filesMode') === 'files' ? 'files' : 'changes';
+  const tabs = selected === SHELL ? [['term', 'Terminal']] : selected === USAGE ? [['usage', 'Tokens']] : [['chat', 'Conversation'], ['term', 'Terminal'], [fileTab, fileLabel], ['agents', 'Agents']];
   if (currentWt()?.review) tabs.unshift(['report', 'Rapport']);
   const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
   if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${typeof orchOpenCount === 'function' ? orchOpenCount(orch) : orch.counts.total}</span>`]);
@@ -22,6 +24,20 @@ function renderTabs() {
   $('usage-view').hidden = tab !== 'usage';
   $('app-view').hidden = tab !== 'app';
   $('checks-view').hidden = tab !== 'checks';
+  const changed = diffWt?.files?.length || 0;
+  for (const b of document.querySelectorAll('[data-fmode]')) {
+    b.classList.toggle('on', b.dataset.fmode === tab);
+    b.setAttribute('aria-pressed', String(b.dataset.fmode === tab));
+    const n = b.querySelector('.fmode-n');
+    if (n) n.textContent = changed ? String(changed) : '';
+  }
+}
+
+function setFileMode(mode, file = null) {
+  tab = mode; localSet('tab', tab); localSet('filesMode', mode); renderTabs();
+  if (mode === 'changes') { if (file) { resetChanges(); selectedFile = file; } openChanges(); return; }
+  openFiles();
+  if (file) loadFile(file);
 }
 
 function renderPanel() {
@@ -143,6 +159,9 @@ $('panel').addEventListener('click', async (e) => {
     setTimeout(refresh, 2500);
     return;
   }
+  const fmode = e.target.closest('[data-fmode]');
+  if (fmode) { setFileMode(fmode.dataset.fmode); return; }
+  if (e.target.closest('[data-diff-file]')) { setFileMode('files', selectedFile); return; }
   const tabBtn = e.target.closest('#tabs button');
   if (tabBtn) {
     tab = tabBtn.dataset.tab; if (tab !== 'report') localSet('tab', tab); renderTabs();

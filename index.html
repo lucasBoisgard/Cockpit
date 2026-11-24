@@ -146,6 +146,7 @@
   <div class="view" id="changes-view" hidden>
     <div class="side-grid">
       <div class="side">
+        <div class="fmode" role="group" aria-label="Fichiers affichés"><button type="button" data-fmode="changes">Modifiés <span class="fmode-n"></span></button><button type="button" data-fmode="files">Tous</button></div>
         <div id="side" style="display: flex; flex-direction: column; gap: 16px;"></div>
         <input class="file-filter" id="file-filter" type="search" placeholder="Filtrer les fichiers" aria-label="Filtrer les fichiers">
         <div class="file-tree" id="file-tree"></div>
@@ -156,6 +157,7 @@
   <div class="view" id="files-view" hidden>
     <div class="side-grid">
       <div class="fx-side">
+        <div class="fmode" role="group" aria-label="Fichiers affichés"><button type="button" data-fmode="changes">Modifiés <span class="fmode-n"></span></button><button type="button" data-fmode="files">Tous</button></div>
         <div class="fx-tools">
           <input class="file-filter" id="fx-filter" type="search" placeholder="Chercher un fichier" aria-label="Chercher un fichier">
           <button class="btn" data-fx-collapse title="Replier tous les dossiers">⇤</button>
