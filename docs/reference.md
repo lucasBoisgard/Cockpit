@@ -199,6 +199,7 @@ Environment variables: `PORT` (default 8052 through `start.sh`), `HOST` or `COCK
 | `skills/run-app/SKILL.md` | Claude Code skill: start, stop and check the app from any session through the cockpit API |
 | `skills/review-report/SKILL.md` | Claude Code skill: the JSON format of a review report rendered by the cockpit |
 | `skills/agent-protocol/`, `skills/role-*/`, `skills/pick-agent-model/`, `skills/pr-reviewer/`, `skills/pr-ci-keeper/`, `skills/run-report/`, `skills/review-context/` | Claude Code skills of an orchestration: the contract every agent follows, the roles a master launches, model choice from the relevance matrix, review, CI upkeep and the final report; a `learnings.md` next to a skill holds the lessons it records |
+| `skills/spec-tech/` | Claude Code skill: from a ticket to a merged trunk (tech spec, split into stacked PRs, build slice by slice, landing); the company's conventions come from the house rules |
 | `settings.snippet.json` | The `statusLine` and `hooks` entries merged by `install.js` |
 
 ## Security
