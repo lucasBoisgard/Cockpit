@@ -40,3 +40,5 @@
 .fmode-n { font: 700 10.5px var(--mono); color: var(--ink-3); }
 .fmode-n:empty { display: none; }
 .fx-side > .fmode { margin: 12px 12px 0; }
+.side > .fmode { position: sticky; top: -14px; z-index: 1; }
+.fmode button:disabled { opacity: .45; cursor: default; }

@@ -29,12 +29,20 @@ function renderTabs() {
     b.classList.toggle('on', b.dataset.fmode === tab);
     b.setAttribute('aria-pressed', String(b.dataset.fmode === tab));
     const n = b.querySelector('.fmode-n');
-    if (n) n.textContent = changed ? String(changed) : '';
+    if (n) { n.textContent = changed ? String(changed) : ''; n.title = 'Fichiers non commités'; }
+    if (b.dataset.fmode === 'files') {
+      b.disabled = !!changesRepo;
+      b.title = changesRepo ? 'Tous ne couvre que le dépôt de la carte' : '';
+    }
   }
 }
 
+function rememberFileMode(mode) {
+  tab = mode; localSet('tab', tab); localSet('filesMode', mode);
+}
+
 function setFileMode(mode, file = null) {
-  tab = mode; localSet('tab', tab); localSet('filesMode', mode); renderTabs();
+  rememberFileMode(mode); renderTabs();
   if (mode === 'changes') { if (file) { resetChanges(); selectedFile = file; } openChanges(); return; }
   openFiles();
   if (file) loadFile(file);

@@ -71,7 +71,7 @@ function cardMeta(wt, s, st) {
   if (wt.added || wt.deleted) meta.push(`<span class="chip"><span class="plus">+${wt.added}</span> <span class="minus">−${wt.deleted}</span></span>`);
   if (wt.ahead) meta.push(`<span class="chip">↑ ${wt.ahead} non poussé${wt.ahead > 1 ? 's' : ''}</span>`);
   if (wt.behind) meta.push(`<span class="chip">↓ ${wt.behind}</span>`);
-  if (wt.staged) meta.push(`<span class="chip" title="Changements indexés, masqués dans Changements">● ${wt.staged} indexé${wt.staged > 1 ? 's' : ''}</span>`);
+  if (wt.staged) meta.push(`<span class="chip" title="Changements indexés, masqués dans Fichiers → Modifiés">● ${wt.staged} indexé${wt.staged > 1 ? 's' : ''}</span>`);
   if (!wt.files.length && !wt.staged && !wt.ahead) meta.push('<span class="chip">✓ propre</span>');
   if (wt.locked) meta.push('<span class="chip">🔒 verrouillé</span>');
   const worked = workedTime(s, st);

@@ -39,7 +39,7 @@ $('panel').addEventListener('click', async (e) => {
       if (!match) { toast('Ce fichier n’a pas de changement dans ce ticket.', 'error'); return; }
       sinceFiles = branchFiles;
     }
-    since = local ? null : 'branch'; selectedFile = match.path; tab = 'changes'; renderTabs(); renderPanel();
+    since = local ? null : 'branch'; selectedFile = match.path; rememberFileMode('changes'); renderTabs(); renderPanel();
     await loadDiff();
     document.querySelector(`#diff .line[data-ln="${Number(b.line)}"]`)?.scrollIntoView({ block: 'center' });
     return;
