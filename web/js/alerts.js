@@ -13,7 +13,7 @@ const freshDone = new Set();
 function updateTitle() {
   const needs = state.worktrees.filter((w) => sessionStatus(w) === 'needs_input').length;
   const working = state.worktrees.filter((w) => sessionStatus(w) === 'working').length;
-  document.title = `${needs ? `(${needs}) ` : ''}Worktrees`;
+  document.title = `${needs ? `(${needs}) ` : ''}Cockpit`;
   const color = needs ? '#d4852f' : working ? '#5b7fb5' : '#8c847a';
   if (color === faviconColor) return;
   faviconColor = color;
