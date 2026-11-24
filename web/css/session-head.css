@@ -12,8 +12,7 @@
 .shead-state-read { color: var(--muted); background: var(--surface-2); }
 .shead-state-working { color: var(--slate); background: var(--slate-bg); }
 .shead-state-working .shead-dot { animation: breathe 2.6s ease-in-out infinite; }
-.shead-why { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: 13.5px; }
-.shead-needs .shead-why { color: var(--ink); }
+.shead-spacer { flex: 1; }
 .shead-actions { display: flex; gap: 6px; flex: none; }
 .shead-btn { font-size: 12.5px; padding: 5px 10px; border-radius: 8px; display: inline-flex; gap: 6px; align-items: center; }
 .shead-btn.shead-main { background: var(--saffron); border-color: var(--saffron); color: var(--on-accent); font-weight: 700; }
@@ -33,6 +32,6 @@
 .shead-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
 .shead-orch { color: var(--violet); background: var(--violet-bg); }
 .shead-arena { color: var(--amber, var(--violet)); background: var(--amber-bg, var(--violet-bg)); font-weight: 600; }
-@media (max-width: 760px) { .shead-row { flex-wrap: wrap; } .shead-name { max-width: 100%; } .shead-why { flex-basis: 100%; order: 5; } }
+@media (max-width: 760px) { .shead-row { flex-wrap: wrap; } .shead-name { max-width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .shead-state-working .shead-dot { animation: none; } }
 .shead-gpt { flex: none; font: 700 11px var(--mono); color: var(--ink); background: var(--well); border: 1px solid var(--line-strong); border-radius: 6px; padding: 2px 7px; white-space: nowrap; }

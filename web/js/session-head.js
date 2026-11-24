@@ -56,7 +56,6 @@ function sessionHead(wt, st) {
   const s = primarySession(wt);
   const group = queueGroupOf(st, turnRead(wt));
   const orch = orchestrationOf(wt);
-  const why = queueReason(wt, s, st);
   const age = s ? statusAge(s, st) : '';
   const details = [
     s?.task ? `<div class="shead-task" title="${esc(s.task)}">${esc(oneLineText(s.task, 400))}</div>` : '',
@@ -69,7 +68,7 @@ function sessionHead(wt, st) {
       <h2 class="shead-name" title="${esc(wt.path)}">${esc(wt.label || wt.name)}</h2>
       ${isGpt(s) ? `<span class="shead-gpt" title="Session Codex">GPT${s.model ? ` · ${esc(s.model)}` : ''}</span>` : ''}
       <span class="shead-state shead-state-${group}"><span class="shead-dot"></span>${HEAD_STATE[group]}${age ? ` · ${esc(age)}` : ''}</span>
-      <span class="shead-why" title="${esc(why)}">${esc(oneLineText(why, 220))}</span>
+      <span class="shead-spacer"></span>
       <span class="shead-actions">${headActions(wt, s, st)}</span>
       ${isAppSession(wt) ? appButton() : ''}
       <button class="shead-icon" data-head-toggle aria-expanded="${headOpen}" title="${headOpen ? 'Masquer' : 'Afficher'} les détails (d)">${headOpen ? '⌃' : '⌄'}</button>
