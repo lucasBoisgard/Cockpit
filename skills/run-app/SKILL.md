@@ -8,7 +8,8 @@ description: Start, restart, stop or check the project's local app from any Clau
 The app runs **once**, at the root of the main checkout (the cockpit's `repo`), inside the tmux
 session `cw-app` owned by the Cockpit (`~/.claude/cockpit`), with the command
 set in its `cockpit.config.json` (`app.command`). This is the sanctioned way to start it from a
-worktree session: never start the app from a worktree directory yourself.
+worktree session: never start the app from a worktree directory yourself. The main checkout's
+Claude session is the App session: it only manages the app and refuses any other task.
 
 The app serves the branch checked out in the main checkout, not the worktree's branch. Tell the
 user which branch that is before saying "the app is up with your change". Never run `git` in the
@@ -34,19 +35,21 @@ token from its file in each command, never print it or paste it into a message.
 
 ## Serving a worktree
 
-"Run the app on our code" means: serve the worktree's branch, without asking the user anything.
+"Run the app on our code" means: serve the worktree, without asking the user anything.
 
-1. Serve the committed `HEAD`: if the change is not committed, make a local commit (not pushed) and say so.
-2. Call `/api/app/serve` with the worktree's absolute path. It detaches the main checkout on that
-   `HEAD` and restarts the app. `/api/app` then shows `serving` (name, branch, sha).
-3. If it refuses because of the main checkout (uncommitted changes, `index.lock`, any git error),
-   do not ask the user to run commands: a worktree session cannot run git there, not even through `!`.
-   Hand it to the session that owns the main checkout:
+1. Call `/api/app/serve` with the worktree's absolute path. The cockpit puts the main checkout on the
+   worktree's code (its `HEAD` plus its uncommitted and untracked files), sets aside what the main
+   checkout held in a tagged stash, removes a stale `index.lock`, and restarts the app. `/api/app`
+   then shows `serving` (name, branch, sha).
+2. You do not need to call it again after each change: when a session of the served worktree
+   finishes a turn, the cockpit syncs its code into the app by itself.
+3. If it still refuses because of the main checkout, do not ask the user to run commands: a worktree
+   session cannot run git there, not even through `!`. Hand it to the App session, the session that
+   owns the main checkout:
    - `ListAgents`, and pick the peer session whose working directory is the main checkout;
    - `SendMessage` it the worktree path, branch and sha, the cockpit's exact error, and the request:
-     set the main checkout's changes aside safely (a tagged stash, never a discard; a stale
-     `index.lock` is removed only when no git process runs), then serve the
-     worktree through the cockpit;
+     unblock the main checkout safely (a tagged stash, never a discard; a stale `index.lock` is
+     removed only when no git process runs), then serve the worktree through the cockpit;
    - if no such session runs, tell the user and ask them to open one from the cockpit.
 4. Follow the build (see "Waiting") until `up` or `ko`, and report the served branch and sha.
 

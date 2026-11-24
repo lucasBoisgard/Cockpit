@@ -7,7 +7,7 @@ const eventsStore = loadStore('worktree-events.json', { seq: 0, events: [] });
 
 function notifyExternal(event) {
   const url = CONFIG.notify?.ntfyUrl;
-  const types = CONFIG.notify?.types || ['needs_input', 'permission', 'question', 'ci_failed', 'app_ko', 'migrations_failed'];
+  const types = CONFIG.notify?.types || ['needs_input', 'permission', 'question', 'ci_failed', 'app_ko', 'migrations_failed', 'app_sync_failed'];
   if (!url || !types.includes(event.type)) return;
   fetch(url, { method: 'POST', body: event.message || event.type, headers: { Title: `Cockpit · ${event.worktree || ''}`.trim(), Tags: event.type } }).catch(() => {});
 }

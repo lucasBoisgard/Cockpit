@@ -10,16 +10,11 @@ aside.open { transform: none; }
 .app-btn.building .dot, .app-btn.starting .dot { animation: breathe 2.6s ease-in-out infinite; }
 .app-btn.up { background: var(--green-bg); border-color: var(--green-bg); color: var(--green); }
 .app-btn.degraded { background: var(--green-bg); border-color: var(--amber); color: var(--amber); }
-.app-info .reason.warn { color: var(--amber); }
 .app-btn.ko { background: var(--red-bg); border-color: var(--red-bg); color: var(--red); }
-.app-info { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 6px; }
-.app-info .last { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
-.app-info .reason { color: var(--red); }
 .app-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .app-actions a { font-size: 12px; color: var(--blue); }
 @media (prefers-reduced-motion: reduce) { .app-btn .dot { animation: none !important; } }
 .app-pane { padding: 12px 20px; border-bottom: 1px solid var(--border); }
-.app-pane .app-info { margin-top: 0; }
 .tab-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; background: var(--faint); vertical-align: middle; }
 .tab-dot.building, .tab-dot.starting { background: var(--amber); }
 .tab-dot.up { background: var(--green); }

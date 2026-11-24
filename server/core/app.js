@@ -69,4 +69,14 @@ function survivorsError(survivors) {
 
 const appWentKo = (before, now) => !!before && before !== 'ko' && now === 'ko';
 
-module.exports = { stripAnsi, shellQuote, lastLineOf, parsePm2List, parseBuildPane, appVerdict, isRunning, startRefusal, launchCommand, survivorsError, appWentKo };
+// A git index.lock left by a crashed git: no git process runs and it is older than a minute
+const STALE_LOCK_MS = 60000;
+const staleIndexLock = ({ ageMs, gitRunning }) => !gitRunning && ageMs > STALE_LOCK_MS;
+
+// The served worktree finished a turn: sync its code into the main checkout
+const resyncOnEvent = (event, worktreeName, serving) => event?.type === 'done' && !!serving && serving.name === worktreeName;
+
+// After a sync, the running app only needs a restart when its dependencies changed (dev servers reload the rest)
+const restartAfterSync = ({ depsBefore, depsAfter, running }) => running && depsBefore !== depsAfter;
+
+module.exports = { stripAnsi, shellQuote, lastLineOf, parsePm2List, parseBuildPane, appVerdict, isRunning, startRefusal, launchCommand, survivorsError, appWentKo, staleIndexLock, resyncOnEvent, restartAfterSync };

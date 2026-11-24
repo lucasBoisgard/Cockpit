@@ -94,3 +94,10 @@ test('the hooks inject the context and refuse a forbidden command in a worktree 
   assert.strictEqual(hook('worktree-gate.js', { tool_name: 'Bash', cwd: wt, tool_input: { command: 'npm test' } }), '');
   assert.strictEqual(hook('worktree-gate.js', { tool_name: 'Read', cwd: wt }), '');
 });
+
+test('isMainCheckout matches only the root of the configured repo, and the App session refuses other work', () => {
+  assert.strictEqual(r.isMainCheckout('/srv/app', '/srv/app'), true);
+  assert.strictEqual(r.isMainCheckout('/srv/app/.claude/worktrees/w', '/srv/app'), false);
+  assert.strictEqual(r.isMainCheckout('/srv/app', undefined), false);
+  assert.match(r.appManagerLines().join('\n'), /run-app[\s\S]*Refuse any task unrelated/);
+});

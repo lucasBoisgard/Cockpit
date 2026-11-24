@@ -40,11 +40,11 @@ function queueRow(item) {
   const current = selected === wt.path;
   const master = orchestrationOf(wt);
   const age = s ? statusAge(s, status) : wt.lastCommit ? ago(wt.lastCommit.at) : '';
-  const where = wt.otherRepo ? `${wt.repoName} · ${wt.branch || ''}` : wt.branch || (wt.head ? `@ ${wt.head}` : '');
+  const where = isAppSession(wt) ? '' : wt.otherRepo ? `${wt.repoName} · ${wt.branch || ''}` : wt.branch || (wt.head ? `@ ${wt.head}` : '');
   return `<button class="queue-row queue-${group} ${item.fixed ? 'is-fixed' : ''} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
     <span class="queue-title">${master ? '<span class="queue-master" title="Maître orchestrateur">◆</span>' : ''}${wt.review ? '<span class="queue-tag">REVIEW</span>' : ''}${isGpt(s) ? '<span class="queue-tag queue-gpt">GPT</span>' : ''}<span class="queue-name">${esc(wt.label || wt.name)}</span>${item.pinned ? '<span class="queue-pin" title="Épinglé">★</span>' : ''}</span>
     <span class="queue-why" title="${esc(queueReason(wt, s, status))}">${esc(oneLineText(queueReason(wt, s, status)))}</span>
-    <span class="queue-sub"><span class="queue-where">${esc(where)}</span><span class="queue-age">${esc(age)}</span></span>
+    ${isAppSession(wt) ? appQueueLine() : ''}<span class="queue-sub"><span class="queue-where">${esc(where)}</span><span class="queue-age">${esc(age)}</span></span>
   </button>${agentsStrip(wt, 'queue')}`;
 }
 

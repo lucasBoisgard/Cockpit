@@ -2,7 +2,7 @@
 // SessionStart: in a worktree of the configured repo, injects the worktree rules into the session's context.
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
-const { loadConfig, worktreeOf, settingsOf, contextLines } = require('./worktree-rules');
+const { loadConfig, worktreeOf, isMainCheckout, appManagerLines, settingsOf, contextLines } = require('./worktree-rules');
 
 let input = {};
 try {
@@ -17,4 +17,4 @@ if (worktree) {
     branch = execFileSync('git', ['-C', cwd, 'branch', '--show-current'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {}
   console.log(contextLines({ worktree, branch, settings: settingsOf(config), exists: fs.existsSync }).join('\n'));
-}
+} else if (config.app?.command && isMainCheckout(cwd, config.repo)) console.log(appManagerLines().join('\n'));

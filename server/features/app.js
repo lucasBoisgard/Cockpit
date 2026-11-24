@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
@@ -6,7 +7,7 @@ const { REPO, APP, APP_SESSION, USE_PM2, PM2_BIN, PM2_PID_FILE, MIGRATIONS, DATA
 const { run, git, tmux, sleep } = require('../io/exec');
 const { processAlive, procRead, procCwd, listeningPortsBySocket, processPorts } = require('../io/proc');
 const { loadStore, saveStore, removeStore } = require('../io/store');
-const { stripAnsi, lastLineOf, parsePm2List, parseBuildPane, appVerdict, isRunning, startRefusal, launchCommand, survivorsError } = require('../core/app');
+const { stripAnsi, lastLineOf, parsePm2List, parseBuildPane, appVerdict, isRunning, startRefusal, launchCommand, survivorsError, staleIndexLock, restartAfterSync } = require('../core/app');
 const { invalidateSnapshot } = require('../cache');
 const { listWorktrees, worktreeName } = require('./worktrees');
 const { pushEvent } = require('./events');
@@ -19,6 +20,7 @@ const MIGRATIONS_CHECK_MS = 30000;
 const SERVE_STORE = 'worktree-app-serve.json';
 
 let migrating = false;
+let syncing = false;
 let lastMigrationsCheck = 0;
 
 function pm2DaemonPid() {
@@ -184,30 +186,130 @@ async function migrateIfPulled(app) {
   }
 }
 
+// A git process working in the main checkout (the cockpit runs git elsewhere all the time)
+async function gitRunning() {
+  const pids = (await run('pgrep', ['-x', 'git'])).stdout.split('\n').filter(Boolean);
+  return pids.some((pid) => (procCwd(pid) || '').startsWith(REPO));
+}
+
+// A git that crashed leaves .git/index.lock behind and every checkout fails: remove it once nothing uses it
+async function clearStaleIndexLock() {
+  const lock = path.join(REPO, '.git', 'index.lock');
+  let ageMs;
+  try {
+    ageMs = Date.now() - fs.statSync(lock).mtimeMs;
+  } catch {
+    return;
+  }
+  if (staleIndexLock({ ageMs, gitRunning: await gitRunning() })) fs.rmSync(lock, { force: true });
+}
+
+// Hash of the root lockfiles: a change means new dependencies, which the running dev servers do not pick up
+function depsFingerprint() {
+  return ['yarn.lock', 'package-lock.json', 'pnpm-lock.yaml']
+    .map((f) => {
+      try {
+        return crypto.createHash('sha1').update(fs.readFileSync(path.join(REPO, f))).digest('hex');
+      } catch {
+        return '';
+      }
+    })
+    .join(',');
+}
+
+// Removes what the last sync wrote (tracked changes and copied untracked files); anything else is set aside in a tagged stash
+async function clearMainCheckout(current) {
+  await clearStaleIndexLock();
+  // Only what the last sync wrote is thrown away: the main checkout must still be on the synced commit
+  const head = ((await git(REPO, ['rev-parse', 'HEAD'])) || '').trim();
+  if (current?.sha && head === current.sha) {
+    await run('git', ['-C', REPO, 'reset', '--hard', '-q']);
+    for (const file of current.untracked || []) fs.rmSync(path.join(REPO, file), { force: true });
+  }
+  const dirty = ((await git(REPO, ['status', '--porcelain'])) || '').trim();
+  if (!dirty) return { ok: true };
+  const tag = `cockpit-app-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  const stash = await run('git', ['-C', REPO, 'stash', 'push', '-u', '-m', tag]);
+  return stash.ok ? { ok: true, stashed: tag } : { error: `Impossible de mettre de côté les changements du checkout principal : ${stash.stderr.trim()}` };
+}
+
+// Puts the main checkout on the worktree's code: its HEAD, plus its uncommitted and untracked files
+async function syncFrom(wt, current) {
+  const cleared = await clearMainCheckout(current);
+  if (cleared.error) return cleared;
+  const head = ((await git(wt.path, ['rev-parse', 'HEAD'])) || '').trim();
+  if (!head) return { error: `HEAD introuvable dans ${wt.path}.` };
+  const checkout = await run('git', ['-C', REPO, 'checkout', '-q', '--detach', head]);
+  if (!checkout.ok) return { error: checkout.stderr.trim() };
+  const applied = await run('bash', ['-c', 'git -C "$1" diff HEAD --binary | git -C "$2" apply --binary --allow-empty', 'sync', wt.path, REPO]);
+  if (!applied.ok) return { error: `Changements non commités non appliqués : ${applied.stderr.trim()}` };
+  const untracked = ((await git(wt.path, ['ls-files', '--others', '--exclude-standard', '-z'])) || '').split('\0').filter(Boolean);
+  for (const file of untracked) fs.cpSync(path.join(wt.path, file), path.join(REPO, file), { recursive: true });
+  return { ok: true, head, untracked, stashed: cleared.stashed };
+}
+
 async function serveWorktree({ path: wtPath }) {
   if (!APP) return { error: 'Aucune app configurée.' };
   const wt = (await listWorktrees()).find((w) => w.path === wtPath);
   if (!wt?.head || wt.path === REPO) return { error: 'Worktree inconnu, ou checkout principal.' };
   if ((wt.repo || REPO) !== REPO) return { error: 'Seuls les worktrees du repo de l’app peuvent la servir.' };
-  const dirty = ((await git(REPO, ['status', '--porcelain', '--untracked-files=no'])) || '').trim();
-  if (dirty) return { error: 'Le checkout principal a des changements non commités : impossible de basculer.' };
+  if (syncing) return { error: 'Une bascule de l’app est déjà en cours.' };
+  syncing = true;
+  try {
+    const current = loadStore(SERVE_STORE, null);
+    await clearStaleIndexLock();
+    const previous = current?.previous || ((await git(REPO, ['branch', '--show-current'])) || '').trim() || ((await git(REPO, ['rev-parse', 'HEAD'])) || '').trim();
+    const synced = await syncFrom(wt, current);
+    if (synced.error) return synced;
+    saveStore(SERVE_STORE, { name: worktreeName(wt.path), path: wt.path, branch: wt.branch, sha: synced.head, untracked: synced.untracked, previous, at: Date.now(), syncedAt: Date.now() });
+    if (synced.stashed) pushEvent({ type: 'app_stash', worktree: 'app', message: `Changements du checkout principal mis de côté : stash « ${synced.stashed} »` });
+    invalidateSnapshot();
+    const started = await startApp({ restart: true });
+    return started.error ? started : { ok: true, stashed: synced.stashed || null };
+  } finally {
+    syncing = false;
+  }
+}
+
+// The served worktree finished a turn: bring its new code to the app, restart only if its dependencies changed
+async function resyncServed() {
   const current = loadStore(SERVE_STORE, null);
-  const previous = current?.previous || ((await git(REPO, ['branch', '--show-current'])) || '').trim() || ((await git(REPO, ['rev-parse', 'HEAD'])) || '').trim();
-  const checkout = await run('git', ['-C', REPO, 'checkout', '--detach', wt.head]);
-  if (!checkout.ok) return { error: checkout.stderr.trim() };
-  saveStore(SERVE_STORE, { name: worktreeName(wt.path), branch: wt.branch, sha: wt.head, previous, at: Date.now() });
-  invalidateSnapshot();
-  return startApp({ restart: true });
+  if (!current || syncing) return { ok: false };
+  const wt = (await listWorktrees()).find((w) => w.path === current.path || worktreeName(w.path) === current.name);
+  if (!wt) return { ok: false };
+  syncing = true;
+  try {
+    const depsBefore = depsFingerprint();
+    const synced = await syncFrom(wt, current);
+    if (synced.error) {
+      pushEvent({ type: 'app_sync_failed', worktree: 'app', message: `App non mise à jour depuis ${current.name} : ${synced.error.slice(0, 200)}` });
+      return synced;
+    }
+    saveStore(SERVE_STORE, { ...current, path: wt.path, branch: wt.branch, sha: synced.head, untracked: synced.untracked, syncedAt: Date.now() });
+    invalidateSnapshot();
+    if (restartAfterSync({ depsBefore, depsAfter: depsFingerprint(), running: isRunning((await appState())?.state) })) await startApp({ restart: true });
+    return { ok: true };
+  } finally {
+    syncing = false;
+  }
 }
 
 async function unserveWorktree() {
   const current = loadStore(SERVE_STORE, null);
   if (!current) return { error: 'L’app sert déjà le checkout principal.' };
-  const checkout = await run('git', ['-C', REPO, 'checkout', current.previous]);
-  if (!checkout.ok) return { error: checkout.stderr.trim() };
-  removeStore(SERVE_STORE);
-  invalidateSnapshot();
-  return startApp({ restart: true });
+  if (syncing) return { error: 'Une bascule de l’app est déjà en cours.' };
+  syncing = true;
+  try {
+    const cleared = await clearMainCheckout(current);
+    if (cleared.error) return cleared;
+    const checkout = await run('git', ['-C', REPO, 'checkout', '-q', current.previous]);
+    if (!checkout.ok) return { error: checkout.stderr.trim() };
+    removeStore(SERVE_STORE);
+    invalidateSnapshot();
+    return startApp({ restart: true });
+  } finally {
+    syncing = false;
+  }
 }
 
-module.exports = { appState, startApp, stopApp, migrateIfPulled, serveWorktree, unserveWorktree };
+module.exports = { appState, startApp, stopApp, migrateIfPulled, serveWorktree, resyncServed, unserveWorktree, syncFrom };

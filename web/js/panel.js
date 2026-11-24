@@ -1,4 +1,4 @@
-const headEnd = (extra = '') => `<div class="head-end">${extra}${appButton()}<button class="close" id="close" title="Fermer">×</button></div>`;
+const headEnd = (extra = '') => `<div class="head-end">${extra}<button class="close" id="close" title="Fermer">×</button></div>`;
 
 function renderTabs() {
   const diffWt = currentWt();
@@ -8,7 +8,7 @@ function renderTabs() {
   const orch = currentWt() && typeof orchestrationOf === 'function' ? orchestrationOf(currentWt()) : null;
   if (orch) tabs.unshift(['orch', `Orchestration<span class="tab-count ${orch.counts.needs ? 'is-needs' : ''}">${orch.counts.working + orch.counts.starting}/${typeof orchOpenCount === 'function' ? orchOpenCount(orch) : orch.counts.total}</span>`]);
   if (currentWt() && !isBase(currentWt()) && state.pr?.enabled) tabs.push(['checks', currentWt().pr ? `PR #${currentWt().pr.number}` : 'PR']);
-  if (state.app) tabs.push(['app', `App<span class="tab-dot ${esc(state.app.state)}"></span>`]);
+  if (isAppSession(currentWt())) tabs.unshift(['app', `App<span class="tab-dot ${esc(state.app.state)}"></span>`]);
   if (!tabs.some(([id]) => id === tab)) tab = tabs[0][0];
   $('tabs').innerHTML = tabs.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? 'on' : ''}">${label}</button>`).join('');
   $('report-view').hidden = tab !== 'report';
