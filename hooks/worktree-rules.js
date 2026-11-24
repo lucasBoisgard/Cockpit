@@ -73,9 +73,22 @@ function forbiddenLabel(command, settings) {
   return null;
 }
 
+// A session at the root of the configured repo's main checkout: the App session, which only manages the app.
+function isMainCheckout(cwd, repo) {
+  return !!repo && realPath(String(cwd || '')) === realPath(repo);
+}
+
+function appManagerLines() {
+  return [
+    'This session is the App session: it runs in the main checkout, which only serves the local app. It never develops here.',
+    'Load and follow the `run-app` skill. Your job: start, restart, stop and check the app, read its logs, serve a worktree or come back to the main branch, and unblock the main checkout when the cockpit cannot switch it (a tagged stash, never a discard; a stale `index.lock` only when no git process runs).',
+    'Refuse any task unrelated to the app (code changes, reviews, tickets, questions about the code): say in one line that this session only manages the app and that the work belongs in a worktree session.',
+  ];
+}
+
 const includeText = (settings) => (settings.include.length ? `${INCLUDE_MARKER}\n${settings.include.join('\n')}\n` : '');
 
 // The cockpit only writes a `.worktreeinclude` that is missing or that it wrote itself: a hand-written one is kept.
 const ownsInclude = (current) => current === null || current === '' || current.split('\n')[0] === INCLUDE_MARKER;
 
-module.exports = { loadConfig, worktreeOf, settingsOf, contextLines, forbiddenLabel, includeText, ownsInclude, INCLUDE_MARKER };
+module.exports = { loadConfig, worktreeOf, isMainCheckout, appManagerLines, settingsOf, contextLines, forbiddenLabel, includeText, ownsInclude, INCLUDE_MARKER };

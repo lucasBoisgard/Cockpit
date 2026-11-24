@@ -1,13 +1,13 @@
 const { TICK_MS } = require('../config');
 const { loadStore, readSession } = require('../io/store');
 const { sessionEvent, delegatedDoneText, turnStatus } = require('../core/sessions');
-const { appWentKo } = require('../core/app');
+const { appWentKo, resyncOnEvent } = require('../core/app');
 const { invalidateSnapshot } = require('../cache');
 const { listWorktrees } = require('./worktrees');
 const { snapshot } = require('./snapshot');
 const { pushEvent } = require('./events');
 const { enqueue, flushQueues } = require('./queue');
-const { migrateIfPulled } = require('./app');
+const { migrateIfPulled, resyncServed } = require('./app');
 const { prRefreshDue, refreshPrs } = require('./pr');
 const { runDueAutomations } = require('./automations');
 const { onSessionEvent, checkLostAgents } = require('./orchestration');
@@ -30,6 +30,7 @@ function detectTransitions(snap) {
       const event = sessionEvent(before, live);
       if (!event) continue;
       pushEvent({ worktree: wt.name, path: wt.path, sessionId: session.sessionId, ...event });
+      if (resyncOnEvent(event, wt.name, snap.app?.serving)) resyncServed().catch((error) => console.error('app resync failed', error));
       try {
         onSessionEvent(session.sessionId, event, session);
       } catch (error) {

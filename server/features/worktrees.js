@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { REPO, ROOT, CONFIG, BASE_BRANCH, CLAUDE_SESSIONS_DIR } = require('../config');
+const { REPO, ROOT, CONFIG, APP, BASE_BRANCH, CLAUDE_SESSIONS_DIR } = require('../config');
 const { git, tmux } = require('../io/exec');
 const { processAlive } = require('../io/proc');
 const { readReview, readSessions } = require('../io/store');
@@ -137,7 +137,8 @@ async function describe(wt) {
     repo,
     otherRepo,
     repoName: otherRepo ? (await repoOf(repo))?.name || path.basename(repo) : null,
-    label: otherRepo ? path.basename(isMainCheckout(wt) ? repo : wt.path) : name,
+    // The app's main checkout only serves the app: its session is the App session
+    label: otherRepo ? path.basename(isMainCheckout(wt) ? repo : wt.path) : isMainCheckout(wt) && APP ? 'App' : name,
     baseBranch: await baseBranchOf(repo),
     mainCheckout: isMainCheckout(wt),
   };

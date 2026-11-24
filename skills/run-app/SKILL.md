@@ -8,11 +8,12 @@ description: Start, restart, stop or check the project's local app from any Clau
 The app runs **once**, at the root of the main checkout (the cockpit's `repo`), inside the tmux
 session `cw-app` owned by the Cockpit (`~/.claude/cockpit`), with the command
 set in its `cockpit.config.json` (`app.command`). This is the sanctioned way to start it from a
-worktree session: never start the app from a worktree directory yourself.
+worktree session: never start the app from a worktree directory yourself. The main checkout's
+Claude session is the App session: it only manages the app and refuses any other task.
 
 The app serves the branch checked out in the main checkout, not the worktree's branch. Tell the
-user which branch that is before saying "the app is up with your change". Never switch that branch
-yourself: ask the user.
+user which branch that is before saying "the app is up with your change". Never run `git` in the
+main checkout yourself: to serve your branch, use `/api/app/serve` (see "Serving a worktree").
 
 ## API
 
@@ -27,8 +28,30 @@ token from its file in each command, never print it or paste it into a message.
 | Restart | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" -d '{"restart":true}' http://127.0.0.1:8052/api/app/start` |
 | Stop | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" http://127.0.0.1:8052/api/app/stop` |
 | Build log | `curl -s -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" 'http://127.0.0.1:8052/api/screen?target=app'` |
+| Serve a worktree | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" -H 'Content-Type: application/json' -d '{"path":"<absolute worktree path>"}' http://127.0.0.1:8052/api/app/serve` |
+| Back to the main branch | `curl -s -X POST -H 'X-Cockpit: 1' -H "X-Cockpit-Token: $(cat ~/.claude/cockpit/token)" http://127.0.0.1:8052/api/app/unserve` |
 
 `/api/app` returns `null` when no app is configured: say so and stop.
+
+## Serving a worktree
+
+"Run the app on our code" means: serve the worktree, without asking the user anything.
+
+1. Call `/api/app/serve` with the worktree's absolute path. The cockpit puts the main checkout on the
+   worktree's code (its `HEAD` plus its uncommitted and untracked files), sets aside what the main
+   checkout held in a tagged stash, removes a stale `index.lock`, and restarts the app. `/api/app`
+   then shows `serving` (name, branch, sha).
+2. You do not need to call it again after each change: when a session of the served worktree
+   finishes a turn, the cockpit syncs its code into the app by itself.
+3. If it still refuses because of the main checkout, do not ask the user to run commands: a worktree
+   session cannot run git there, not even through `!`. Hand it to the App session, the session that
+   owns the main checkout:
+   - `ListAgents`, and pick the peer session whose working directory is the main checkout;
+   - `SendMessage` it the worktree path, branch and sha, the cockpit's exact error, and the request:
+     unblock the main checkout safely (a tagged stash, never a discard; a stale `index.lock` is
+     removed only when no git process runs), then serve the worktree through the cockpit;
+   - if no such session runs, tell the user and ask them to open one from the cockpit.
+4. Follow the build (see "Waiting") until `up` or `ko`, and report the served branch and sha.
 
 If the cockpit does not answer, run `~/.claude/cockpit/ensure.sh` and retry once; if it
 still does not answer, ask the user to run `~/.claude/cockpit/start.sh`.

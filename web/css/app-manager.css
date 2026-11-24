@@ -1,0 +1,27 @@
+/* App session (the main checkout): the app's status, what it serves and its actions. */
+.appmgr { --appmgr-hue: var(--ink-3); --appmgr-bg: var(--well); display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--appmgr-hue); border-radius: 10px; background: var(--paper); font-size: 12.5px; color: var(--ink-2); }
+.appmgr-stopped { --appmgr-hue: var(--ink-3); --appmgr-bg: var(--well); }
+.appmgr-building, .appmgr-starting { --appmgr-hue: var(--saffron); --appmgr-bg: var(--saffron-bg); }
+.appmgr-up { --appmgr-hue: var(--jade); --appmgr-bg: var(--jade-bg); }
+.appmgr-degraded { --appmgr-hue: var(--saffron); --appmgr-bg: var(--jade-bg); }
+.appmgr-ko { --appmgr-hue: var(--rose); --appmgr-bg: var(--rose-bg); }
+.appmgr-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.appmgr-state { display: inline-flex; align-items: center; gap: 7px; padding: 3px 11px; border-radius: 999px; background: var(--appmgr-bg); color: var(--appmgr-hue); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.appmgr-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.appmgr-building .appmgr-dot, .appmgr-starting .appmgr-dot { animation: breathe 2.6s ease-in-out infinite; }
+.appmgr-facts { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.appmgr-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.appmgr-actions a.btn { text-decoration: none; }
+.appmgr-src { overflow-wrap: anywhere; }
+.appmgr-src b { color: var(--ink); font-weight: 650; }
+.appmgr-src-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-right: 4px; }
+.appmgr-hint { font-size: 11.5px; color: var(--ink-3); }
+.appmgr-note { font-size: 12px; }
+.appmgr-note.warn { color: var(--saffron); }
+.appmgr-note.bad { color: var(--rose); }
+.appmgr-last { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); }
+/* The App session's row in the queue */
+.appmgr-queue { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; font-weight: 650; color: var(--appmgr-hue); white-space: nowrap; }
+.appmgr-queue-what { font: 400 11px var(--mono); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .appmgr-actions { margin-left: 0; width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .appmgr-dot { animation: none !important; } }

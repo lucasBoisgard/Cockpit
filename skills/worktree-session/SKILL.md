@@ -15,7 +15,7 @@ The session start lists this repo's own rules (shared resources, setup, refused 
 | Setup | Do what the session start says is missing (installing dependencies, building internal packages) before running tests |
 | Shared resources | Databases, queues and the running app are shared with the other sessions. Tests that roll back their changes are fine. Never reset, seed, migrate or drop shared data |
 | Refused commands | The cockpit refuses the commands listed at session start; do not work around the refusal, ask the user |
-| App and QA | Do not start the app from a worktree. QA in the running app is asked of the user, or done through the `run-app` skill, which serves a worktree from the main checkout |
+| App and QA | Do not start the app from a worktree. QA in the running app is asked of the user, or done through the `run-app` skill, which serves a worktree from the main checkout; when the main checkout blocks it, the `run-app` skill hands it to that checkout's session, not to the user |
 | Environment files | Copied into the worktree when it was created (`.worktreeinclude`); never edit the main checkout's copies |
 | Git stash | The stash stack is shared by every worktree: no bare `git stash` / `git stash pop`; prefer a temporary WIP commit |
 | End | Push your commits before the worktree is removed: it goes away with them |

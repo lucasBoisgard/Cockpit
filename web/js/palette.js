@@ -7,7 +7,7 @@ function buildPalette() {
     if (!isBase(wt) && state.pr?.enabled && wt.pr?.state !== 'OPEN') items.push({ label: 'Pousser et ouvrir la PR', kind: wt.name, run: () => openPrDialog(wt.path) });
     if (!wt.mainCheckout) items.push({ label: 'Archiver ce worktree', kind: wt.name, run: () => archive(wt.path) });
     if (!wt.mainCheckout && !wt.locked) items.push({ label: 'Fusionner ce worktree dans…', kind: wt.name, run: () => openMerge(wt.path) });
-    if (state.app && canServe(wt)) items.push({ label: "Servir l'app depuis ce worktree", kind: wt.name, run: () => serveApp(wt.path) });
+    if (state.app && canServe(wt)) items.push({ label: "Lancer l'app sur ce worktree", kind: wt.name, run: () => serveApp(wt.path) });
   }
   items.push(
     { label: 'Nouvelle session', kind: 'action', run: () => openNewSession() },

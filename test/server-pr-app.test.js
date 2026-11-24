@@ -120,3 +120,17 @@ test('startRefusal, launchCommand, survivorsError and appWentKo', () => {
   assert.ok(!appWentKo('ko', 'ko'));
   assert.ok(!appWentKo('ko', 'up'));
 });
+
+test('app sync decisions: stale lock, resync on the served worktree, restart only when dependencies change', () => {
+  const { staleIndexLock, resyncOnEvent, restartAfterSync } = require('../server/core/app');
+  assert.strictEqual(staleIndexLock({ ageMs: 120000, gitRunning: false }), true);
+  assert.strictEqual(staleIndexLock({ ageMs: 120000, gitRunning: true }), false);
+  assert.strictEqual(staleIndexLock({ ageMs: 5000, gitRunning: false }), false);
+  assert.strictEqual(resyncOnEvent({ type: 'done' }, 'feat-x', { name: 'feat-x' }), true);
+  assert.strictEqual(resyncOnEvent({ type: 'question' }, 'feat-x', { name: 'feat-x' }), false);
+  assert.strictEqual(resyncOnEvent({ type: 'done' }, 'feat-y', { name: 'feat-x' }), false);
+  assert.strictEqual(resyncOnEvent({ type: 'done' }, 'feat-x', null), false);
+  assert.strictEqual(restartAfterSync({ depsBefore: 'a', depsAfter: 'b', running: true }), true);
+  assert.strictEqual(restartAfterSync({ depsBefore: 'a', depsAfter: 'a', running: true }), false);
+  assert.strictEqual(restartAfterSync({ depsBefore: 'a', depsAfter: 'b', running: false }), false);
+});

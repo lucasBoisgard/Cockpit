@@ -41,7 +41,7 @@ function headMenu(wt, s) {
   if (s) item(`data-head-read="${esc(s.sessionId)}"`, 'Lire la dernière réponse', '', '');
   if (s) item(`data-head-delegate="${esc(s.sessionId)}"`, 'Déléguer une sous-tâche', 'nouvelle session liée à celle-ci');
   item(`data-head-pin="${esc(wt.path)}"`, pins.has(wt.path) ? 'Désépingler' : 'Épingler en tête de file');
-  if (state.app && canServe(wt) && wt.headSha && state.app?.serving?.name !== wt.name) item(`data-serve="${esc(wt.path)}"`, 'Servir l’app depuis ce worktree', 'checkout du dernier commit');
+  if (state.app && canServe(wt) && wt.headSha && state.app?.serving?.name !== wt.name) item(`data-serve="${esc(wt.path)}"`, 'Lancer l’app sur ce worktree', 'code non commité inclus');
   if (s?.live && !orchestrationOf(wt)) item(`data-head-promote="${esc(s.sessionId)}"`, 'Passer en mode maître', 'la session orchestre des agents');
   item('data-head-history', 'Historique des sessions');
   if (!wt.mainCheckout && !wt.locked) {
@@ -72,7 +72,7 @@ function sessionHead(wt, st) {
       <span class="shead-state shead-state-${group}"><span class="shead-dot"></span>${HEAD_STATE[group]}${age ? ` · ${esc(age)}` : ''}</span>
       <span class="shead-why" title="${esc(why)}">${esc(oneLineText(why, 220))}</span>
       <span class="shead-actions">${headActions(wt, s, st)}</span>
-      ${appButton()}
+      ${isAppSession(wt) ? appButton() : ''}
       <button class="shead-icon" data-head-toggle aria-expanded="${headOpen}" title="${headOpen ? 'Masquer' : 'Afficher'} les détails (d)">${headOpen ? '⌃' : '⌄'}</button>
       <span class="shead-more"><button class="shead-icon" data-head-menu aria-expanded="${sessionMenuOpen}" aria-label="Actions du worktree">⋯</button>${sessionMenuOpen ? headMenu(wt, s) : ''}</span>
     </div>
