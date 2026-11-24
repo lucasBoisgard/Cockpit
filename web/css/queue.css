@@ -85,3 +85,16 @@
 .queue-fold-dot.queue-working { background: var(--slate); animation: breathe 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .queue-fold-dot.queue-working { animation: none; } }
 .queue-fold-dot.is-current { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink-2); }
+/* Delete on hover: a quiet rose bin over the row's top-right corner. */
+.queue-rowbox { position: relative; }
+.queue-trash { position: absolute; top: 6px; right: 12px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 8px; background: var(--paper); color: var(--rose); cursor: pointer; opacity: 0; transform: scale(.85); pointer-events: none; transition: opacity .18s ease, transform .18s ease, background-color .18s ease; }
+.queue-rowbox:hover .queue-trash, .queue-rowbox:focus-within .queue-trash { opacity: 1; transform: none; pointer-events: auto; }
+.queue-trash:hover { background: var(--rose-bg); }
+.queue-trash:focus-visible { outline: 2px solid var(--rose); outline-offset: 1px; }
+.queue-rowbox:hover .queue-row.is-fresh::after { opacity: 0; }
+@media (hover: none) {
+  .queue-trash { opacity: .7; transform: none; pointer-events: auto; width: 32px; height: 32px; top: 4px; right: 10px; }
+  .queue-rowbox:has(.queue-trash) .queue-title { padding-right: 34px; }
+  .queue-rowbox:has(.queue-trash) .queue-row.is-fresh::after { right: 46px; }
+}
+@media (prefers-reduced-motion: reduce) { .queue-trash { transition: none; } }

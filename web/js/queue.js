@@ -41,11 +41,12 @@ function queueRow(item) {
   const master = orchestrationOf(wt);
   const age = s ? statusAge(s, status) : wt.lastCommit ? ago(wt.lastCommit.at) : '';
   const where = isAppSession(wt) ? '' : wt.otherRepo ? `${wt.repoName} · ${wt.branch || ''}` : wt.branch || (wt.head ? `@ ${wt.head}` : '');
-  return `<button class="queue-row queue-${group} ${item.fixed ? 'is-fixed' : ''} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
+  const trash = wt.mainCheckout || wt.locked ? '' : `<button type="button" class="queue-trash" data-queue-trash="${esc(wt.path)}" title="Supprimer le worktree" aria-label="${esc(`Supprimer ${wt.label || wt.name}`)}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.1c.05.8.7 1.4 1.5 1.4h2.8c.8 0 1.45-.6 1.5-1.4l.6-8.1M6.8 7v4.5M9.2 7v4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  return `<div class="queue-rowbox"><button class="queue-row queue-${group} ${item.fixed ? 'is-fixed' : ''} ${current ? 'is-current' : ''} ${freshDone.has(wt.path) && status === 'done' ? 'is-fresh' : ''}" data-queue-path="${esc(wt.path)}" aria-current="${current}">
     <span class="queue-title">${master ? '<span class="queue-master" title="Maître orchestrateur">◆</span>' : ''}${wt.review ? '<span class="queue-tag">REVIEW</span>' : ''}${isGpt(s) ? '<span class="queue-tag queue-gpt">GPT</span>' : ''}<span class="queue-name">${esc(wt.label || wt.name)}</span>${item.pinned ? '<span class="queue-pin" title="Épinglé">★</span>' : ''}</span>
     <span class="queue-why" title="${esc(queueReason(wt, s, status))}">${esc(oneLineText(queueReason(wt, s, status)))}</span>
     ${isAppSession(wt) ? appQueueLine() : ''}<span class="queue-sub"><span class="queue-where">${esc(where)}</span><span class="queue-age">${esc(age)}</span></span>
-  </button>${agentsStrip(wt, 'queue')}`;
+  </button>${trash}</div>${agentsStrip(wt, 'queue')}`;
 }
 
 function queueDot(item, index) {
@@ -115,6 +116,8 @@ $('queue').addEventListener('click', (e) => {
   if (e.target.closest('[data-queue-fold]')) { toggleQueue(); return; }
   if (e.target.closest('[data-queue-fixed-toggle]')) { queueFixedFolded = !queueFixedFolded; localSet('queue-fixed-folded', queueFixedFolded ? '1' : '0'); renderQueue(); $('queue').querySelector('[data-queue-fixed-toggle]')?.focus(); return; }
   if (e.target.closest('[data-queue-archives]')) { queueArchivesOpen = !queueArchivesOpen; renderQueue(); return; }
+  const trash = e.target.closest('[data-queue-trash]');
+  if (trash) { openClose(trash.dataset.queueTrash); return; }
   const restore = e.target.closest('[data-unarchive-q]');
   if (restore) { unarchive(restore.dataset.unarchiveQ, !!restore.dataset.resume); return; }
   const row = e.target.closest('[data-queue-path]');

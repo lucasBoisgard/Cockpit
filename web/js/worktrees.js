@@ -1,13 +1,14 @@
+$('close-dialog').addEventListener('close', () => { closing = null; });
+
 function openClose(wtPath) {
   const wt = state.worktrees.find((w) => w.path === wtPath);
   if (!wt) return;
-  closing = { path: wt.path, force: false };
-  $('close-title').textContent = `Fermer ${wt.name}`;
+  closing = { path: wt.path, name: wt.label || wt.name, branch: wt.branch, force: false };
+  $('close-title').textContent = `Supprimer ${closing.name} ?`;
   const live = wt.sessions.filter((s) => s.live).length;
-  $('close-text').textContent = `Le dossier ${wt.path} sera supprimé avec git worktree remove${live ? `, et ${live} session${live > 1 ? 's' : ''} Claude ouverte${live > 1 ? 's' : ''} dans tmux sera arrêtée` : ''}. La branche ${wt.branch || '(aucune)'} est conservée, sauf si tu coches la case.`;
+  $('close-text').textContent = `${wt.branch ? `Branche ⎇ ${wt.branch} supprimée si mergée.` : 'Aucune branche.'}${live ? ` ${live} session${live > 1 ? 's' : ''} arrêtée${live > 1 ? 's' : ''}.` : ''}`;
   $('close-warn').hidden = true;
-  $('close-branch').checked = false;
-  $('close-submit').textContent = 'Fermer le worktree';
+  $('close-submit').textContent = 'Supprimer';
   $('close-dialog').showModal();
 }
 
@@ -107,21 +108,24 @@ $('new-form').addEventListener('submit', async (e) => {
 
 $('close-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!closing) return;
+  const c = closing;
+  if (!c) return;
   $('close-submit').disabled = true;
-  const result = await post('/api/close', { path: closing.path, force: closing.force, deleteBranch: $('close-branch').checked });
+  const result = await post('/api/close', { path: c.path, force: c.force, deleteBranch: true });
   $('close-submit').disabled = false;
+  if (closing !== c) return;
   if (result.status === 409 && result.data.dirty) {
-    closing.force = true;
-    $('close-warn').textContent = 'Ce worktree a des changements non commités. Ils seront définitivement perdus si tu continues.';
+    c.force = true;
+    $('close-warn').textContent = 'Changements non commités : ils seront perdus.';
     $('close-warn').hidden = false;
     $('close-submit').textContent = 'Supprimer quand même';
+    $('close-dialog').querySelector('[data-dismiss]').focus();
     return;
   }
-  if (!result.ok) { toast(result.data.error || 'Fermeture impossible.', 'error'); return; }
+  if (!result.ok) { toast(result.data.error || 'Suppression impossible.', 'error'); return; }
   $('close-dialog').close();
-  if (selected === closing.path) closePanel();
-  toast(result.data.warning || 'Worktree fermé.', result.data.warning ? 'error' : '');
+  if (selected === c.path) closePanel();
+  toast(result.data.branchKept ? `${c.name} supprimé · branche ⎇ ${result.data.branchKept} gardée (non mergée localement).` : `${c.name} supprimé.`);
   closing = null;
   refresh();
 });
@@ -166,14 +170,14 @@ async function openCleanup() {
 async function bulkCleanup(mode) {
   const rows = [...document.querySelectorAll('[data-cleanup]:checked')].map((b) => cleanupRows[Number(b.dataset.cleanup)]).filter(Boolean);
   const eligible = mode === 'close' ? rows.filter((r) => r.merged && !r.dirty) : rows.filter((r) => !r.dirty);
-  if (!eligible.length) { toast(mode === 'close' ? 'Seules les branches mergées et propres peuvent être fermées ici.' : 'Rien à archiver dans la sélection.', 'error'); return; }
-  if (!confirm(`${mode === 'close' ? 'Fermer (et supprimer la branche mergée de)' : 'Archiver'} : ${eligible.map((r) => r.name).join(', ')} ?`)) return;
+  if (!eligible.length) { toast(mode === 'close' ? 'Seules les branches mergées et propres peuvent être supprimées ici.' : 'Rien à archiver dans la sélection.', 'error'); return; }
+  if (!confirm(`${mode === 'close' ? 'Supprimer (avec leur branche mergée)' : 'Archiver'} : ${eligible.map((r) => r.name).join(', ')} ?`)) return;
   const failed = [];
   for (const r of eligible) {
     const result = await post(mode === 'close' ? '/api/close' : '/api/archive', { path: r.path, deleteBranch: true });
     if (!result.ok) failed.push(`${r.name} : ${result.data.error || 'échec'}`);
   }
-  toast(failed.length ? `Échecs : ${failed.join(' · ')}` : `${eligible.length} worktree${eligible.length > 1 ? 's' : ''} ${mode === 'close' ? 'fermé' : 'archivé'}${eligible.length > 1 ? 's' : ''}.`, failed.length ? 'error' : '');
+  toast(failed.length ? `Échecs : ${failed.join(' · ')}` : `${eligible.length} worktree${eligible.length > 1 ? 's' : ''} ${mode === 'close' ? 'supprimé' : 'archivé'}${eligible.length > 1 ? 's' : ''}.`, failed.length ? 'error' : '');
   refresh();
   openCleanup();
 }

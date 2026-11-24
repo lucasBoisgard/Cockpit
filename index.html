@@ -221,15 +221,14 @@
   </form>
 </dialog>
 
-<dialog id="close-dialog">
+<dialog id="close-dialog" class="close-light">
   <form id="close-form">
-    <h2 id="close-title">Fermer le worktree</h2>
+    <h2 id="close-title">Supprimer le worktree ?</h2>
     <p class="text" id="close-text"></p>
     <p class="warn" id="close-warn" hidden></p>
-    <label class="check" for="close-branch"><input type="checkbox" id="close-branch"> Supprimer aussi la branche (refusé si elle n'est pas mergée)</label>
     <div class="buttons">
       <button type="button" class="btn" data-dismiss>Annuler</button>
-      <button type="submit" class="btn danger" id="close-submit">Fermer le worktree</button>
+      <button type="submit" class="btn danger" id="close-submit">Supprimer</button>
     </div>
   </form>
 </dialog>
@@ -273,10 +272,10 @@
       <h2>Nettoyage des worktrees</h2>
       <span class="grow"></span>
       <button class="btn" id="cleanup-archive">Archiver la sélection</button>
-      <button class="btn danger" id="cleanup-close">Fermer la sélection</button>
+      <button class="btn danger" id="cleanup-close">Supprimer la sélection</button>
       <button class="btn" data-dismiss>Fermer</button>
     </div>
-    <p class="text">Archiver garde la branche et la session, et permet de restaurer plus tard. Seuls les worktrees sans changement non commité peuvent être archivés ou fermés ici ; fermer est réservé aux branches déjà mergées.</p>
+    <p class="text">Archiver garde la branche et la session, et permet de restaurer plus tard. Seuls les worktrees sans changement non commité peuvent être archivés ou supprimés ici ; supprimer est réservé aux branches déjà mergées.</p>
     <div class="table-scroll" id="cleanup-table"></div>
   </div>
 </dialog>

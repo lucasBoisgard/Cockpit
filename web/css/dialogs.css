@@ -89,3 +89,5 @@ dialog input.narrow { width: 96px; }
   dialog .buttons { position: sticky; bottom: 0; background: var(--surface); padding: 10px 0 4px; box-shadow: 0 -8px 12px -8px rgba(0,0,0,.35); }
 }
 .orch-new[hidden] { display: none; }
+dialog.close-light { width: min(380px, calc(100vw - 32px)); }
+dialog.close-light form { padding: 18px; gap: 12px; }

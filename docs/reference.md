@@ -6,7 +6,7 @@ The complete reference: every feature, the configuration keys, the layout of the
 
 A small web cockpit to follow and drive parallel Claude Code sessions started with `claude --worktree`.
 
-For each git worktree it shows the Claude session state (working / needs input / done), the conversation, the live terminal, the changed files and their diff. Sessions running in tmux can be driven from the browser: send messages, answer permission prompts, switch permission mode, start or resume a session, close a worktree. A persistent bash terminal is available as its own card.
+For each git worktree it shows the Claude session state (working / needs input / done), the conversation, the live terminal, the changed files and their diff. Sessions running in tmux can be driven from the browser: send messages, answer permission prompts, switch permission mode, start or resume a session, delete a worktree (the bin shown when hovering its row in the queue). A persistent bash terminal is available as its own card.
 
 "New session" can start a **review** session instead of a free one: give it a pull request, and the session starts with a system prompt that lists the review skills to load (`code-review`, `security-review` and every skill whose name contains "review", or `review.skills` in the config) and asks for a report through the `review-report` skill. The report (`~/.claude/worktree-reviews/<worktree>.report.json`) is shown in a "Rapport" tab as colored blocks: blocking (red, request changes), to fix (amber), suggestion (blue), question (violet), praise (green), context (grey), each with its finding, impact, fix and a draft PR comment to copy.
 

@@ -165,7 +165,7 @@ async function removeWorktree(wt, force) {
 async function closeWorktree({ path: wtPath, force, deleteBranch }) {
   const wt = (await listWorktrees()).find((w) => w.path === wtPath);
   if (!wt) return { error: 'Worktree inconnu.' };
-  if (isMainCheckout(wt)) return { error: 'Un checkout principal ne peut pas être fermé.' };
+  if (isMainCheckout(wt)) return { error: 'Un checkout principal ne peut pas être supprimé.' };
   if (wt.locked) return { error: 'Ce worktree est verrouillé (git worktree unlock pour le libérer).' };
   const dirty = ((await git(wt.path, ['status', '--porcelain'])) || '').trim();
   if (dirty && !force) return { error: 'Ce worktree a des changements non commités.', dirty: true };
@@ -175,7 +175,7 @@ async function closeWorktree({ path: wtPath, force, deleteBranch }) {
   for (const suffix of ['.json', '.report.json']) fs.rmSync(path.join(REVIEWS_DIR, `${worktreeName(wt.path)}${suffix}`), { force: true });
   if (deleteBranch && wt.branch) {
     const branch = await run('git', ['-C', wt.repo || REPO, 'branch', '-d', wt.branch]);
-    if (!branch.ok) return { ok: true, warning: `Worktree fermé, branche ${wt.branch} conservée : ${branch.stderr.trim()}` };
+    if (!branch.ok) return { ok: true, branchKept: wt.branch, reason: branch.stderr.trim() };
   }
   return { ok: true };
 }
@@ -185,7 +185,7 @@ async function archiveWorktree({ path: wtPath }) {
   if (!wt) return { error: 'Worktree inconnu.' };
   if (isMainCheckout(wt)) return { error: 'Un checkout principal ne peut pas être archivé.' };
   if (wt.locked) return { error: 'Ce worktree est verrouillé.' };
-  if (((await git(wt.path, ['status', '--porcelain'])) || '').trim()) return { error: 'Ce worktree a des changements non commités : commite-les avant d’archiver, ou ferme-le.' };
+  if (((await git(wt.path, ['status', '--porcelain'])) || '').trim()) return { error: 'Ce worktree a des changements non commités : commite-les avant d’archiver, ou supprime-le.' };
   const sessions = sessionsIn(wt.path).filter(hasTranscript).sort((a, b) => b.updatedAt - a.updatedAt);
   const pr = cachedPr(wt.branch, wt.repo);
   const entry = {
